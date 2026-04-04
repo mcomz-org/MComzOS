@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MComzOS Basecamp Dashboard</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --panel-bg: #1e1e1e;
+            --text-main: #e0e0e0;
+            --accent-green: #00e676;
+            --accent-blue: #29b6f6;
+            --accent-orange: #ff9800;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+        }
+        h1 { border-bottom: 2px solid #333; padding-bottom: 10px; }
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .card {
+            background-color: var(--panel-bg);
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+        }
+        .btn-green { background-color: var(--accent-green); color: #000; }
+        .btn-blue { background-color: var(--accent-blue); color: #000; }
+        .btn-orange { background-color: var(--accent-orange); color: #000; }
+
+        .log-window {
+            background-color: #000;
+            color: #4caf50;
+            font-family: monospace;
+            padding: 10px;
+            height: 200px;
+            overflow-y: scroll;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>MComzOS Basecamp</h1>
+    <p>System Status: <strong>ONLINE</strong> | Time Sync: <span style="color:var(--accent-green)">GPS Locked</span></p>
+
+    <div class="grid-container">
+
+        <div class="card">
+            <h2 style="color:var(--accent-orange)">The Local Forge</h2>
+            <p>Convert your civilian LoRa radio to the encrypted tactical mesh.</p>
+            <button class="btn btn-orange" onclick="alert('Initializing ESP Web Tools...')">Flash Radio to MeshCore</button>
+            <a href="#" class="btn btn-blue" style="background-color:#333; color:#fff;">Connect to Local Voice (Mumble)</a>
+        </div>
+
+        <div class="card">
+            <h2 style="color:var(--accent-blue)">Global Comms (HF Radio)</h2>
+            <p>Send internet email or direct files via Shortwave.</p>
+            <a href="#" class="btn btn-blue">Launch Pat (Winlink Email)</a>
+            <a href="#" class="btn btn-green">Launch FreeDATA (Direct File/Sync)</a>
+        </div>
+
+        <div class="card" style="grid-column: 1 / -1;">
+            <h2>Civilian Mesh Monitor (Meshtastic - Read Only)</h2>
+            <p>Live feed of local LongFast public traffic.</p>
+            <div class="log-window">
+                [14:02:11] Node_A7F2: Anyone have power near 4th street?<br>
+                [14:15:43] Node_B910: Road blocked at highway overpass.<br>
+                <span style="color:#666;">Waiting for data...</span>
+            </div>
+        </div>
+
+    </div>
+
+</body>
+</html>

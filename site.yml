@@ -1,0 +1,127 @@
+---
+- name: Build MComzOS Master Image
+  hosts: all
+  become: yes
+  vars:
+    mcomz_user: "pi"
+    wayland_env: "WLR_BACKENDS=headless"
+
+  tasks:
+    # ---------------------------------------------------------
+    # PHASE 1: CORE SYSTEM & RESILIENCE
+    # ---------------------------------------------------------
+    - name: Update apt cache and upgrade base OS
+      apt:
+        update_cache: yes
+        upgrade: dist
+
+    - name: Install hardware multiplexing and time-sync tools
+      apt:
+        name:
+          - pipewire
+          - libhamlib-utils
+          - gpsd
+          - gpsd-clients
+          - chrony
+          - rtl-sdr
+        state: present
+
+    - name: Configure Chrony to prioritize GPS NMEA data
+      lineinfile:
+        path: /etc/chrony/chrony.conf
+        line: "refclock SHM 0 offset 0.5 delay 0.2 refid NMEA"
+        state: present
+
+    # ---------------------------------------------------------
+    # PHASE 2: HEADLESS WAYLAND & REMOTE DESKTOP
+    # ---------------------------------------------------------
+    - name: Ensure labwc (Wayland) is installed
+      apt:
+        name:
+          - labwc
+          - wlr-randr
+          - xdg-desktop-portal-wlr
+        state: present
+
+    - name: Inject headless Wayland environment variable
+      lineinfile:
+        path: /etc/environment
+        line: "{{ wayland_env }}"
+        state: present
+
+    - name: Download and install RustDesk
+      apt:
+        deb: "https://github.com/rustdesk/rustdesk/releases/download/nightly/rustdesk-latest-arm64.deb"
+
+    # ---------------------------------------------------------
+    # PHASE 3: THE RADIO STACK (HF & VHF)
+    # ---------------------------------------------------------
+    - name: Install Radio Comms Suite (JS8Call, Direwolf)
+      apt:
+        name:
+          - js8call
+          - direwolf
+        state: present
+
+    - name: Install Pat (Winlink)
+      apt:
+        deb: "https://github.com/la5nta/pat/releases/latest/download/pat_linux_arm64.deb"
+
+    - name: Clone and compile ardopcf (Active ARDOP fork)
+      git:
+        repo: 'https://github.com/pflrr/ardopcf.git'
+        dest: /opt/ardopcf
+        update: yes
+
+    - name: Download FreeDATA AppImage
+      get_url:
+        url: "https://github.com/DJ2LS/FreeDATA/releases/latest/download/FreeDATA-linux-arm64.AppImage"
+        dest: /usr/local/bin/freedata
+        mode: '0755'
+
+    - name: Install Mercury Modem (HERMES v2 - Machine Sync)
+      git:
+        repo: 'https://github.com/rhizomatica/mercury.git'
+        dest: /opt/mercury
+        update: yes
+
+    # ---------------------------------------------------------
+    # PHASE 4: LOCAL MESH & OFFLINE HUB
+    # ---------------------------------------------------------
+    - name: Install Murmur (Mumble VoIP Server for offline voice)
+      apt:
+        name: mumble-server
+        state: present
+
+    - name: Install Kiwix-Serve (Offline Library)
+      apt:
+        name: kiwix-tools
+        state: present
+
+    - name: Create MComz ZIM library directory
+      file:
+        path: /var/mcomz/library
+        state: directory
+        mode: '0755'
+
+    # ---------------------------------------------------------
+    # PHASE 5: THE MCOMZ DASHBOARD & SYSTEMD SERVICES
+    # ---------------------------------------------------------
+    - name: Install Nginx for MComz Captive Portal Dashboard
+      apt:
+        name: nginx
+        state: present
+
+    - name: Deploy MComz HTML Dashboard files
+      copy:
+        src: ./src/dashboard/
+        dest: /var/www/html/
+        owner: www-data
+
+    - name: Configure OverlayFS (Read-Only Root) for power-pull safety
+      command: raspi-config nonint enable_overlayfs
+      notify: Reboot System
+
+  handlers:
+    - name: Reboot System
+      reboot:
