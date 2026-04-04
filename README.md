@@ -3,16 +3,40 @@
 ## Philosophy
 MComzOS turns any computer* into an off-grid emergency communications hub. It is designed to be:
 
-1. Completely accessible to users with zero IT or radio/communications experience, yet
-2. Powerful enough for IT professionals and fully licenced experienced radio operators to leap into action in an emergency, communicating to the maximum of their potential.
+1. **Completely accessible** to users with zero IT or radio experience, yet
+2. **a force multiplier** for IT professionals and licensed radio operators, unlocking their full potential in a crisis.
 
-Even if you have zero interest in emergency communications (emcomz/emcomms), if you have a spare computer, we would encourage you to spend half an hour setting it up online with WiFi access.  Then should the internet fail, you can still reach `http://mcomz.local` with any device on your WiFi network and learn what to do next.
+Even if you have zero interest in emergency communications, if you have a spare computer, we encourage you to spend 30 minutes setting it up today. Should the internet ever fail, you can then reach `http://mcomz.local` on any device and learn what to do next.
 
-MComzOS is strictly open-source. It relies on no proprietary licenses, no internet-dependent authentication, and no closed ecosystems. If the global internet falls, MComzOS survives, syncs, and operates autonomously over local mesh and global radio frequencies.
+## Core Capabilities
+Once deployed, your MComzOS hub provides:
 
-*By "any computer," we mean almost any 64-bit PC, Intel Mac, or modern Raspberry Pi with a couple of free USB ports and 2GB of RAM. If it was made in the last 15 years** and can boot from a thumb drive, it can probably run your mcomz hub.  For optimal use you will need a selection of radios and appropriate licenses, but it can be beneficial even without these.
+- **With just a computer:**
+  - **Offline Library:** Offline MComz guide and optional Wikipedia, survival guides, medical manuals, and any other books you would like to provide over your local WiFi network using [Kiwix](https://kiwix.org/).
+  - **Offline Mobile Communications:** Browser-based voice and text chat that works on any smartphone without downloading an app, powered by [MiroTalk](https://mirotalk.com/).
 
-**So almost any x86_64 PC (Intel/AMD), 64-bit Mac, or Raspberry Pi 3/4/5. As long as it supports 64-bit architecture, has 2GB of RAM (ideally more), and can boot from USB/SD, it's a candidate for your basecamp.
+- Add **licence-free LoRa Radio(s):**
+  - **Neighborhood Mesh Communications:** Monitor and communicate with the public [Meshtastic](https://meshtastic.org/) network, and/or
+  - **Tactical Mesh:** Send and receive secure, multi-hop text messages over the [MeshCore](https://meshcore.co.uk/) network. AND let other LoRa users within WiFi range flash MeshCore to their devices and join, should the Meshtastic net become overwhelmed.
+
+- And if you are (or have access to) a **licensed radio operator** you can add:
+  - **HF radio:**
+    - **Extreme Weak-Signal Paging:** Join us on the #MCOMZ net (currently 1500Z Sundays) using [JS8Call](http://js8call.com/).
+    - **Internet-Free Email:** Automated global email via [Pat](https://getpat.io).
+    - **Peer-to-Peer File Transfer:** Share files directly over the air with [FreeDATA](https://freedata.app/).
+    - **Automated Data Sync:** Maintain and update your MComzOS autonomously, powered by [Rhizomatica](https://www.rhizomatica.org/)'s HERMES v2 Mercury.
+  - **VHF/UHF radio:**
+    - **Tactical Radar:** Decode APRS telemetry using [Direwolf](https://github.com/wb2osz/direwolf) to visually plot local emergency responders and mobile units on an offline map.
+    - **Regional Email:** Connect to local Winlink gateways over VHF packet radio for robust, mid-range message delivery.
+
+MComzOS is strictly open-source. No proprietary licenses, no internet-dependent authentication, and no closed ecosystems. If the global internet falls, MComzOS survives.
+
+---
+
+### Hardware Requirements
+*By "any computer," we mean almost** any modern PC, Mac, or Raspberry Pi. As long as it's less than 15 years old, has at least 2GB of RAM, and can boot from a USB drive or SD card, it is a candidate for your hub. Optimal use requires external radios and licenses, but the hub provides significant local benefit even without them.
+
+**Specifically, it must support a 64-bit architecture (x86_64 for Intel/AMD PCs and Macs, or ARM64 for Raspberry Pi 3/4/5). 32-bit processors and first-generation Raspberry Pis are not supported.
 
 ---
 
