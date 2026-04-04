@@ -1,9 +1,18 @@
-# MComzOS: Master Specification (v0.0.1)
+# MComzOS: Project Specification (v0.0.1)
 
-## The Philosophy
-MComzOS is a highly curated, hyper-resilient Emergency Communications (EmComm) appliance. It is designed with a "Zero-Skill" user experience in mind, turning complex digital radio and mesh software into an invisible backend managed by a simple Web Dashboard.
+## Philosophy
+MComzOS turns any computer* into an off-grid emergency communications hub. It is designed to be:
+
+1. Completely accessible to users with zero IT or radio/communications experience, yet
+2. Powerful enough for IT professionals and fully licenced experienced radio operators to leap into action in an emergency, communicating to the maximum of their potential.
+
+Even if you have zero interest in emergency communications (emcomz/emcomms), if you have a spare computer, we would encourage you to spend half an hour setting it up online with WiFi access.  Then should the internet fail, you can still reach `http://mcomz.local` with any device on your WiFi network and learn what to do next.
 
 MComzOS is strictly open-source. It relies on no proprietary licenses, no internet-dependent authentication, and no closed ecosystems. If the global internet falls, MComzOS survives, syncs, and operates autonomously over local mesh and global radio frequencies.
+
+*By "any computer," we mean almost any 64-bit PC, Intel Mac, or modern Raspberry Pi with a couple of free USB ports and 2GB of RAM. If it was made in the last 15 years** and can boot from a thumb drive, it can probably run your mcomz hub.  For optimal use you will need a selection of radios and appropriate licenses, but it can be beneficial even without these.
+
+**So almost any x86_64 PC (Intel/AMD), 64-bit Mac, or Raspberry Pi 3/4/5. As long as it supports 64-bit architecture, has 2GB of RAM (ideally more), and can boot from USB/SD, it's a candidate for your basecamp.
 
 ---
 
