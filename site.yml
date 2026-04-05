@@ -31,6 +31,14 @@
       changed_when: false
       failed_when: false
 
+    - name: Prevent NetworkManager from managing the WiFi AP interface
+      # Without this, NetworkManager fights hostapd for control of wlan0
+      copy:
+        dest: /etc/NetworkManager/conf.d/99-mcomz-ap.conf
+        content: |
+          [keyfile]
+          unmanaged-devices=interface-name:{{ wifi_interface }}
+
     # ---------------------------------------------------------
     # PHASE 1: CORE SYSTEM & RESILIENCE
     # ---------------------------------------------------------
