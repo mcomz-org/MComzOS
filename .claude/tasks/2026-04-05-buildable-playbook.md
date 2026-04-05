@@ -10,18 +10,19 @@
 - ✅ Headless display fixed (TigerVNC + noVNC, replaced broken Wayland + RustDesk)
 - ✅ Fix ardopcf repo URL typo (pflrr → pflarue)
 - ✅ Pat and FreeDATA URLs made architecture-aware
+- ✅ WiFi AP + captive portal (hostapd, dnsmasq, avahi, static IP, hostname)
 
 ## Outstanding
 
 ### P0 — Hub is non-functional without these
 
-- [ ] **WiFi AP + captive portal** (site.yml)
-  - Install and configure `hostapd` (create WiFi access point)
-  - Install and configure `dnsmasq` (DHCP server + DNS for captive portal)
-  - Install and configure `avahi-daemon` (mDNS so `mcomz.local` resolves)
-  - Set static IP on the WiFi interface (e.g. 10.0.0.1/24)
-  - Redirect all DNS queries to the hub (captive portal behavior)
-  - This is the single most critical missing piece — without it no device can connect
+- ✅ **WiFi AP + captive portal** (site.yml)
+  - hostapd: WPA2-PSK AP on wlan0, SSID "MComzOS", configurable via vars
+  - dnsmasq: DHCP 192.168.4.10-100, captive-portal DNS (address=/#/) on wlan0 only
+  - avahi-daemon: broadcasts mcomz.local via mDNS
+  - Static IP 192.168.4.1/24 via /etc/network/interfaces.d/
+  - hostname set to mcomz; NetworkManager excluded from wlan0
+  - rfkill unblock wifi to ensure radio is available
 
 ### P1 — Features described in README but not yet working
 
