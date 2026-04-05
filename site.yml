@@ -190,6 +190,101 @@
         enabled: yes
         daemon_reload: yes
 
+    # ---------------------------------------------------------
+    # MESHTASTIC INTEGRATION
+    # ---------------------------------------------------------
+    - name: Add Meshtastic apt repository GPG key
+      get_url:
+        url: https://download.opensuse.org/repositories/network:Meshtastic:beta/Debian_12/Release.key
+        dest: /tmp/meshtastic-release.key
+
+    - name: Install Meshtastic apt repository GPG key
+      shell: >
+        gpg --dearmor < /tmp/meshtastic-release.key
+        > /etc/apt/trusted.gpg.d/network_Meshtastic_beta.gpg
+      args:
+        creates: /etc/apt/trusted.gpg.d/network_Meshtastic_beta.gpg
+
+    - name: Add Meshtastic apt repository
+      apt_repository:
+        repo: "deb http://download.opensuse.org/repositories/network:/Meshtastic:/beta/Debian_12/ /"
+        state: present
+        filename: meshtastic
+
+    - name: Install meshtasticd (Meshtastic Linux daemon)
+      apt:
+        name: meshtasticd
+        update_cache: yes
+        state: present
+
+    - name: Enable meshtasticd built-in web server on port 8080
+      # The bundled web client at /usr/share/meshtasticd/web provides a full
+      # browser UI for monitoring and configuring the attached LoRa device.
+      copy:
+        dest: /etc/meshtasticd/config.d/webserver.yaml
+        content: |
+          Webserver:
+            Port: 8080
+            RootPath: /usr/share/meshtasticd/web
+
+    - name: Enable meshtasticd service
+      systemd:
+        name: meshtasticd
+        enabled: yes
+        daemon_reload: yes
+
+    # ---------------------------------------------------------
+    # MESHCORE INTEGRATION
+    # ---------------------------------------------------------
+    - name: Install Python3 venv for MeshCore repeater
+      apt:
+        name:
+          - python3-pip
+          - python3-venv
+        state: present
+
+    - name: Clone pyMC_Repeater (MeshCore daemon with web dashboard)
+      git:
+        repo: 'https://github.com/rightup/pyMC_Repeater.git'
+        dest: /opt/meshcore-repeater
+        update: yes
+
+    - name: Create MeshCore Python virtual environment
+      command:
+        cmd: python3 -m venv /opt/mcomz/meshcore-venv
+        creates: /opt/mcomz/meshcore-venv/bin/python
+
+    - name: Install MeshCore repeater Python dependencies
+      pip:
+        requirements: /opt/meshcore-repeater/requirements.txt
+        virtualenv: /opt/mcomz/meshcore-venv
+
+    - name: Deploy MeshCore Repeater systemd service
+      # pyMC_Repeater acts as a MeshCore node over a serial-connected LoRa
+      # radio and exposes a CherryPy management dashboard on port 8000.
+      copy:
+        dest: /etc/systemd/system/mcomz-meshcore.service
+        content: |
+          [Unit]
+          Description=MComzOS MeshCore Repeater and Web Dashboard
+          After=network.target
+
+          [Service]
+          Type=simple
+          User={{ mcomz_user }}
+          WorkingDirectory=/opt/meshcore-repeater
+          ExecStart=/opt/mcomz/meshcore-venv/bin/python repeater.py
+          Restart=on-failure
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Enable MeshCore Repeater service
+      systemd:
+        name: mcomz-meshcore
+        enabled: yes
+        daemon_reload: yes
+
     - name: Install Kiwix-Serve (Offline Library)
       apt:
         name: kiwix-tools
