@@ -15,7 +15,7 @@ Once deployed, your MComzOS hub provides:
 
 - **With just a computer:**
   - **Offline Library:** Offline MComz guide and optional Wikipedia, survival guides, medical manuals, and any other books you would like to provide over your local WiFi network using [Kiwix](https://kiwix.org/).
-  - **Offline Mobile Communications:** Browser-based text chat that works on any smartphone without downloading an app, powered by [XMPP](https://xmpp.org/).
+  - **Offline Voice & Text Chat:** Browser-based voice and text channels that work on any smartphone without downloading an app, powered by [Mumble](https://www.mumble.info/). No internet required — just connect to the hub's WiFi and open your browser.
 
 - Add **licence-free LoRa Radio(s):**
   - **Neighborhood Mesh Communications:** Monitor and communicate with the public [Meshtastic](https://meshtastic.org/) network, and/or
