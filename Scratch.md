@@ -1,6 +1,9 @@
-# Warning
+# Scratch
 
-Where there are conflicts [README.md](/README.md) trumps the following verbage.
+
+## Cut from README
+
+Where there are conflicts [README.md](/README.md) trumps the following verbage trimmed from it
 
 ---
 
