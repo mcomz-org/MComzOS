@@ -73,6 +73,24 @@
         regexp: '^#?DAEMON_CONF='
         line: 'DAEMON_CONF="/etc/hostapd/hostapd.conf"'
 
+    - name: Configure dnsmasq for DHCP and captive-portal DNS
+      # bind-interfaces + interface= ensures dnsmasq only listens on wlan0,
+      # avoiding conflicts with systemd-resolved on the loopback.
+      # address=/#/ap_ip answers ALL DNS queries with the hub's IP so any
+      # browser on the network reaches the hub dashboard automatically.
+      copy:
+        dest: /etc/dnsmasq.d/mcomz-ap.conf
+        content: |
+          bind-interfaces
+          interface={{ wifi_interface }}
+          dhcp-range={{ ap_dhcp_start }},{{ ap_dhcp_end }},255.255.255.0,24h
+          dhcp-option=option:router,{{ ap_ip }}
+          dhcp-option=option:dns-server,{{ ap_ip }}
+          address=/#/{{ ap_ip }}
+          domain=local
+          local=/local/
+          expand-hosts
+
     # ---------------------------------------------------------
     # PHASE 1: CORE SYSTEM & RESILIENCE
     # ---------------------------------------------------------
