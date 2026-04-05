@@ -320,6 +320,62 @@
         requirements: /opt/mercury/requirements.txt
         state: present
 
+    - name: Create Pat config directory
+      file:
+        path: /home/{{ mcomz_user }}/.config/pat
+        state: directory
+        owner: "{{ mcomz_user }}"
+        mode: '0755'
+
+    - name: Deploy Pat (Winlink) configuration
+      copy:
+        dest: /home/{{ mcomz_user }}/.config/pat/config.json
+        owner: "{{ mcomz_user }}"
+        force: no
+        content: |
+          {
+            "mycall": "{{ callsign }}",
+            "secure_login_password": "",
+            "auxiliary_addresses": [],
+            "locator": "",
+            "service_codes": ["PUBLIC"],
+            "http_addr": "0.0.0.0:8081",
+            "motd": ["MComzOS Winlink Gateway"],
+            "connect_aliases": {},
+            "listen": [],
+            "hamlib_rigs": {},
+            "ardop": {
+              "addr": "localhost:8515",
+              "arq_bandwidth": { "Forced": false, "Max": 2000 },
+              "cwid_enabled": false
+            },
+            "ax25": { "port": "" },
+            "serial-tnc": { "port": "", "baud": 9600, "type": "KISS" }
+          }
+
+    - name: Deploy Pat (Winlink) HTTP gateway systemd service
+      copy:
+        dest: /etc/systemd/system/pat.service
+        content: |
+          [Unit]
+          Description=Pat Winlink HTTP Gateway
+          After=network.target ardopcf.service
+
+          [Service]
+          Type=simple
+          User={{ mcomz_user }}
+          ExecStart=/usr/bin/pat --listen :8081 http
+          Restart=on-failure
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Enable Pat service
+      systemd:
+        name: pat
+        enabled: yes
+        daemon_reload: yes
+
     # ---------------------------------------------------------
     # PHASE 4: LOCAL MESH & OFFLINE HUB
     # ---------------------------------------------------------
