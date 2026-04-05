@@ -405,6 +405,37 @@
         state: directory
         mode: '0755'
 
+    - name: Create empty Kiwix library file so kiwix-serve starts with no ZIMs
+      copy:
+        dest: /var/mcomz/library.xml
+        content: |
+          <?xml version="1.0" encoding="UTF-8"?>
+          <library version="1.0">
+          </library>
+        force: no
+
+    - name: Deploy kiwix-serve systemd service
+      copy:
+        dest: /etc/systemd/system/kiwix-serve.service
+        content: |
+          [Unit]
+          Description=MComzOS Kiwix Offline Library Server
+          After=network.target
+
+          [Service]
+          Type=simple
+          ExecStart=/usr/bin/kiwix-serve --port 8888 --library /var/mcomz/library.xml
+          Restart=on-failure
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Enable kiwix-serve service
+      systemd:
+        name: kiwix-serve
+        enabled: yes
+        daemon_reload: yes
+
     # ---------------------------------------------------------
     # PHASE 5: THE MCOMZ DASHBOARD & SYSTEMD SERVICES
     # ---------------------------------------------------------
