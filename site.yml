@@ -39,6 +39,15 @@
           [keyfile]
           unmanaged-devices=interface-name:{{ wifi_interface }}
 
+    - name: Assign static IP to WiFi AP interface
+      copy:
+        dest: /etc/network/interfaces.d/{{ wifi_interface }}
+        content: |
+          auto {{ wifi_interface }}
+          iface {{ wifi_interface }} inet static
+              address {{ ap_ip }}
+              netmask 255.255.255.0
+
     # ---------------------------------------------------------
     # PHASE 1: CORE SYSTEM & RESILIENCE
     # ---------------------------------------------------------
