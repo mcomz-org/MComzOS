@@ -569,6 +569,34 @@
         dest: /var/www/html/
         owner: www-data
 
+    - name: Deploy MComzOS status API script
+      copy:
+        src: ./src/api/status.py
+        dest: /usr/local/bin/mcomz-status
+        mode: '0755'
+
+    - name: Deploy status API systemd service
+      copy:
+        dest: /etc/systemd/system/mcomz-status.service
+        content: |
+          [Unit]
+          Description=MComzOS Status API (service health JSON on localhost:9000)
+          After=network.target
+
+          [Service]
+          Type=simple
+          ExecStart=/usr/bin/python3 /usr/local/bin/mcomz-status
+          Restart=on-failure
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Enable status API service
+      systemd:
+        name: mcomz-status
+        enabled: yes
+        daemon_reload: yes
+
     - name: Deploy nginx site config with service proxy rules
       copy:
         dest: /etc/nginx/sites-available/mcomz
