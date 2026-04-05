@@ -1,5 +1,7 @@
 # MComzOS: Project Specification (v0.0.1)
 
+_**WARNING INITIAL COMMIT WAS 4 APRIL, THIS IS COMPLETELY UNTESTED: probably better to contact us before you start testing, or wait for v0.1.0, all assistance gratefully received**_
+
 ## Philosophy
 MComzOS turns any computer* into an off-grid emergency communications hub. It is designed to be:
 
