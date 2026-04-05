@@ -26,25 +26,25 @@
 
 ### P1 — Features described in README but not yet working
 
-- [ ] **Kiwix ZIM content + systemd service** (site.yml)
-  - Deploy a `kiwix-serve` systemd unit pointing at `/var/mcomz/library/`
-  - Download at minimum the MComz guide ZIM (needs a URL or build step)
-  - Add nginx proxy rule so Kiwix is accessible from the dashboard
-  - Consider optional Wikipedia/survival guide ZIM downloads
+- ✅ **Kiwix ZIM content + systemd service** (site.yml)
+  - kiwix-serve systemd unit on port 8888
+  - Empty library.xml created so service starts with no ZIMs
+  - Proxied by nginx at /library/
+  - Note: actual ZIM files must still be added manually or via kiwix-manage
 
-- [ ] **Missing systemd units** (site.yml)
-  - `kiwix-serve` — not started as a daemon
-  - `direwolf` — installed but no unit, no config (audio device, APRS port)
-  - `ardopcf` — built but needs to run as a TCP modem daemon for Pat
-  - `pat` — gateway/HTTP mode needs a unit for browser access
+- ✅ **Missing systemd units** (site.yml)
+  - `kiwix-serve` — port 8888, enabled
+  - `direwolf` — /etc/direwolf.conf + systemd unit, AGWPORT 8010, KISSPORT 8011
+  - `ardopcf` — TCP daemon on port 8515, after sound.target
+  - `pat` — HTTP gateway on port 8081, config at ~/.config/pat/config.json
 
-- [ ] **Dashboard backend** (src/dashboard/)
-  - Current HTML is a static mockup with fake data
-  - Needs: live Meshtastic feed (meshtasticd API on port 4403 or web on 8080)
-  - Needs: real service status checks (systemd D-Bus or simple HTTP health)
-  - Needs: actual links to running services (correct ports for Pat, FreeDATA, etc.)
-  - The "Flash Radio to MeshCore" button needs ESP Web Tools integration or link to flasher.meshcore.co.uk
-  - Consider: lightweight Python/Node backend, or pure JS polling from browser
+- ✅ **Dashboard backend** (src/dashboard/)
+  - src/api/status.py: stdlib-only Python, polls systemctl is-active for all services
+  - mcomz-status systemd service on localhost:9000
+  - nginx proxies /api/ to status service
+  - Dashboard HTML fully rewritten: live status dots, correct service links via /path/, UTC clock
+  - MeshCore flash button links to flasher.meshcore.co.uk
+  - All services accessible via nginx proxy paths — no port numbers exposed to users
 
 ### P1 (also) — Image build pipeline (needed for v0.1.0 release)
 
@@ -83,9 +83,11 @@
 | MeshCore dashboard | 8000 | ✅ Configured |
 | Murmur (native client) | 64738 | ✅ Installed |
 | Meshtastic TCP API | 4403 | ✅ Installed |
-| Kiwix | TBD | ❌ No unit |
-| Pat HTTP gateway | TBD | ❌ No unit |
-| Direwolf APRS | TBD | ❌ No unit |
+| Kiwix | 8888 → /library/ | ✅ Running |
+| Pat HTTP gateway | 8081 → /pat/ | ✅ Running |
+| Direwolf APRS | 8010 (AGWPORT), 8011 (KISS) | ✅ Running |
+| ardopcf HF modem | 8515 (TCP) | ✅ Running |
+| Status API | 9000 → /api/ | ✅ Running |
 
 ## Key Decisions Made
 - TigerVNC + noVNC chosen over Wayland + RustDesk (lighter, browser-native, battle-tested)
