@@ -23,7 +23,7 @@ Once deployed, your MComzOS hub provides:
 
 - And if you are (or have access to) a **licensed radio operator** you can add:
   - **HF radio:**
-    - **Extreme Weak-Signal Paging:** Join us on the #MCOMZ net (currently 1500Z Sundays) using [JS8Call](http://js8call.com/) — accessible from any browser on your hub's network, no software to install.
+    - **Extreme Weak-Signal Paging:** Join us on the #MCOMZ net (currently 1500Z Sundays at 7078 MHz) using [JS8Call](http://js8call.com/) — accessible from any browser on your hub's network, no software to install.
     - **Internet-Free Email:** Automated global email via [Pat](https://getpat.io) — browser-based interface included.
     - **Peer-to-Peer File Transfer:** Share files directly over the air with [Pat](https://getpat.io) and, coming soon, [FreeDATA](https://freedata.app/) — accessible from any browser on your hub's network, no software to install.
     - **Automated Data Sync (Coming Soon):** Maintain and update your MComzOS autonomously, following testing this will be powered by [Rhizomatica](https://www.rhizomatica.org/)'s HERMES v2 Mercury, [FreeDATA](https://freedata.app/) or [Pat](https://getpat.io).
@@ -33,9 +33,7 @@ Once deployed, your MComzOS hub provides:
 
 MComzOS is strictly open-source. No proprietary licenses, no internet-dependent authentication, and no closed ecosystems. If the global internet falls, MComzOS survives.
 
----
-
-### Hardware Requirements
+## Hardware Requirements
 *By "any computer," we mean almost** any modern PC, Mac, or Raspberry Pi. As long as it's less than 15 years old, has at least 2GB of RAM, and can boot from a USB drive or SD card, it is a candidate for your hub. Optimal use requires external radios and licenses, but the hub provides significant local benefit even without them.
 
 **Specifically, it must support a 64-bit architecture (x86_64 for Intel/AMD PCs and Macs, or ARM64 for Raspberry Pi 3/4/5). 32-bit processors and first-generation Raspberry Pis are not supported.
