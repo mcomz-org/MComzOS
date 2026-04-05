@@ -48,6 +48,31 @@
               address {{ ap_ip }}
               netmask 255.255.255.0
 
+    - name: Configure hostapd (WiFi access point)
+      copy:
+        dest: /etc/hostapd/hostapd.conf
+        content: |
+          interface={{ wifi_interface }}
+          driver=nl80211
+          ssid={{ ap_ssid }}
+          hw_mode=g
+          channel=7
+          wmm_enabled=0
+          macaddr_acl=0
+          auth_algs=1
+          ignore_broadcast_ssid=0
+          wpa=2
+          wpa_passphrase={{ ap_password }}
+          wpa_key_mgmt=WPA-PSK
+          wpa_pairwise=TKIP
+          rsn_pairwise=CCMP
+
+    - name: Point hostapd defaults at config file
+      lineinfile:
+        path: /etc/default/hostapd
+        regexp: '^#?DAEMON_CONF='
+        line: 'DAEMON_CONF="/etc/hostapd/hostapd.conf"'
+
     # ---------------------------------------------------------
     # PHASE 1: CORE SYSTEM & RESILIENCE
     # ---------------------------------------------------------
