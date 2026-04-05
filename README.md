@@ -31,7 +31,7 @@ Once deployed, your MComzOS hub provides:
     - **Tactical Radar:** Decode APRS telemetry using [Direwolf](https://github.com/wb2osz/direwolf) to visually plot local emergency responders and mobile units on an offline map.
     - **Regional Email:** Connect to local Winlink gateways over VHF packet radio for robust, mid-range message delivery.
 
-MComzOS is strictly open-source. No proprietary licenses, no internet-dependent authentication, and no closed ecosystems. If the global internet falls, MComzOS survives.
+MComzOS is strictly open-source. No proprietary licenses, no internet-dependent authentication, and no closed ecosystems. If the global internet falls, MComzOS survives. See [STACK.md](STACK.md) for the full list of open-source tools that make this possible.
 
 ## Hardware Requirements
 *By "any computer," we mean almost** any modern PC, Mac, or Raspberry Pi. As long as it's less than 15 years old, has at least 2GB of RAM, and can boot from a USB drive or SD card, it is a candidate for your hub. Optimal use requires external radios and licenses, but the hub provides significant local benefit even without them.
