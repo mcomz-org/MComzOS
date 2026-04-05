@@ -569,10 +569,84 @@
         dest: /var/www/html/
         owner: www-data
 
+    - name: Deploy nginx site config with service proxy rules
+      copy:
+        dest: /etc/nginx/sites-available/mcomz
+        content: |
+          server {
+              listen 80 default_server;
+              server_name mcomz.local mcomz _;
+              root /var/www/html;
+              index index.html;
+
+              # Dashboard
+              location / {
+                  try_files $uri $uri/ /index.html;
+              }
+
+              # Status API (Python service on localhost:9000)
+              location /api/ {
+                  proxy_pass http://127.0.0.1:9000/api/;
+              }
+
+              # Offline Library (kiwix-serve on port 8888)
+              location /library/ {
+                  proxy_pass http://127.0.0.1:8888/;
+              }
+
+              # Mumble browser voice client (websockify on port 64737 — needs WS upgrade)
+              location /mumble/ {
+                  proxy_pass http://127.0.0.1:64737/;
+                  proxy_http_version 1.1;
+                  proxy_set_header Upgrade $http_upgrade;
+                  proxy_set_header Connection "upgrade";
+              }
+
+              # Meshtastic web UI (meshtasticd on port 8080)
+              location /meshtastic/ {
+                  proxy_pass http://127.0.0.1:8080/;
+              }
+
+              # MeshCore web dashboard (pyMC_Repeater on port 8000)
+              location /meshcore/ {
+                  proxy_pass http://127.0.0.1:8000/;
+              }
+
+              # Pat Winlink HTTP gateway (port 8081)
+              location /pat/ {
+                  proxy_pass http://127.0.0.1:8081/;
+              }
+
+              # noVNC browser remote desktop (websockify on port 6080 — needs WS upgrade)
+              location /vnc/ {
+                  proxy_pass http://127.0.0.1:6080/;
+                  proxy_http_version 1.1;
+                  proxy_set_header Upgrade $http_upgrade;
+                  proxy_set_header Connection "upgrade";
+              }
+          }
+
+    - name: Enable MComz nginx site
+      file:
+        src: /etc/nginx/sites-available/mcomz
+        dest: /etc/nginx/sites-enabled/mcomz
+        state: link
+
+    - name: Disable default nginx site
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      notify: Reload nginx
+
     - name: Configure OverlayFS (Read-Only Root) for power-pull safety
       command: raspi-config nonint enable_overlayfs
       notify: Reboot System
 
   handlers:
+    - name: Reload nginx
+      service:
+        name: nginx
+        state: reloaded
+
     - name: Reboot System
       reboot:
