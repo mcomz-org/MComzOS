@@ -153,8 +153,42 @@
     # ---------------------------------------------------------
     - name: Install Murmur (Mumble VoIP Server for offline voice)
       apt:
-        name: mumble-server
+        name:
+          - mumble-server
+          - nodejs
+          - npm
         state: present
+
+    - name: Install mumble-web browser client via npm
+      npm:
+        name: mumble-web
+        global: yes
+
+    - name: Deploy Mumble WebSocket bridge service
+      # websockify (already installed for noVNC) bridges WebSocket→TCP so
+      # the mumble-web HTML5 client can reach Murmur without native app install.
+      # Voice uses Opus over WebSocket; adequate for LAN emergency comms.
+      copy:
+        dest: /etc/systemd/system/mcomz-mumble-ws.service
+        content: |
+          [Unit]
+          Description=MComzOS Mumble WebSocket Bridge (browser voice client)
+          After=mumble-server.service
+          Requires=mumble-server.service
+
+          [Service]
+          Type=simple
+          ExecStart=/usr/bin/websockify --web /usr/lib/node_modules/mumble-web/dist 64737 localhost:64738
+          Restart=on-failure
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Enable Mumble WebSocket bridge service
+      systemd:
+        name: mcomz-mumble-ws
+        enabled: yes
+        daemon_reload: yes
 
     - name: Install Kiwix-Serve (Offline Library)
       apt:
