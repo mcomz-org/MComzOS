@@ -16,6 +16,22 @@
 
   tasks:
     # ---------------------------------------------------------
+    # PHASE 0: WIFI ACCESS POINT & NETWORK
+    # ---------------------------------------------------------
+    - name: Install WiFi AP and network advertisement services
+      apt:
+        name:
+          - hostapd
+          - dnsmasq
+          - avahi-daemon
+        state: present
+
+    - name: Ensure WiFi radio is not blocked by rfkill
+      command: rfkill unblock wifi
+      changed_when: false
+      failed_when: false
+
+    # ---------------------------------------------------------
     # PHASE 1: CORE SYSTEM & RESILIENCE
     # ---------------------------------------------------------
     - name: Update apt cache and upgrade base OS
