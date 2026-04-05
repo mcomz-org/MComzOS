@@ -240,6 +240,30 @@
         mode: '0755'
         remote_src: yes
 
+    - name: Deploy ardopcf systemd service (HF modem daemon for Pat)
+      copy:
+        dest: /etc/systemd/system/ardopcf.service
+        content: |
+          [Unit]
+          Description=ardopcf HF Modem Daemon (ARDOP for Pat/Winlink)
+          After=sound.target
+
+          [Service]
+          Type=simple
+          User={{ mcomz_user }}
+          ExecStart=/usr/local/bin/ardopcf 8515 {{ ardopcf_audio_in }} {{ ardopcf_audio_out }}
+          Restart=on-failure
+          RestartSec=5
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Enable ardopcf service
+      systemd:
+        name: ardopcf
+        enabled: yes
+        daemon_reload: yes
+
     - name: Download FreeDATA AppImage
       get_url:
         url: "https://github.com/DJ2LS/FreeDATA/releases/latest/download/FreeDATA-linux-{{ deb_arch }}.AppImage"
