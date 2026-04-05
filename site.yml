@@ -6,6 +6,13 @@
     mcomz_user: "pi"
     # Maps ansible_architecture to Debian package arch names (aarch64 → arm64, x86_64 → amd64)
     deb_arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
+    # WiFi access point — override these at playbook runtime if needed
+    wifi_interface: "wlan0"
+    ap_ssid: "MComzOS"
+    ap_password: "mcomzos1"
+    ap_ip: "192.168.4.1"
+    ap_dhcp_start: "192.168.4.10"
+    ap_dhcp_end: "192.168.4.100"
 
   tasks:
     # ---------------------------------------------------------
