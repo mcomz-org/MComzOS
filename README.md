@@ -30,6 +30,7 @@ Once deployed, your MComzOS hub provides:
   - **VHF/UHF radio:**
     - **Tactical Radar:** Decode APRS telemetry using [Direwolf](https://github.com/wb2osz/direwolf) to visually plot local emergency responders and mobile units on an offline map.
     - **Regional Email:** Connect to local Winlink gateways over VHF packet radio for robust, mid-range message delivery.
+  - **Browser-Based Remote Desktop:** Access any visual application running on the hub (JS8Call, FreeDATA, etc.) from any device's browser — no software to install. Powered by [noVNC](https://novnc.com/) over a secure [TigerVNC](https://tigervnc.org/) backend.
 
 MComzOS is strictly open-source. No proprietary licenses, no internet-dependent authentication, and no closed ecosystems. If the global internet falls, MComzOS survives.
 
