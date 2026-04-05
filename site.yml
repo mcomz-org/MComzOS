@@ -4,7 +4,8 @@
   become: yes
   vars:
     mcomz_user: "pi"
-    wayland_env: "WLR_BACKENDS=headless"
+    # Maps ansible_architecture to Debian package arch names (aarch64 → arm64, x86_64 → amd64)
+    deb_arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
 
   tasks:
     # ---------------------------------------------------------
@@ -33,25 +34,69 @@
         state: present
 
     # ---------------------------------------------------------
-    # PHASE 2: HEADLESS WAYLAND & REMOTE DESKTOP
+    # PHASE 2: HEADLESS DISPLAY & BROWSER REMOTE DESKTOP
     # ---------------------------------------------------------
-    - name: Ensure labwc (Wayland) is installed
+    - name: Install TigerVNC and noVNC for headless browser access
       apt:
         name:
-          - labwc
-          - wlr-randr
-          - xdg-desktop-portal-wlr
+          - tigervnc-standalone-server
+          - novnc
+          - websockify
         state: present
 
-    - name: Inject headless Wayland environment variable
-      lineinfile:
-        path: /etc/environment
-        line: "{{ wayland_env }}"
-        state: present
+    - name: Create VNC password for mcomz user
+      shell: |
+        mkdir -p /home/{{ mcomz_user }}/.vnc
+        echo "{{ vnc_password | default('mcomz') }}" | vncpasswd -f > /home/{{ mcomz_user }}/.vnc/passwd
+        chmod 600 /home/{{ mcomz_user }}/.vnc/passwd
+        chown -R {{ mcomz_user }}:{{ mcomz_user }} /home/{{ mcomz_user }}/.vnc
+      args:
+        creates: /home/{{ mcomz_user }}/.vnc/passwd
 
-    - name: Download and install RustDesk
-      apt:
-        deb: "https://github.com/rustdesk/rustdesk/releases/download/nightly/rustdesk-latest-arm64.deb"
+    - name: Deploy VNC server systemd service
+      copy:
+        dest: /etc/systemd/system/mcomz-vnc.service
+        content: |
+          [Unit]
+          Description=MComzOS Headless VNC Server
+          After=network.target
+
+          [Service]
+          Type=forking
+          User={{ mcomz_user }}
+          ExecStartPre=/usr/bin/vncserver -kill :1 || true
+          ExecStart=/usr/bin/vncserver :1 -geometry 1280x800 -depth 24 -localhost yes
+          ExecStop=/usr/bin/vncserver -kill :1
+          Restart=on-failure
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Deploy noVNC websockify systemd service
+      copy:
+        dest: /etc/systemd/system/mcomz-novnc.service
+        content: |
+          [Unit]
+          Description=MComzOS noVNC Browser Gateway
+          After=mcomz-vnc.service
+          Requires=mcomz-vnc.service
+
+          [Service]
+          Type=simple
+          ExecStart=/usr/bin/websockify --web /usr/share/novnc/ 6080 localhost:5901
+          Restart=on-failure
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Enable VNC and noVNC services
+      systemd:
+        name: "{{ item }}"
+        enabled: yes
+        daemon_reload: yes
+      loop:
+        - mcomz-vnc
+        - mcomz-novnc
 
     # ---------------------------------------------------------
     # PHASE 3: THE RADIO STACK (HF & VHF)
@@ -65,17 +110,17 @@
 
     - name: Install Pat (Winlink)
       apt:
-        deb: "https://github.com/la5nta/pat/releases/latest/download/pat_linux_arm64.deb"
+        deb: "https://github.com/la5nta/pat/releases/latest/download/pat_linux_{{ deb_arch }}.deb"
 
-    - name: Clone and compile ardopcf (Active ARDOP fork)
+    - name: Clone ardopcf (Active ARDOP fork)
       git:
-        repo: 'https://github.com/pflrr/ardopcf.git'
+        repo: 'https://github.com/pflarue/ardopcf.git'
         dest: /opt/ardopcf
         update: yes
 
     - name: Download FreeDATA AppImage
       get_url:
-        url: "https://github.com/DJ2LS/FreeDATA/releases/latest/download/FreeDATA-linux-arm64.AppImage"
+        url: "https://github.com/DJ2LS/FreeDATA/releases/latest/download/FreeDATA-linux-{{ deb_arch }}.AppImage"
         dest: /usr/local/bin/freedata
         mode: '0755'
 
