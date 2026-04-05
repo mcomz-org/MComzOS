@@ -45,6 +45,17 @@
   - The "Flash Radio to MeshCore" button needs ESP Web Tools integration or link to flasher.meshcore.co.uk
   - Consider: lightweight Python/Node backend, or pure JS polling from browser
 
+### P1 (also) — Image build pipeline (needed for v0.1.0 release)
+
+- [ ] **GitHub Actions image build workflow** (.github/workflows/build-image.yml)
+  - Triggered on version tag push (pairs with existing auto-version.yml)
+  - RPi: use `pi-gen` or `pi-gen-action` to produce `mcomzos-rpi.img.xz`
+  - x86_64: use `live-build` or `packer` to produce `mcomzos-x86_64.img.xz`
+  - Both images built from `site.yml` playbook
+  - Artifacts attached to GitHub Release automatically
+  - Filename must match exactly what RPi Imager and Etcher expect (`.img.xz`)
+  - RPi Imager is strict about filenames — must be `*.img.xz`, `*.img.gz`, or `*.zip`
+
 ### P2 — Important but not blocking basic functionality
 
 - [ ] **OverlayFS on non-Pi hardware** (site.yml line 313)
