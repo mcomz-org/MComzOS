@@ -23,14 +23,13 @@ Once deployed, your MComzOS hub provides:
 
 - And if you are (or have access to) a **licensed radio operator** you can add:
   - **HF radio:**
-    - **Extreme Weak-Signal Paging:** Join us on the #MCOMZ net (currently 1500Z Sundays) using [JS8Call](http://js8call.com/).
-    - **Internet-Free Email:** Automated global email via [Pat](https://getpat.io).
-    - **Peer-to-Peer File Transfer:** Share files directly over the air with [Pat](https://getpat.io) and, coming soon, [FreeDATA](https://freedata.app/).
+    - **Extreme Weak-Signal Paging:** Join us on the #MCOMZ net (currently 1500Z Sundays) using [JS8Call](http://js8call.com/) — accessible from any browser on your hub's network, no software to install.
+    - **Internet-Free Email:** Automated global email via [Pat](https://getpat.io) — browser-based interface included.
+    - **Peer-to-Peer File Transfer:** Share files directly over the air with [Pat](https://getpat.io) and, coming soon, [FreeDATA](https://freedata.app/) — accessible from any browser on your hub's network, no software to install.
     - **Automated Data Sync (Coming Soon):** Maintain and update your MComzOS autonomously, following testing this will be powered by [Rhizomatica](https://www.rhizomatica.org/)'s HERMES v2 Mercury, [FreeDATA](https://freedata.app/) or [Pat](https://getpat.io).
   - **VHF/UHF radio:**
     - **Tactical Radar:** Decode APRS telemetry using [Direwolf](https://github.com/wb2osz/direwolf) to visually plot local emergency responders and mobile units on an offline map.
     - **Regional Email:** Connect to local Winlink gateways over VHF packet radio for robust, mid-range message delivery.
-  - **Browser-Based Remote Desktop:** Access any visual application running on the hub (JS8Call, FreeDATA, etc.) from any device's browser — no software to install. Powered by [noVNC](https://novnc.com/) over a secure [TigerVNC](https://tigervnc.org/) backend.
 
 MComzOS is strictly open-source. No proprietary licenses, no internet-dependent authentication, and no closed ecosystems. If the global internet falls, MComzOS survives.
 
