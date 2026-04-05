@@ -33,6 +33,58 @@ Once deployed, your MComzOS hub provides:
 
 MComzOS is strictly open-source. No proprietary licenses, no internet-dependent authentication, and no closed ecosystems. If the global internet falls, MComzOS survives. See [STACK.md](STACK.md) for the full list of open-source tools that make this possible.
 
+## Installation
+
+> **Pre-built images are planned for v0.1.0.** The steps below describe the intended install flow. Until then, see [Manual installation](#manual-installation) below.
+
+### Raspberry Pi — SD card or USB boot
+
+1. Download and install [Raspberry Pi Imager](https://www.raspberrypi.com/software/)
+2. Open Imager → **Choose OS** → **Use custom** → **Enter URL**:
+   ```
+   https://github.com/mcomz-org/MComzOS/releases/latest/download/mcomzos-rpi.img.xz
+   ```
+3. **Choose Storage** → select your SD card or USB drive (16 GB minimum)
+4. Click **Next** → **Write**
+
+### PC, Mac, or any 64-bit computer — USB boot
+
+To keep the setup experience and resulting system identical to the Raspberry Pi version, we use the same flashing tool on all platforms:
+
+1. Download [Balena Etcher](https://etcher.balena.io/) — free, works on Windows, Mac, and Linux
+2. Open Etcher → **Flash from URL** → paste:
+   ```
+   https://github.com/mcomz-org/MComzOS/releases/latest/download/mcomzos-x86_64.img.xz
+   ```
+3. Select your USB drive (16 GB minimum) and click **Flash**
+4. Boot the target computer from the USB drive — usually F12 or Delete to open the boot menu
+
+> **Tip:** Balena Etcher also works for Raspberry Pi if you prefer one tool across all hardware.
+
+### First boot
+
+Once powered on, your hub will broadcast its own WiFi network. Connect any device to that network and open a browser:
+
+```
+http://mcomz.local
+```
+
+You will see the MComzOS dashboard with all available services listed.
+
+### Manual installation
+
+For developers who want to run MComzOS on top of an existing Debian 12 (Bookworm) system:
+
+```bash
+git clone https://github.com/mcomz-org/MComzOS.git
+cd MComzOS
+ansible-playbook site.yml -i your-host,
+```
+
+Requires Ansible 2.10+ on the control machine. The target must be running Debian 12 (Bookworm) on a 64-bit processor (ARM64 or x86_64). See [STACK.md](STACK.md) for everything that will be installed.
+
+---
+
 ## Hardware Requirements
 *By "any computer," we mean almost** any modern PC, Mac, or Raspberry Pi. As long as it's less than 15 years old, has at least 2GB of RAM, and can boot from a USB drive or SD card, it is a candidate for your hub. Optimal use requires external radios and licenses, but the hub provides significant local benefit even without them.
 
