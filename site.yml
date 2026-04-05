@@ -91,6 +91,26 @@
           local=/local/
           expand-hosts
 
+    - name: Set hub hostname to mcomz
+      hostname:
+        name: mcomz
+
+    - name: Ensure mcomz resolves on localhost
+      lineinfile:
+        path: /etc/hosts
+        regexp: '^127\.0\.1\.1'
+        line: "127.0.1.1\tmcomz"
+
+    - name: Enable WiFi AP services at boot
+      systemd:
+        name: "{{ item }}"
+        enabled: yes
+        daemon_reload: yes
+      loop:
+        - hostapd
+        - dnsmasq
+        - avahi-daemon
+
     # ---------------------------------------------------------
     # PHASE 1: CORE SYSTEM & RESILIENCE
     # ---------------------------------------------------------
