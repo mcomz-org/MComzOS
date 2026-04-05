@@ -264,6 +264,45 @@
         enabled: yes
         daemon_reload: yes
 
+    - name: Configure Direwolf (VHF APRS software TNC)
+      copy:
+        dest: /etc/direwolf.conf
+        content: |
+          # MComzOS Direwolf configuration
+          # Change MYCALL to your licensed callsign before enabling HF/VHF operations
+          MYCALL {{ callsign }}
+          ADEVICE {{ direwolf_audio_device }}
+          CHANNEL 0
+          MODEM 1200
+          # AGWPORT: TCP connection point for APRS apps (e.g. APRS display on dashboard)
+          AGWPORT 8010
+          # KISSPORT: KISS TNC connection point for Pat VHF gateway
+          KISSPORT 8011
+
+    - name: Deploy Direwolf systemd service
+      copy:
+        dest: /etc/systemd/system/direwolf.service
+        content: |
+          [Unit]
+          Description=Direwolf VHF Software TNC (APRS decoder and KISS modem)
+          After=sound.target
+
+          [Service]
+          Type=simple
+          User={{ mcomz_user }}
+          ExecStart=/usr/bin/direwolf -c /etc/direwolf.conf -t 0
+          Restart=on-failure
+          RestartSec=5
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Enable Direwolf service
+      systemd:
+        name: direwolf
+        enabled: yes
+        daemon_reload: yes
+
     - name: Download FreeDATA AppImage
       get_url:
         url: "https://github.com/DJ2LS/FreeDATA/releases/latest/download/FreeDATA-linux-{{ deb_arch }}.AppImage"
