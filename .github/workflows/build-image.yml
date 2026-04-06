@@ -86,14 +86,6 @@ jobs:
           EOF
           sudo chmod +x /mnt/rpi/usr/sbin/policy-rc.d
 
-          # Redirect systemctl to a no-op so Ansible systemd tasks succeed
-          sudo tee /mnt/rpi/usr/local/sbin/systemctl > /dev/null <<'EOF'
-          #!/bin/sh
-          echo "[build] systemctl $*" >&2
-          exit 0
-          EOF
-          sudo chmod +x /mnt/rpi/usr/local/sbin/systemctl
-
       - name: Install Ansible inside chroot
         run: |
           sudo chroot /mnt/rpi apt-get update -qq
@@ -114,8 +106,7 @@ jobs:
         run: |
           LOOP="${{ steps.mount_rpi.outputs.loop }}"
 
-          sudo rm -f /mnt/rpi/usr/local/sbin/systemctl \
-                     /mnt/rpi/usr/sbin/policy-rc.d \
+          sudo rm -f /mnt/rpi/usr/sbin/policy-rc.d \
                      /mnt/rpi/usr/bin/qemu-aarch64-static
           sudo rm -rf /mnt/rpi/tmp/mcomzos
 
@@ -143,6 +134,7 @@ jobs:
   # ===========================================================
   build-x86:
     name: x86_64 (amd64)
+    if: false
     runs-on: ubuntu-latest
 
     steps:
@@ -234,13 +226,6 @@ jobs:
           EOF
           sudo chmod +x /mnt/x86/usr/sbin/policy-rc.d
 
-          sudo tee /mnt/x86/usr/local/sbin/systemctl > /dev/null <<'EOF'
-          #!/bin/sh
-          echo "[build] systemctl $*" >&2
-          exit 0
-          EOF
-          sudo chmod +x /mnt/x86/usr/local/sbin/systemctl
-
       - name: Install kernel and GRUB EFI
         run: |
           sudo chroot /mnt/x86 apt-get update -qq
@@ -274,8 +259,7 @@ jobs:
           LOOP="${{ steps.disk.outputs.loop }}"
           IMG="${{ steps.disk.outputs.img }}"
 
-          sudo rm -f /mnt/x86/usr/local/sbin/systemctl \
-                     /mnt/x86/usr/sbin/policy-rc.d
+          sudo rm -f /mnt/x86/usr/sbin/policy-rc.d
           sudo rm -rf /mnt/x86/tmp/mcomzos
 
           for fs in run sys proc dev/pts dev boot/efi; do
