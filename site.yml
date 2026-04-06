@@ -669,6 +669,9 @@
     - name: Configure OverlayFS (Read-Only Root) for power-pull safety
       command: raspi-config nonint enable_overlayfs
       notify: Reboot System
+      when:
+        - ansible_architecture == 'aarch64'
+        - not (build_mode | default(false))
 
   handlers:
     - name: Reload nginx
