@@ -260,7 +260,7 @@ jobs:
 
       - name: Run Ansible playbook
         run: |
-          sudo cp -r . /mnt/x86/tmp/mcomzos
+          sudo rsync -av --exclude='*.img' . /mnt/x86/tmp/mcomzos/
           sudo chroot /mnt/x86 env HOME=/root \
             ansible-playbook \
               --connection=local \
