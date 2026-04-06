@@ -115,11 +115,11 @@
     ```
   - Fix option B: Hardcode a known-good version (e.g. `pat_0.19.2_linux_{{ deb_arch }}.deb`) and update manually on upgrades
 
-- [ ] **Fake systemctl removed — `daemon_reload` tasks may fail in chroot** (build-image.yml): Gemini removed the fake systemctl stub, relying on real systemctl behaviour. Phase 0 service enablement has `ignore_errors: yes` but all other `systemd: daemon_reload: yes` tasks (VNC, ardopcf, direwolf, pat, mumble, meshtasticd, meshcore, kiwix, mcomz-status) do not. Monitor RPi build logs. If daemon-reload fails, the correct fix is restoring the fake stub — NOT adding more `ignore_errors`.
+- [ ] **Fake systemctl removed — `daemon_reload` tasks may fail in chroot** (build-image.yml): Gemini removed the fake systemctl stub, relying on real systemctl behaviour. Phase 0 service enablement has `ignore_errors: yes` but all other `systemd: daemon_reload: yes` tasks (VNC, ardopcf, direwolf, pat, mumble, meshtasticd, meshcore, kiwix, mcomz-status) do not. **v0.0.1-pre-alpha.5 build passed with warning "Target is a chroot or systemd is offline"** — daemon_reload tasks appear to have succeeded or been skipped (minimal_build). Monitor full build logs when minimal_build=false. If daemon-reload fails, the correct fix is restoring the fake stub — NOT adding more `ignore_errors`.
 
 - [ ] **`ignore_errors: yes` on Phase 0 service enablement** (site.yml line ~129): Added by Gemini to suppress SysV init warnings. Should be replaced with a proper fix once the root cause is understood (likely systemctl not finding a running D-Bus in chroot). Not acceptable long-term.
 
-- [ ] **`ignore_errors: yes` on FreeDATA download** (site.yml line ~372): Acceptable short-term since FreeDATA publishes no AppImages, but should be replaced with a proper conditional skip (`when: false` or removed entirely) so intent is explicit rather than silently swallowed.
+- ✅ **`ignore_errors: yes` on FreeDATA download** — replaced with `when: not (minimal_build | default(false))` (pre-alpha.5)
 
 - [ ] **Pat service command wrong — runtime failure** (site.yml line 431): `ExecStart=/usr/bin/pat --listen :8081 http` — Pat has no `--listen` flag; HTTP address comes from config.json `http_addr`. Won't fail the build but Pat service will not start at runtime.
   - Fix: Change to `ExecStart=/usr/bin/pat http`
