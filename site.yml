@@ -3,6 +3,7 @@
   hosts: all
   become: yes
   vars:
+    ansible_python_interpreter: /usr/bin/python3
     mcomz_user: "pi"
     # Maps ansible_architecture to Debian package arch names (aarch64 → arm64, x86_64 → amd64)
     deb_arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
