@@ -129,6 +129,7 @@
         - hostapd
         - dnsmasq
         - avahi-daemon
+      ignore_errors: yes
 
     # ---------------------------------------------------------
     # PHASE 1: CORE SYSTEM & RESILIENCE
