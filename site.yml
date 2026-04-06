@@ -37,6 +37,12 @@
       changed_when: false
       failed_when: false
 
+    - name: Ensure NetworkManager conf.d directory exists
+      file:
+        path: /etc/NetworkManager/conf.d
+        state: directory
+        mode: '0755'
+
     - name: Prevent NetworkManager from managing the WiFi AP interface
       # Without this, NetworkManager fights hostapd for control of wlan0
       copy:
@@ -186,7 +192,7 @@
         owner: "{{ mcomz_user }}"
         mode: '0755'
         content: |
-          js8call &
+          (sleep 2 && js8call) &
 
     - name: Add mcomz user to audio group for JS8Call sound device access
       user:
@@ -249,6 +255,7 @@
           - libasound2-dev
           - js8call
           - direwolf
+          - libfuse2
         state: present
 
     - name: Install Pat (Winlink)
