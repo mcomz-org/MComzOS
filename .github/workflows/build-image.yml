@@ -101,7 +101,7 @@ jobs:
 
       - name: Run Ansible playbook
         run: |
-          sudo cp -r . /mnt/rpi/tmp/mcomzos
+          sudo rsync -av --exclude='*.img' . /mnt/rpi/tmp/mcomzos/
           sudo chroot /mnt/rpi env HOME=/root \
             ansible-playbook \
               --connection=local \
