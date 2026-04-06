@@ -143,6 +143,7 @@
         name:
           - git
           - python3-apt
+          - python3-pip
         state: present
 
     - name: Ensure mcomz user exists
@@ -368,6 +369,8 @@
         url: "https://github.com/DJ2LS/FreeDATA/releases/latest/download/FreeDATA-linux-{{ deb_arch }}.AppImage"
         dest: /usr/local/bin/freedata
         mode: '0755'
+      ignore_errors: yes
+      # FreeDATA does not currently publish AppImages; task is best-effort only
 
     - name: Clone Mercury Modem (HERMES v2 - Machine Sync)
       git:
@@ -379,6 +382,7 @@
       pip:
         requirements: /opt/mercury/requirements.txt
         state: present
+        extra_args: "--break-system-packages"
 
     - name: Create Pat config directory
       file:
@@ -527,7 +531,6 @@
     - name: Install Python3 venv for MeshCore repeater
       apt:
         name:
-          - python3-pip
           - python3-venv
         state: present
 

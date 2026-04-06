@@ -81,17 +81,23 @@
 
 ### P1 — Bare-metal bootstrap blockers (build fails without these)
 
-- [ ] **Ghost user — ARM64 build crash** (Phase 2): RPi OS Lite 2022+ has no `pi` user; `Create VNC password` fails with `invalid user: pi:pi`
+- ✅ **Ghost user — ARM64 build crash** (Phase 2): RPi OS Lite 2022+ has no `pi` user; `Create VNC password` fails with `invalid user: pi:pi`
   - Fix: add `user:` task in Phase 1 to ensure `mcomz_user` exists before Phase 2
 
-- [ ] **Missing `git` — both builds crash** (Phase 3): `git` not in any apt install; `Clone ardopcf` and `Clone Mercury` fail
-  - Fix: add `git` to Phase 1 base tools
+- ✅ **Missing `git` — both builds crash** (Phase 3): `git` not in any apt install; `Clone ardopcf` and `Clone Mercury` fail
+  - Fix: added `git` to Phase 1 base tools
 
-- [ ] **Missing `python3-apt` — both builds crash** (Phase 4): Ansible `apt_repository` module requires `python3-apt`; absent from minimal images
-  - Fix: add `python3-apt` to Phase 1 base tools
+- ✅ **Missing `python3-apt` — both builds crash** (Phase 4): Ansible `apt_repository` module requires `python3-apt`; absent from minimal images
+  - Fix: added `python3-apt` to Phase 1 base tools
 
-- [ ] **Missing `/opt/mcomz` dir — both builds crash** (MeshCore phase): `python3 -m venv /opt/mcomz/meshcore-venv` fails because `/opt/mcomz` doesn't exist
-  - Fix: add `file: path=/opt/mcomz state=directory` task before venv creation
+- ✅ **Missing `/opt/mcomz` dir — both builds crash** (MeshCore phase): `python3 -m venv /opt/mcomz/meshcore-venv` fails because `/opt/mcomz` doesn't exist
+  - Fix: added `file: path=/opt/mcomz state=directory` task before venv creation
+
+- ✅ **FreeDATA AppImage 404 — both builds crash** (Phase 3): FreeDATA does not publish AppImages; URL always 404s
+  - Fix: added `ignore_errors: yes` — FreeDATA download is best-effort only
+
+- ✅ **Mercury pip install crash — both builds** (Phase 3): `python3-pip` first installed in Phase 4 MeshCore section, but needed in Phase 3; also Debian Bookworm PEP 668 blocks bare pip installs
+  - Fix: moved `python3-pip` to Phase 1 base tools; added `extra_args: --break-system-packages` to Mercury pip task; removed redundant `python3-pip` from Phase 4
 
 ### P2 — Important but not blocking basic functionality
 
