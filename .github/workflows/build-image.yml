@@ -86,20 +86,16 @@ jobs:
           EOF
           sudo chmod +x /mnt/rpi/usr/sbin/policy-rc.d
 
-      - name: Install Ansible inside chroot
-        run: |
-          sudo chroot /mnt/rpi apt-get update -qq
-          sudo chroot /mnt/rpi apt-get install -y ansible python3
-
       - name: Run Ansible playbook
+        # Ansible runs on the host runner and connects to the chroot directory
+        # via the chroot connection plugin — no Ansible install inside chroot needed.
+        # qemu-aarch64-static (already copied) transparently emulates ARM64 binaries.
         run: |
-          sudo rsync -av --exclude='*.img' . /mnt/rpi/tmp/mcomzos/
-          sudo chroot /mnt/rpi env HOME=/root \
-            ansible-playbook \
-              --connection=local \
-              -i localhost, \
-              --extra-vars "deb_arch=arm64 build_mode=true mcomz_user=pi" \
-              /tmp/mcomzos/site.yml
+          sudo ansible-playbook \
+            --connection=chroot \
+            -i "/mnt/rpi," \
+            --extra-vars "deb_arch=arm64 build_mode=true mcomz_user=pi" \
+            site.yml
 
       - name: Tear down chroot and compress image
         if: always()
@@ -108,7 +104,6 @@ jobs:
 
           sudo rm -f /mnt/rpi/usr/sbin/policy-rc.d \
                      /mnt/rpi/usr/bin/qemu-aarch64-static
-          sudo rm -rf /mnt/rpi/tmp/mcomzos
 
           for fs in run sys proc dev/pts dev boot/firmware; do
             sudo umount "/mnt/rpi/$fs" 2>/dev/null || true

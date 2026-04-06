@@ -135,10 +135,14 @@
     # ---------------------------------------------------------
     # PHASE 1: CORE SYSTEM & RESILIENCE
     # ---------------------------------------------------------
-    - name: Update apt cache and upgrade base OS
+    - name: Update apt cache
       apt:
         update_cache: yes
+
+    - name: Upgrade base OS (skipped in build_mode — image is already recent)
+      apt:
         upgrade: dist
+      when: not (build_mode | default(false))
 
     - name: Install base tools required by later phases
       apt:
