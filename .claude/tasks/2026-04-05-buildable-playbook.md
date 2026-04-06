@@ -68,8 +68,16 @@
 
 - ✅ **noVNC nginx: split static files from WebSocket** — nginx `alias /usr/share/novnc/` at `/vnc/`; only `/vnc/websockify` proxied to websockify (no `--web`); dashboard link updated to `/vnc/vnc.html?path=vnc/websockify`
 
-- ✅ **No D-Bus session in xstartup** — Fixed: `exec dbus-launch --exit-with-session openbox-session`; `dbus` pulled in by openbox dependency, no extra apt install needed
-  - Note: `js8call` apt concern was a false alarm — package is in Debian Bookworm main (both amd64 and arm64)
+- ✅ **No D-Bus session in xstartup** — see blocker below; original `dbus-launch` fix was wrong
+
+- ✅ **BLOCKER: `dbus-launch` not installed** — replaced with `dbus-run-session` (from `dbus-daemon`, always present via systemd dep)
+
+- ✅ **noVNC does not autoconnect** — added `autoconnect=true` to dashboard URL
+
+- ✅ **VNC password not documented for users** — added "VNC password: mcomz" hint on dashboard
+
+- Note: `js8call` apt concern was a false alarm — package is in Debian Bookworm main (both amd64 and arm64)
+- Note: `vncserver` Perl wrapper still functional in Bookworm but deprecated upstream; future Debian releases may require migration to `vncsession` / `tigervncserver@.service` template
 
 ### P2 — Important but not blocking basic functionality
 
