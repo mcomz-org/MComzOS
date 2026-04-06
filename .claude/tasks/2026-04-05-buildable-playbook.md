@@ -118,6 +118,11 @@
 - [ ] **gnupg missing on x86 debootstrap — x86 build crashes** (site.yml line 493): The Meshtastic GPG key import uses `gpg --dearmor`. Debian debootstrap minimal installs only `gpgv`, not full `gpg` (`gnupg` package). RPi OS Lite has gnupg pre-installed; x86 does not.
   - Fix: Add `gnupg` to Phase 1 base tools apt install alongside `git`, `python3-apt`, `python3-pip`
 
+- [ ] **x86 build disabled** (build-image.yml line 134): Gemini added `if: false` to focus on RPi first. Must be re-enabled once RPi build succeeds. Also needs the gnupg fix above before x86 will work end-to-end.
+  - Fix: Remove `if: false` from `build-x86` job
+
+- [ ] **Fake systemctl removed — risk to `daemon_reload` tasks** (build-image.yml): Gemini removed the fake systemctl stub from both builds, replacing it with real systemctl behaviour + `ignore_errors: yes` only on the Phase 0 service enablement. All other `systemd: daemon_reload: yes` tasks in site.yml (VNC, ardopcf, direwolf, pat, mumble, meshtasticd, meshcore, kiwix, mcomz-status) have no `ignore_errors`. If real `systemctl daemon-reload` fails in chroot, those tasks will abort. Monitor RPi build logs carefully. If they fail, add `ignore_errors: yes` to each or restore the fake stub.
+
 - [ ] **Pat service command wrong — runtime failure** (site.yml line 431): `ExecStart=/usr/bin/pat --listen :8081 http` — Pat has no `--listen` flag; HTTP address comes from config.json `http_addr`. Won't fail the build but the service will not start.
   - Fix: Change to `ExecStart=/usr/bin/pat http`
 
