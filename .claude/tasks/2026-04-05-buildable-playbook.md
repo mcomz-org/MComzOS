@@ -48,6 +48,12 @@
 
 ### P1 (also) — Image build pipeline (needed for v0.1.0 release)
 
+- ✅ **Raspberry Pi Imager repository JSON** (.github/workflows/build-image.yml)
+  - `mcomzos-rpi-imager.json` generated during build with correct extract_size, extract_sha256, download_size, download_sha256
+  - Users paste the release asset URL into Raspberry Pi Imager → Custom OS → enter URL → APPLY & RESTART works
+  - JSON generated via python3 (avoids heredoc indentation issues in YAML)
+  - Uploaded to GitHub Release alongside the .img.xz file
+
 - ✅ **GitHub Actions image build workflow** (.github/workflows/build-image.yml)
   - Triggered on version tag push (pairs with existing auto-version.yml)
   - RPi ARM64: downloads official RPi OS Lite arm64, mounts via loop + qemu-user-static chroot, runs ansible

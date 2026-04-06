@@ -101,6 +101,7 @@ jobs:
             site.yml
 
       - name: Tear down chroot and compress image
+        id: package_rpi
         if: always()
         run: |
           LOOP="${{ steps.mount_rpi.outputs.loop }}"
@@ -115,13 +116,59 @@ jobs:
           [ -n "$LOOP" ] && sudo losetup -d "$LOOP" 2>/dev/null || true
 
           mv rpi-base.img mcomzos-rpi.img
+
+          # Capture pre-compression metrics for RPi Imager JSON
+          EXTRACT_SIZE=$(stat -c%s mcomzos-rpi.img)
+          EXTRACT_SHA256=$(sha256sum mcomzos-rpi.img | cut -d' ' -f1)
+          echo "extract_size=$EXTRACT_SIZE" >> "$GITHUB_OUTPUT"
+          echo "extract_sha256=$EXTRACT_SHA256" >> "$GITHUB_OUTPUT"
+
           xz -T0 -v mcomzos-rpi.img
+
+          DOWNLOAD_SIZE=$(stat -c%s mcomzos-rpi.img.xz)
+          DOWNLOAD_SHA256=$(sha256sum mcomzos-rpi.img.xz | cut -d' ' -f1)
+          echo "download_size=$DOWNLOAD_SIZE" >> "$GITHUB_OUTPUT"
+          echo "download_sha256=$DOWNLOAD_SHA256" >> "$GITHUB_OUTPUT"
+
           echo "RPi image: $(du -sh mcomzos-rpi.img.xz)"
+
+      - name: Generate Raspberry Pi Imager repository JSON
+        run: |
+          python3 - <<'PYEOF'
+          import json, os
+          tag  = os.environ["TAG"]
+          repo = os.environ["REPO"]
+          base = f"https://github.com/{repo}/releases/download/{tag}"
+          doc = {
+            "os_list": [{
+              "name": f"MComzOS {tag}",
+              "description": "Off-grid emergency communications hub — Raspberry Pi 4/5 (ARM64)",
+              "url": f"{base}/mcomzos-rpi.img.xz",
+              "extract_size": int(os.environ["EXTRACT_SIZE"]),
+              "extract_sha256": os.environ["EXTRACT_SHA256"],
+              "image_download_size": int(os.environ["DOWNLOAD_SIZE"]),
+              "image_download_sha256": os.environ["DOWNLOAD_SHA256"],
+              "devices": ["pi4-64bit", "pi5-64bit"]
+            }]
+          }
+          with open("mcomzos-rpi-imager.json", "w") as f:
+            json.dump(doc, f, indent=2)
+          print(open("mcomzos-rpi-imager.json").read())
+          PYEOF
+        env:
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+          EXTRACT_SIZE: ${{ steps.package_rpi.outputs.extract_size }}
+          EXTRACT_SHA256: ${{ steps.package_rpi.outputs.extract_sha256 }}
+          DOWNLOAD_SIZE: ${{ steps.package_rpi.outputs.download_size }}
+          DOWNLOAD_SHA256: ${{ steps.package_rpi.outputs.download_sha256 }}
 
       - name: Publish to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: mcomzos-rpi.img.xz
+          files: |
+            mcomzos-rpi.img.xz
+            mcomzos-rpi-imager.json
           fail_on_unmatched_files: true
           generate_release_notes: true
 

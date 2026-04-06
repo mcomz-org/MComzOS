@@ -40,12 +40,14 @@ MComzOS is strictly open-source. No proprietary licenses, no internet-dependent 
 ### Raspberry Pi — SD card or USB boot
 
 1. Download and install [Raspberry Pi Imager](https://www.raspberrypi.com/software/)
-2. Open Imager → **Choose OS** → **Use custom** → **Enter URL**:
+2. Open Imager → **Choose OS** → scroll to the bottom → **Use custom** → paste this URL and press Enter:
    ```
-   https://github.com/mcomz-org/MComzOS/releases/latest/download/mcomzos-rpi.img.xz
+   https://github.com/mcomz-org/MComzOS/releases/latest/download/mcomzos-rpi-imager.json
    ```
 3. **Choose Storage** → select your SD card or USB drive (16 GB minimum)
-4. Click **Next** → **Write**
+4. Click **Next** → configure Wi-Fi / SSH if desired → **Write**
+
+> **Note:** The URL above points to a metadata file that Raspberry Pi Imager understands. If you paste the direct `.img.xz` link instead, the **APPLY & RESTART** button will be greyed out.
 
 ### PC, Mac, or any 64-bit computer — USB boot
 
