@@ -1,1 +1,3 @@
 *.local.json
+.claude/*
+CLAUDE.md
