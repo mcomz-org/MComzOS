@@ -1,3 +1,4 @@
 *.local.json
 .claude/settings.json
 .claude/mcp*.json
+.DS_Store
