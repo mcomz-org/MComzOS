@@ -145,12 +145,13 @@
     # ---------------------------------------------------------
     # PHASE 2: HEADLESS DISPLAY & BROWSER REMOTE DESKTOP
     # ---------------------------------------------------------
-    - name: Install TigerVNC and noVNC for headless browser access
+    - name: Install TigerVNC, noVNC, and Openbox for headless browser access
       apt:
         name:
           - tigervnc-standalone-server
           - novnc
           - websockify
+          - openbox
         state: present
 
     - name: Create VNC password for mcomz user
@@ -162,6 +163,37 @@
       args:
         creates: /home/{{ mcomz_user }}/.vnc/passwd
 
+    - name: Deploy VNC xstartup (launches Openbox window manager)
+      copy:
+        dest: /home/{{ mcomz_user }}/.vnc/xstartup
+        owner: "{{ mcomz_user }}"
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          [ -r $HOME/.Xresources ] && xrdb $HOME/.Xresources
+          exec openbox-session
+
+    - name: Create Openbox config directory for mcomz user
+      file:
+        path: /home/{{ mcomz_user }}/.config/openbox
+        state: directory
+        owner: "{{ mcomz_user }}"
+        mode: '0755'
+
+    - name: Deploy Openbox autostart (launches JS8Call on session start)
+      copy:
+        dest: /home/{{ mcomz_user }}/.config/openbox/autostart
+        owner: "{{ mcomz_user }}"
+        mode: '0755'
+        content: |
+          js8call &
+
+    - name: Add mcomz user to audio group for JS8Call sound device access
+      user:
+        name: "{{ mcomz_user }}"
+        groups: audio
+        append: yes
+
     - name: Deploy VNC server systemd service
       copy:
         dest: /etc/systemd/system/mcomz-vnc.service
@@ -171,10 +203,10 @@
           After=network.target
 
           [Service]
-          Type=forking
+          Type=simple
           User={{ mcomz_user }}
-          ExecStartPre=/usr/bin/vncserver -kill :1 || true
-          ExecStart=/usr/bin/vncserver :1 -geometry 1280x800 -depth 24 -localhost yes
+          ExecStartPre=-/usr/bin/vncserver -kill :1
+          ExecStart=/usr/bin/vncserver :1 -geometry 1280x800 -depth 24 -localhost yes -fg
           ExecStop=/usr/bin/vncserver -kill :1
           Restart=on-failure
 
@@ -192,7 +224,7 @@
 
           [Service]
           Type=simple
-          ExecStart=/usr/bin/websockify --web /usr/share/novnc/ 6080 localhost:5901
+          ExecStart=/usr/bin/websockify 6080 localhost:5901
           Restart=on-failure
 
           [Install]
@@ -645,12 +677,18 @@
                   proxy_pass http://127.0.0.1:8081/;
               }
 
-              # noVNC browser remote desktop (websockify on port 6080 — needs WS upgrade)
+              # noVNC browser remote desktop — static files served by nginx,
+              # WebSocket tunnel proxied to websockify (VNC-tunnel-only on port 6080)
               location /vnc/ {
+                  alias /usr/share/novnc/;
+                  index vnc.html;
+              }
+              location /vnc/websockify {
                   proxy_pass http://127.0.0.1:6080/;
                   proxy_http_version 1.1;
                   proxy_set_header Upgrade $http_upgrade;
                   proxy_set_header Connection "upgrade";
+                  proxy_read_timeout 86400;
               }
           }
 
