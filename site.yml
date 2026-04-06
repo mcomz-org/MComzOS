@@ -30,6 +30,7 @@
           - hostapd
           - dnsmasq
           - avahi-daemon
+          - dbus
         state: present
 
     - name: Ensure WiFi radio is not blocked by rfkill
@@ -50,6 +51,12 @@
         content: |
           [keyfile]
           unmanaged-devices=interface-name:{{ wifi_interface }}
+
+    - name: Ensure network interfaces directory exists
+      file:
+        path: /etc/network/interfaces.d
+        state: directory
+        mode: '0755'
 
     - name: Assign static IP to WiFi AP interface
       copy:
