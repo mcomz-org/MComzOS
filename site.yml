@@ -171,7 +171,7 @@
         content: |
           #!/bin/bash
           [ -r $HOME/.Xresources ] && xrdb $HOME/.Xresources
-          exec dbus-launch --exit-with-session openbox-session
+          exec dbus-run-session -- openbox-session
 
     - name: Create Openbox config directory for mcomz user
       file:
