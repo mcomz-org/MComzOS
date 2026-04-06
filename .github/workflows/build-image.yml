@@ -97,7 +97,7 @@ jobs:
           sudo -E ansible-playbook \
             --connection=chroot \
             -i "/mnt/rpi," \
-            --extra-vars "deb_arch=arm64 build_mode=true mcomz_user=pi" \
+            --extra-vars "deb_arch=arm64 build_mode=true mcomz_user=pi minimal_build=true" \
             site.yml
 
       - name: Tear down chroot and compress image

@@ -5,6 +5,9 @@
   vars:
     ansible_python_interpreter: /usr/bin/python3
     mcomz_user: "pi"
+    # Set true to install only what is needed for JS8Call + WiFi AP + dashboard.
+    # All other services (Pat, ardopcf, Mumble, Meshtastic, MeshCore, Kiwix) are skipped.
+    minimal_build: false
     # Maps ansible_architecture to Debian package arch names (aarch64 → arm64, x86_64 → amd64)
     deb_arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
     # WiFi access point — override these at playbook runtime if needed
@@ -169,12 +172,14 @@
           - chrony
           - rtl-sdr
         state: present
+      when: not (minimal_build | default(false))
 
     - name: Configure Chrony to prioritize GPS NMEA data
       lineinfile:
         path: /etc/chrony/chrony.conf
         line: "refclock SHM 0 offset 0.5 delay 0.2 refid NMEA"
         state: present
+      when: not (minimal_build | default(false))
 
     # ---------------------------------------------------------
     # PHASE 2: HEADLESS DISPLAY & BROWSER REMOTE DESKTOP
@@ -276,15 +281,21 @@
     # ---------------------------------------------------------
     # PHASE 3: THE RADIO STACK (HF & VHF)
     # ---------------------------------------------------------
-    - name: Install radio suite and ardopcf build dependencies
+    - name: Install JS8Call
+      apt:
+        name:
+          - js8call
+        state: present
+
+    - name: Install HF/VHF radio tools and build dependencies
       apt:
         name:
           - build-essential
           - libasound2-dev
-          - js8call
           - direwolf
           - libfuse2
         state: present
+      when: not (minimal_build | default(false))
 
     - name: Resolve Pat latest .deb download URL
       shell: |
@@ -300,20 +311,24 @@
         "
       register: pat_deb_url
       changed_when: false
+      when: not (minimal_build | default(false))
 
     - name: Install Pat (Winlink)
       apt:
         deb: "{{ pat_deb_url.stdout }}"
+      when: not (minimal_build | default(false))
 
     - name: Clone ardopcf (Active ARDOP fork)
       git:
         repo: 'https://github.com/pflarue/ardopcf.git'
         dest: /opt/ardopcf
         update: yes
+      when: not (minimal_build | default(false))
 
     - name: Build ardopcf from source
       make:
         chdir: /opt/ardopcf
+      when: not (minimal_build | default(false))
 
     - name: Install ardopcf binary to PATH
       copy:
@@ -321,6 +336,7 @@
         dest: /usr/local/bin/ardopcf
         mode: '0755'
         remote_src: yes
+      when: not (minimal_build | default(false))
 
     - name: Deploy ardopcf systemd service (HF modem daemon for Pat)
       copy:
@@ -339,12 +355,14 @@
 
           [Install]
           WantedBy=multi-user.target
+      when: not (minimal_build | default(false))
 
     - name: Enable ardopcf service
       systemd:
         name: ardopcf
         enabled: yes
         daemon_reload: yes
+      when: not (minimal_build | default(false))
 
     - name: Configure Direwolf (VHF APRS software TNC)
       copy:
@@ -360,6 +378,7 @@
           AGWPORT 8010
           # KISSPORT: KISS TNC connection point for Pat VHF gateway
           KISSPORT 8011
+      when: not (minimal_build | default(false))
 
     - name: Deploy Direwolf systemd service
       copy:
@@ -378,32 +397,36 @@
 
           [Install]
           WantedBy=multi-user.target
+      when: not (minimal_build | default(false))
 
     - name: Enable Direwolf service
       systemd:
         name: direwolf
         enabled: yes
         daemon_reload: yes
+      when: not (minimal_build | default(false))
 
     - name: Download FreeDATA AppImage
       get_url:
         url: "https://github.com/DJ2LS/FreeDATA/releases/latest/download/FreeDATA-linux-{{ deb_arch }}.AppImage"
         dest: /usr/local/bin/freedata
         mode: '0755'
-      ignore_errors: yes
-      # FreeDATA does not currently publish AppImages; task is best-effort only
+      when: not (minimal_build | default(false))
+      # FreeDATA does not currently publish AppImages; will fail until they do
 
     - name: Clone Mercury Modem (HERMES v2 - Machine Sync)
       git:
         repo: 'https://github.com/rhizomatica/mercury.git'
         dest: /opt/mercury
         update: yes
+      when: not (minimal_build | default(false))
 
     - name: Install Mercury Python dependencies
       pip:
         requirements: /opt/mercury/requirements.txt
         state: present
         extra_args: "--break-system-packages"
+      when: not (minimal_build | default(false))
 
     - name: Create Pat config directory
       file:
@@ -411,6 +434,7 @@
         state: directory
         owner: "{{ mcomz_user }}"
         mode: '0755'
+      when: not (minimal_build | default(false))
 
     - name: Deploy Pat (Winlink) configuration
       copy:
@@ -437,6 +461,7 @@
             "ax25": { "port": "" },
             "serial-tnc": { "port": "", "baud": 9600, "type": "KISS" }
           }
+      when: not (minimal_build | default(false))
 
     - name: Deploy Pat (Winlink) HTTP gateway systemd service
       copy:
@@ -454,12 +479,14 @@
 
           [Install]
           WantedBy=multi-user.target
+      when: not (minimal_build | default(false))
 
     - name: Enable Pat service
       systemd:
         name: pat
         enabled: yes
         daemon_reload: yes
+      when: not (minimal_build | default(false))
 
     # ---------------------------------------------------------
     # PHASE 4: LOCAL MESH & OFFLINE HUB
@@ -471,11 +498,13 @@
           - nodejs
           - npm
         state: present
+      when: not (minimal_build | default(false))
 
     - name: Install mumble-web browser client via npm
       npm:
         name: mumble-web
         global: yes
+      when: not (minimal_build | default(false))
 
     - name: Deploy Mumble WebSocket bridge service
       # websockify (already installed for noVNC) bridges WebSocket→TCP so
@@ -496,12 +525,14 @@
 
           [Install]
           WantedBy=multi-user.target
+      when: not (minimal_build | default(false))
 
     - name: Enable Mumble WebSocket bridge service
       systemd:
         name: mcomz-mumble-ws
         enabled: yes
         daemon_reload: yes
+      when: not (minimal_build | default(false))
 
     # ---------------------------------------------------------
     # MESHTASTIC INTEGRATION
@@ -510,6 +541,7 @@
       get_url:
         url: https://download.opensuse.org/repositories/network:Meshtastic:beta/Debian_12/Release.key
         dest: /tmp/meshtastic-release.key
+      when: not (minimal_build | default(false))
 
     - name: Install Meshtastic apt repository GPG key
       shell: >
@@ -517,18 +549,21 @@
         > /etc/apt/trusted.gpg.d/network_Meshtastic_beta.gpg
       args:
         creates: /etc/apt/trusted.gpg.d/network_Meshtastic_beta.gpg
+      when: not (minimal_build | default(false))
 
     - name: Add Meshtastic apt repository
       apt_repository:
         repo: "deb http://download.opensuse.org/repositories/network:/Meshtastic:/beta/Debian_12/ /"
         state: present
         filename: meshtastic
+      when: not (minimal_build | default(false))
 
     - name: Install meshtasticd (Meshtastic Linux daemon)
       apt:
         name: meshtasticd
         update_cache: yes
         state: present
+      when: not (minimal_build | default(false))
 
     - name: Enable meshtasticd built-in web server on port 8080
       # The bundled web client at /usr/share/meshtasticd/web provides a full
@@ -539,12 +574,14 @@
           Webserver:
             Port: 8080
             RootPath: /usr/share/meshtasticd/web
+      when: not (minimal_build | default(false))
 
     - name: Enable meshtasticd service
       systemd:
         name: meshtasticd
         enabled: yes
         daemon_reload: yes
+      when: not (minimal_build | default(false))
 
     # ---------------------------------------------------------
     # MESHCORE INTEGRATION
@@ -554,28 +591,33 @@
         name:
           - python3-venv
         state: present
+      when: not (minimal_build | default(false))
 
     - name: Clone pyMC_Repeater (MeshCore daemon with web dashboard)
       git:
         repo: 'https://github.com/rightup/pyMC_Repeater.git'
         dest: /opt/meshcore-repeater
         update: yes
+      when: not (minimal_build | default(false))
 
     - name: Ensure /opt/mcomz directory exists
       file:
         path: /opt/mcomz
         state: directory
         mode: '0755'
+      when: not (minimal_build | default(false))
 
     - name: Create MeshCore Python virtual environment
       command:
         cmd: python3 -m venv /opt/mcomz/meshcore-venv
         creates: /opt/mcomz/meshcore-venv/bin/python
+      when: not (minimal_build | default(false))
 
     - name: Install MeshCore repeater Python dependencies
       pip:
         requirements: /opt/meshcore-repeater/requirements.txt
         virtualenv: /opt/mcomz/meshcore-venv
+      when: not (minimal_build | default(false))
 
     - name: Deploy MeshCore Repeater systemd service
       # pyMC_Repeater acts as a MeshCore node over a serial-connected LoRa
@@ -596,23 +638,27 @@
 
           [Install]
           WantedBy=multi-user.target
+      when: not (minimal_build | default(false))
 
     - name: Enable MeshCore Repeater service
       systemd:
         name: mcomz-meshcore
         enabled: yes
         daemon_reload: yes
+      when: not (minimal_build | default(false))
 
     - name: Install Kiwix-Serve (Offline Library)
       apt:
         name: kiwix-tools
         state: present
+      when: not (minimal_build | default(false))
 
     - name: Create MComz ZIM library directory
       file:
         path: /var/mcomz/library
         state: directory
         mode: '0755'
+      when: not (minimal_build | default(false))
 
     - name: Create empty Kiwix library file so kiwix-serve starts with no ZIMs
       copy:
@@ -622,6 +668,7 @@
           <library version="1.0">
           </library>
         force: no
+      when: not (minimal_build | default(false))
 
     - name: Deploy kiwix-serve systemd service
       copy:
@@ -638,12 +685,14 @@
 
           [Install]
           WantedBy=multi-user.target
+      when: not (minimal_build | default(false))
 
     - name: Enable kiwix-serve service
       systemd:
         name: kiwix-serve
         enabled: yes
         daemon_reload: yes
+      when: not (minimal_build | default(false))
 
     # ---------------------------------------------------------
     # PHASE 5: THE MCOMZ DASHBOARD & SYSTEMD SERVICES
