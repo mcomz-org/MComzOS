@@ -35,23 +35,75 @@ MComzOS is strictly open-source. No proprietary licenses, no internet-dependent 
 
 ## Installation
 
-> **Pre-built images are planned for v0.1.0.** The steps below describe the intended install flow. Until then, see [Manual installation](#manual-installation) below.
+You can expect the setup process to take around 15–30 minutes (mostly waiting for the image to write).
 
-### Raspberry Pi — SD card or USB boot
+Before you begin you'll need:
+- A Raspberry Pi 4 or 5 (PC support coming soon)
+- A blank microSD card or USB drive — **16 GB minimum**, 32 GB recommended
+- A suitable power supply for your Raspberry Pi
+- A computer with internet access and the ability to write to a microSD card or USB drive
 
-1. Download and install [Raspberry Pi Imager](https://www.raspberrypi.com/software/)
-2. Open Imager → **Choose OS** → scroll to the bottom → **Use custom** → paste this URL and press Enter:
-   ```
-   https://github.com/mcomz-org/MComzOS/releases/latest/download/mcomzos-rpi-imager.json
-   ```
-3. **Choose Storage** → select your SD card or USB drive (16 GB minimum)
-4. Click **Next** → configure Wi-Fi / SSH if desired → **Write**
+### Step 1 — Install Raspberry Pi Imager
 
-> **Note:** The URL above points to a metadata file that Raspberry Pi Imager understands. If you paste the direct `.img.xz` link instead, the **APPLY & RESTART** button will be greyed out.
+Download and install [Raspberry Pi Imager](https://www.raspberrypi.com/software/) for your operating system (Windows, macOS, or Linux).
+
+### Step 2 — Add the MComzOS repository
+
+Open Raspberry Pi Imager. **Before choosing an OS**, click **App Options** in the bottom-left corner.
+
+Click **Edit** next to **Content Repository**.
+
+Select **Use Custom URL** and paste:
+```
+https://mcomz-org.github.io/MComzOS/os-list.json
+```
+
+Click **Apply & restart.**
+
+### Step 3 — Choose MComzOS
+
+After Imager restarts, click **Choose OS**. Scroll down to find **MComzOS** in the list and select it.
+
+### Step 4 — Choose your storage device
+
+Click **Choose Storage** and select your microSD card or USB drive.
+
+> **Warning:** Everything on the selected drive will be erased. Double-check you've selected the right device.
+
+### Step 5 — Configure Wi-Fi and SSH (recommended)
+
+Click **Next**. When prompted, click **Edit Settings** to pre-configure your hub before writing:
+
+- **General tab:** Set a hostname (e.g. `mcomz`), username, and password
+- **Services tab:** Enable SSH and select *Use password authentication*
+
+> These settings let you manage your hub remotely without a monitor or keyboard attached. You can skip this step and configure everything via the dashboard later.
+
+Click **Save**, then **Yes** to apply the settings.
+
+### Step 6 — Write the image
+
+Click **Write** and confirm when prompted. Writing takes around 5–10 minutes.
+
+Once complete, safely eject the card or drive.
+
+### Step 7 — First boot
+
+Insert the microSD card (or USB drive) into your Raspberry Pi and plug in power. The hub takes around 60–90 seconds to start up on first boot.
+
+Your hub will broadcast its own WiFi network — **SSID: MComzOS**. Connect any phone, tablet, or laptop to that network and open a browser:
+
+```
+http://mcomz.local
+```
+
+You will see the MComzOS dashboard with all available services listed.
+
+---
 
 ### PC, Mac, or any 64-bit computer — USB boot
 
-To keep the setup experience and resulting system identical to the Raspberry Pi version, we use the same flashing tool on all platforms:
+> **Note:** x86_64 images are not yet available. This section describes the intended install flow for a future release.
 
 1. Download [Balena Etcher](https://etcher.balena.io/) — free, works on Windows, Mac, and Linux
 2. Open Etcher → **Flash from URL** → paste:
@@ -61,21 +113,9 @@ To keep the setup experience and resulting system identical to the Raspberry Pi 
 3. Select your USB drive (16 GB minimum) and click **Flash**
 4. Boot the target computer from the USB drive — usually F12 or Delete to open the boot menu
 
-> **Tip:** Balena Etcher also works for Raspberry Pi if you prefer one tool across all hardware.
+### Manual installation (developers)
 
-### First boot
-
-Once powered on, your hub will broadcast its own WiFi network. Connect any device to that network and open a browser:
-
-```
-http://mcomz.local
-```
-
-You will see the MComzOS dashboard with all available services listed.
-
-### Manual installation
-
-For developers who want to run MComzOS on top of an existing Debian 12 (Bookworm) system:
+To run MComzOS on top of an existing Debian 12 (Bookworm) system:
 
 ```bash
 git clone https://github.com/mcomz-org/MComzOS.git

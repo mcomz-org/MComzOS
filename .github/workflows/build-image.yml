@@ -135,7 +135,7 @@ jobs:
       - name: Generate Raspberry Pi Imager repository JSON
         run: |
           python3 - <<'PYEOF'
-          import json, os
+          import json, os, datetime
           tag  = os.environ["TAG"]
           repo = os.environ["REPO"]
           base = f"https://github.com/{repo}/releases/download/{tag}"
@@ -147,7 +147,7 @@ jobs:
               "extract_size": int(os.environ["EXTRACT_SIZE"]),
               "extract_sha256": os.environ["EXTRACT_SHA256"],
               "image_download_size": int(os.environ["DOWNLOAD_SIZE"]),
-              "image_download_sha256": os.environ["DOWNLOAD_SHA256"],
+              "release_date": datetime.date.today().isoformat(),
               "devices": ["pi4-64bit", "pi5-64bit"]
             }]
           }
@@ -162,6 +162,28 @@ jobs:
           EXTRACT_SHA256: ${{ steps.package_rpi.outputs.extract_sha256 }}
           DOWNLOAD_SIZE: ${{ steps.package_rpi.outputs.download_size }}
           DOWNLOAD_SHA256: ${{ steps.package_rpi.outputs.download_sha256 }}
+
+      - name: Publish OS list to GitHub Pages
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          GH_PAGES=$(mktemp -d)
+          ORIGIN="https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+
+          if git ls-remote --exit-code --heads origin gh-pages; then
+            git clone --depth 1 --branch gh-pages "$ORIGIN" "$GH_PAGES"
+          else
+            git -C "$GH_PAGES" init
+            git -C "$GH_PAGES" remote add origin "$ORIGIN"
+            git -C "$GH_PAGES" checkout --orphan gh-pages
+          fi
+
+          cp mcomzos-rpi-imager.json "$GH_PAGES/os-list.json"
+          git -C "$GH_PAGES" add os-list.json
+          git -C "$GH_PAGES" diff --cached --quiet || \
+            git -C "$GH_PAGES" commit -m "Update OS list for ${{ github.ref_name }}"
+          git -C "$GH_PAGES" push origin gh-pages
 
       - name: Publish to GitHub Release
         uses: softprops/action-gh-release@v2
