@@ -48,14 +48,15 @@
 
 ### P1 (also) — Image build pipeline (needed for v0.1.0 release)
 
-- [ ] **GitHub Actions image build workflow** (.github/workflows/build-image.yml)
+- ✅ **GitHub Actions image build workflow** (.github/workflows/build-image.yml)
   - Triggered on version tag push (pairs with existing auto-version.yml)
-  - RPi: use `pi-gen` or `pi-gen-action` to produce `mcomzos-rpi.img.xz`
-  - x86_64: use `live-build` or `packer` to produce `mcomzos-x86_64.img.xz`
-  - Both images built from `site.yml` playbook
-  - Artifacts attached to GitHub Release automatically
-  - Filename must match exactly what RPi Imager and Etcher expect (`.img.xz`)
-  - RPi Imager is strict about filenames — must be `*.img.xz`, `*.img.gz`, or `*.zip`
+  - RPi ARM64: downloads official RPi OS Lite arm64, mounts via loop + qemu-user-static chroot, runs ansible
+  - x86_64: debootstrap Debian Bookworm into GPT image (EFI), installs grub-efi, runs ansible
+  - Both use fake systemctl + policy-rc.d to suppress service starts during build
+  - `build_mode=true` extra-var skips raspi-config/overlayfs (which requires live Pi hardware)
+  - `deb_arch` overridden per-arch via extra-vars (no ansible_architecture fact needed)
+  - Artifacts named `mcomzos-rpi.img.xz` and `mcomzos-x86_64.img.xz`, published to GitHub Release
+  - Note: site.yml also patched — raspi-config task guarded with `when: ansible_architecture == 'aarch64' and not (build_mode | default(false))`
 
 ### P2 — Important but not blocking basic functionality
 

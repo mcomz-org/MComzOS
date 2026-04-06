@@ -1,0 +1,295 @@
+name: Build Release Images
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  # ===========================================================
+  # Raspberry Pi ARM64 image
+  # Starting from official RPi OS Lite arm64, provisioned via
+  # Ansible in an aarch64 chroot with qemu-user-static.
+  # ===========================================================
+  build-rpi:
+    name: Raspberry Pi ARM64
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free runner disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android \
+                      /opt/ghc /usr/local/.ghcup /usr/share/swift
+          sudo apt-get clean
+          df -h
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y \
+            qemu-user-static binfmt-support \
+            ansible \
+            parted e2fsprogs \
+            xz-utils curl
+
+      - name: Enable aarch64 binfmt handler
+        run: sudo update-binfmts --enable qemu-aarch64
+
+      - name: Download Raspberry Pi OS Lite ARM64
+        run: |
+          echo "Downloading Raspberry Pi OS Lite ARM64..."
+          curl -L --progress-bar \
+            -o rpi-base.img.xz \
+            "https://downloads.raspberrypi.com/raspios_lite_arm64_latest"
+          xz -d rpi-base.img.xz
+          ls -lh rpi-base.img
+
+      - name: Expand image, mount, and prepare chroot
+        id: mount_rpi
+        run: |
+          IMG="rpi-base.img"
+
+          # Add 5 GB for MComzOS software stack
+          truncate -s +5G "$IMG"
+
+          LOOP=$(sudo losetup --find --show --partscan "$IMG")
+          echo "loop=$LOOP" >> "$GITHUB_OUTPUT"
+
+          # Grow the root partition (p2) into the new space
+          sudo parted -s "$LOOP" resizepart 2 100%
+          sudo e2fsck -fy "${LOOP}p2" || true
+          sudo resize2fs "${LOOP}p2"
+
+          # Mount root then boot
+          sudo mkdir -p /mnt/rpi
+          sudo mount "${LOOP}p2" /mnt/rpi
+          sudo mount "${LOOP}p1" /mnt/rpi/boot/firmware
+
+          # Bind pseudo-filesystems required by apt and Ansible
+          for fs in dev dev/pts proc sys run; do
+            sudo mkdir -p "/mnt/rpi/$fs"
+            sudo mount --bind "/$fs" "/mnt/rpi/$fs"
+          done
+
+          # ARM64 user-mode emulation
+          sudo cp /usr/bin/qemu-aarch64-static /mnt/rpi/usr/bin/
+
+          # Prevent service start attempts during build (Debian mechanism)
+          sudo tee /mnt/rpi/usr/sbin/policy-rc.d > /dev/null <<'EOF'
+          #!/bin/sh
+          exit 101
+          EOF
+          sudo chmod +x /mnt/rpi/usr/sbin/policy-rc.d
+
+          # Redirect systemctl to a no-op so Ansible systemd tasks succeed
+          sudo tee /mnt/rpi/usr/local/sbin/systemctl > /dev/null <<'EOF'
+          #!/bin/sh
+          echo "[build] systemctl $*" >&2
+          exit 0
+          EOF
+          sudo chmod +x /mnt/rpi/usr/local/sbin/systemctl
+
+      - name: Install Ansible inside chroot
+        run: |
+          sudo chroot /mnt/rpi apt-get update -qq
+          sudo chroot /mnt/rpi apt-get install -y ansible python3
+
+      - name: Run Ansible playbook
+        run: |
+          sudo cp -r . /mnt/rpi/tmp/mcomzos
+          sudo chroot /mnt/rpi env HOME=/root \
+            ansible-playbook \
+              --connection=local \
+              -i localhost, \
+              --extra-vars "deb_arch=arm64 build_mode=true mcomz_user=pi" \
+              /tmp/mcomzos/site.yml
+
+      - name: Tear down chroot and compress image
+        if: always()
+        run: |
+          LOOP="${{ steps.mount_rpi.outputs.loop }}"
+
+          sudo rm -f /mnt/rpi/usr/local/sbin/systemctl \
+                     /mnt/rpi/usr/sbin/policy-rc.d \
+                     /mnt/rpi/usr/bin/qemu-aarch64-static
+          sudo rm -rf /mnt/rpi/tmp/mcomzos
+
+          for fs in run sys proc dev/pts dev boot/firmware; do
+            sudo umount "/mnt/rpi/$fs" 2>/dev/null || true
+          done
+          sudo umount /mnt/rpi 2>/dev/null || true
+          [ -n "$LOOP" ] && sudo losetup -d "$LOOP" 2>/dev/null || true
+
+          mv rpi-base.img mcomzos-rpi.img
+          xz -T0 -v mcomzos-rpi.img
+          echo "RPi image: $(du -sh mcomzos-rpi.img.xz)"
+
+      - name: Publish to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: mcomzos-rpi.img.xz
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+
+  # ===========================================================
+  # x86_64 image
+  # Bootstrapped with debootstrap + Debian Bookworm, kernel and
+  # GRUB installed, provisioned via Ansible in a native chroot.
+  # ===========================================================
+  build-x86:
+    name: x86_64 (amd64)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free runner disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android \
+                      /opt/ghc /usr/local/.ghcup /usr/share/swift
+          sudo apt-get clean
+          df -h
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y \
+            debootstrap \
+            parted e2fsprogs dosfstools \
+            grub-efi-amd64-bin \
+            ansible \
+            xz-utils
+
+      - name: Create and partition disk image
+        id: disk
+        run: |
+          IMG="mcomzos-x86_64.img"
+          truncate -s 10G "$IMG"
+
+          # GPT: 512 MiB EFI system partition + ext4 root
+          sudo parted -s "$IMG" mklabel gpt
+          sudo parted -s "$IMG" mkpart ESP fat32 1MiB 513MiB
+          sudo parted -s "$IMG" set 1 esp on
+          sudo parted -s "$IMG" mkpart primary ext4 513MiB 100%
+
+          LOOP=$(sudo losetup --find --show --partscan "$IMG")
+          echo "loop=$LOOP" >> "$GITHUB_OUTPUT"
+          echo "img=$IMG" >> "$GITHUB_OUTPUT"
+
+          sudo mkfs.fat -F32 -n EFI "${LOOP}p1"
+          sudo mkfs.ext4 -F -L mcomzos "${LOOP}p2"
+
+          sudo mkdir -p /mnt/x86
+          sudo mount "${LOOP}p2" /mnt/x86
+          sudo mkdir -p /mnt/x86/boot/efi
+          sudo mount "${LOOP}p1" /mnt/x86/boot/efi
+
+      - name: Bootstrap Debian Bookworm
+        run: |
+          sudo debootstrap \
+            --arch=amd64 \
+            --include=sudo,systemd,systemd-sysv,locales \
+            bookworm /mnt/x86 \
+            http://deb.debian.org/debian
+
+      - name: Configure base system
+        run: |
+          LOOP="${{ steps.disk.outputs.loop }}"
+          UUID_ROOT=$(sudo blkid -s UUID -o value "${LOOP}p2")
+          UUID_EFI=$(sudo blkid  -s UUID -o value "${LOOP}p1")
+
+          sudo tee /mnt/x86/etc/fstab > /dev/null <<EOF
+          UUID=$UUID_ROOT  /          ext4  errors=remount-ro  0  1
+          UUID=$UUID_EFI   /boot/efi  vfat  umask=0077         0  2
+          EOF
+
+          echo "mcomz" | sudo tee /mnt/x86/etc/hostname > /dev/null
+
+          # Full Debian Bookworm sources
+          sudo tee /mnt/x86/etc/apt/sources.list > /dev/null <<'EOF'
+          deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware
+          deb http://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
+          deb http://deb.debian.org/debian bookworm-updates main contrib non-free non-free-firmware
+          EOF
+
+          # Create pi user (matching Raspberry Pi OS convention)
+          sudo chroot /mnt/x86 useradd -m -s /bin/bash -G sudo pi
+          echo "pi:raspberry" | sudo chroot /mnt/x86 chpasswd
+
+      - name: Bind pseudo-filesystems and install no-op systemctl
+        run: |
+          for fs in dev dev/pts proc sys run; do
+            sudo mkdir -p "/mnt/x86/$fs"
+            sudo mount --bind "/$fs" "/mnt/x86/$fs"
+          done
+
+          sudo tee /mnt/x86/usr/sbin/policy-rc.d > /dev/null <<'EOF'
+          #!/bin/sh
+          exit 101
+          EOF
+          sudo chmod +x /mnt/x86/usr/sbin/policy-rc.d
+
+          sudo tee /mnt/x86/usr/local/sbin/systemctl > /dev/null <<'EOF'
+          #!/bin/sh
+          echo "[build] systemctl $*" >&2
+          exit 0
+          EOF
+          sudo chmod +x /mnt/x86/usr/local/sbin/systemctl
+
+      - name: Install kernel and GRUB EFI
+        run: |
+          sudo chroot /mnt/x86 apt-get update -qq
+          sudo chroot /mnt/x86 apt-get install -y \
+            linux-image-amd64 grub-efi-amd64 efibootmgr
+          sudo chroot /mnt/x86 grub-install \
+            --target=x86_64-efi \
+            --efi-directory=/boot/efi \
+            --bootloader-id=MComzOS \
+            --no-nvram \
+            --removable
+          sudo chroot /mnt/x86 update-grub
+
+      - name: Install Ansible inside chroot
+        run: |
+          sudo chroot /mnt/x86 apt-get install -y ansible python3
+
+      - name: Run Ansible playbook
+        run: |
+          sudo cp -r . /mnt/x86/tmp/mcomzos
+          sudo chroot /mnt/x86 env HOME=/root \
+            ansible-playbook \
+              --connection=local \
+              -i localhost, \
+              --extra-vars "deb_arch=amd64 build_mode=true mcomz_user=pi" \
+              /tmp/mcomzos/site.yml
+
+      - name: Tear down chroot and compress image
+        if: always()
+        run: |
+          LOOP="${{ steps.disk.outputs.loop }}"
+          IMG="${{ steps.disk.outputs.img }}"
+
+          sudo rm -f /mnt/x86/usr/local/sbin/systemctl \
+                     /mnt/x86/usr/sbin/policy-rc.d
+          sudo rm -rf /mnt/x86/tmp/mcomzos
+
+          for fs in run sys proc dev/pts dev boot/efi; do
+            sudo umount "/mnt/x86/$fs" 2>/dev/null || true
+          done
+          sudo umount /mnt/x86 2>/dev/null || true
+          [ -n "$LOOP" ] && sudo losetup -d "$LOOP" 2>/dev/null || true
+
+          xz -T0 -v "$IMG"
+          echo "x86_64 image: $(du -sh ${IMG}.xz)"
+
+      - name: Publish to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: mcomzos-x86_64.img.xz
+          fail_on_unmatched_files: true
+          generate_release_notes: true
