@@ -288,11 +288,14 @@
 
     - name: Resolve Pat latest .deb download URL
       shell: |
-        curl -s https://api.github.com/repos/la5nta/pat/releases/latest \
+        curl -s ${GITHUB_TOKEN:+-H "Authorization: Bearer $GITHUB_TOKEN"} \
+          https://api.github.com/repos/la5nta/pat/releases/latest \
           | python3 -c "
         import sys, json
-        assets = json.load(sys.stdin)['assets']
-        url = next(a['browser_download_url'] for a in assets if 'linux_{{ deb_arch }}.deb' in a['name'])
+        data = json.load(sys.stdin)
+        if 'assets' not in data:
+            raise SystemExit('GitHub API error: ' + data.get('message', str(data)))
+        url = next(a['browser_download_url'] for a in data['assets'] if 'linux_{{ deb_arch }}.deb' in a['name'])
         print(url)
         "
       register: pat_deb_url
