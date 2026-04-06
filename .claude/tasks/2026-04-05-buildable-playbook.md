@@ -99,6 +99,28 @@
 - ✅ **Mercury pip install crash — both builds** (Phase 3): `python3-pip` first installed in Phase 4 MeshCore section, but needed in Phase 3; also Debian Bookworm PEP 668 blocks bare pip installs
   - Fix: moved `python3-pip` to Phase 1 base tools; added `extra_args: --break-system-packages` to Mercury pip task; removed redundant `python3-pip` from Phase 4
 
+- ✅ **Pat .deb URL wrong — both builds crash** (site.yml line 284): Pat releases use versioned filenames (`pat_0.19.2_linux_amd64.deb`), but URL uses `pat_linux_{{ deb_arch }}.deb` (no version). The `apt: deb:` task will 404 and abort.
+  - Fix option A: Use GitHub API to dynamically resolve the latest .deb URL:
+    ```yaml
+    - name: Get Pat latest release URL
+      shell: |
+        curl -s https://api.github.com/repos/la5nta/pat/releases/latest \
+          | python3 -c "import sys,json; assets=json.load(sys.stdin)['assets']; \
+            print(next(a['browser_download_url'] for a in assets \
+              if 'linux_{{ deb_arch }}.deb' in a['name']))"
+      register: pat_deb_url
+    - name: Install Pat (Winlink)
+      apt:
+        deb: "{{ pat_deb_url.stdout }}"
+    ```
+  - Fix option B: Hardcode a known-good version (e.g. `pat_0.19.2_linux_{{ deb_arch }}.deb`) and update manually on upgrades
+
+- [ ] **gnupg missing on x86 debootstrap — x86 build crashes** (site.yml line 493): The Meshtastic GPG key import uses `gpg --dearmor`. Debian debootstrap minimal installs only `gpgv`, not full `gpg` (`gnupg` package). RPi OS Lite has gnupg pre-installed; x86 does not.
+  - Fix: Add `gnupg` to Phase 1 base tools apt install alongside `git`, `python3-apt`, `python3-pip`
+
+- [ ] **Pat service command wrong — runtime failure** (site.yml line 431): `ExecStart=/usr/bin/pat --listen :8081 http` — Pat has no `--listen` flag; HTTP address comes from config.json `http_addr`. Won't fail the build but the service will not start.
+  - Fix: Change to `ExecStart=/usr/bin/pat http`
+
 ### P2 — Important but not blocking basic functionality
 
 - [ ] **OverlayFS on non-Pi hardware** (site.yml line 313)

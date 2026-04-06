@@ -280,9 +280,21 @@
           - libfuse2
         state: present
 
+    - name: Resolve Pat latest .deb download URL
+      shell: |
+        curl -s https://api.github.com/repos/la5nta/pat/releases/latest \
+          | python3 -c "
+        import sys, json
+        assets = json.load(sys.stdin)['assets']
+        url = next(a['browser_download_url'] for a in assets if 'linux_{{ deb_arch }}.deb' in a['name'])
+        print(url)
+        "
+      register: pat_deb_url
+      changed_when: false
+
     - name: Install Pat (Winlink)
       apt:
-        deb: "https://github.com/la5nta/pat/releases/latest/download/pat_linux_{{ deb_arch }}.deb"
+        deb: "{{ pat_deb_url.stdout }}"
 
     - name: Clone ardopcf (Active ARDOP fork)
       git:
