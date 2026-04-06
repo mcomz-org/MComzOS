@@ -79,6 +79,20 @@
 - Note: `js8call` apt concern was a false alarm — package is in Debian Bookworm main (both amd64 and arm64)
 - Note: `vncserver` Perl wrapper still functional in Bookworm but deprecated upstream; future Debian releases may require migration to `vncsession` / `tigervncserver@.service` template
 
+### P1 — Bare-metal bootstrap blockers (build fails without these)
+
+- [ ] **Ghost user — ARM64 build crash** (Phase 2): RPi OS Lite 2022+ has no `pi` user; `Create VNC password` fails with `invalid user: pi:pi`
+  - Fix: add `user:` task in Phase 1 to ensure `mcomz_user` exists before Phase 2
+
+- [ ] **Missing `git` — both builds crash** (Phase 3): `git` not in any apt install; `Clone ardopcf` and `Clone Mercury` fail
+  - Fix: add `git` to Phase 1 base tools
+
+- [ ] **Missing `python3-apt` — both builds crash** (Phase 4): Ansible `apt_repository` module requires `python3-apt`; absent from minimal images
+  - Fix: add `python3-apt` to Phase 1 base tools
+
+- [ ] **Missing `/opt/mcomz` dir — both builds crash** (MeshCore phase): `python3 -m venv /opt/mcomz/meshcore-venv` fails because `/opt/mcomz` doesn't exist
+  - Fix: add `file: path=/opt/mcomz state=directory` task before venv creation
+
 ### P2 — Important but not blocking basic functionality
 
 - [ ] **OverlayFS on non-Pi hardware** (site.yml line 313)

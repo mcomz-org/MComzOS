@@ -138,6 +138,20 @@
         update_cache: yes
         upgrade: dist
 
+    - name: Install base tools required by later phases
+      apt:
+        name:
+          - git
+          - python3-apt
+        state: present
+
+    - name: Ensure mcomz user exists
+      user:
+        name: "{{ mcomz_user }}"
+        state: present
+        create_home: yes
+        shell: /bin/bash
+
     - name: Install hardware multiplexing and time-sync tools
       apt:
         name:
@@ -522,6 +536,12 @@
         repo: 'https://github.com/rightup/pyMC_Repeater.git'
         dest: /opt/meshcore-repeater
         update: yes
+
+    - name: Ensure /opt/mcomz directory exists
+      file:
+        path: /opt/mcomz
+        state: directory
+        mode: '0755'
 
     - name: Create MeshCore Python virtual environment
       command:
