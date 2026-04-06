@@ -68,8 +68,7 @@
 
 - ✅ **noVNC nginx: split static files from WebSocket** — nginx `alias /usr/share/novnc/` at `/vnc/`; only `/vnc/websockify` proxied to websockify (no `--web`); dashboard link updated to `/vnc/vnc.html?path=vnc/websockify`
 
-- [ ] **No D-Bus session in xstartup** — JS8Call is a Qt5 app; without `dbus-launch` it cannot enumerate audio devices and may silently misbehave
-  - Fix: `exec dbus-launch --exit-with-session openbox-session`
+- ✅ **No D-Bus session in xstartup** — Fixed: `exec dbus-launch --exit-with-session openbox-session`; `dbus` pulled in by openbox dependency, no extra apt install needed
   - Note: `js8call` apt concern was a false alarm — package is in Debian Bookworm main (both amd64 and arm64)
 
 ### P2 — Important but not blocking basic functionality
