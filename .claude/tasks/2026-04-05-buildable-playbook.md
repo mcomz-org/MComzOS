@@ -58,6 +58,24 @@
   - Artifacts named `mcomzos-rpi.img.xz` and `mcomzos-x86_64.img.xz`, published to GitHub Release
   - Note: site.yml also patched — raspi-config task guarded with `when: ansible_architecture == 'aarch64' and not (build_mode | default(false))`
 
+### P1 — JS8Call headless operation (broken, needs fixes)
+
+- [ ] **Missing `~/.vnc/xstartup`** — VNC session starts but has no window manager; JS8Call cannot launch
+  - Deploy xstartup launching `openbox-session`
+  - Add `openbox` to apt installs
+
+- [ ] **`mcomz-vnc.service` Type=forking without PIDFile** — systemd marks the unit failed immediately after fork even when Xvnc is running
+  - Switch to `Type=simple` + `vncserver -fg` flag
+
+- [ ] **No JS8Call autostart inside VNC session** — user opens noVNC in browser and sees an empty Openbox desktop
+  - Deploy `~/.config/openbox/autostart` that starts `js8call &`
+  - Ensure pi user is in `audio` group for sound device access
+
+- [ ] **noVNC nginx: single proxy can't reliably serve static files and WebSocket on same path**
+  - Split: nginx serves `/usr/share/novnc/` static files at `/vnc/`, proxies only `/vnc/websockify` to websockify
+  - Remove `--web` from websockify service (websockify becomes VNC-tunnel-only)
+  - Update dashboard link to `/vnc/vnc.html?path=vnc/websockify` (explicit WebSocket path)
+
 ### P2 — Important but not blocking basic functionality
 
 - [ ] **OverlayFS on non-Pi hardware** (site.yml line 313)
