@@ -142,6 +142,9 @@
           AP_IP="{{ ap_ip }}"
           elapsed=0
 
+          # Ensure NM has WiFi profiles from cloud-init before counting down.
+          netplan apply 2>/dev/null || true
+
           has_routable_ip() {
               ip -4 addr show scope global | grep -q 'inet '
           }
