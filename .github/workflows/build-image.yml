@@ -86,6 +86,14 @@ jobs:
           EOF
           sudo chmod +x /mnt/rpi/usr/sbin/policy-rc.d
 
+          # Stub out systemctl so daemon-reload and enable/disable don't fail in chroot
+          sudo mv /mnt/rpi/usr/bin/systemctl /mnt/rpi/usr/bin/systemctl.real
+          sudo tee /mnt/rpi/usr/bin/systemctl > /dev/null <<'EOF'
+          #!/bin/sh
+          exit 0
+          EOF
+          sudo chmod +x /mnt/rpi/usr/bin/systemctl
+
       - name: Run Ansible playbook
         # Ansible runs on the host runner and connects to the chroot directory
         # via the chroot connection plugin — no Ansible install inside chroot needed.
@@ -106,8 +114,10 @@ jobs:
         run: |
           LOOP="${{ steps.mount_rpi.outputs.loop }}"
 
-          sudo rm -f /mnt/rpi/usr/sbin/policy-rc.d \
+          sudo rm -f /mnt/rpi/usr/bin/systemctl \
+                     /mnt/rpi/usr/sbin/policy-rc.d \
                      /mnt/rpi/usr/bin/qemu-aarch64-static
+          sudo mv /mnt/rpi/usr/bin/systemctl.real /mnt/rpi/usr/bin/systemctl 2>/dev/null || true
 
           for fs in run sys proc dev/pts dev boot/firmware; do
             sudo umount "/mnt/rpi/$fs" 2>/dev/null || true
@@ -310,6 +320,14 @@ jobs:
         run: |
           sudo chroot /mnt/x86 apt-get install -y ansible python3
 
+          # Stub out systemctl after all apt installs are done (prevents dpkg overwriting it)
+          sudo mv /mnt/x86/usr/bin/systemctl /mnt/x86/usr/bin/systemctl.real 2>/dev/null || true
+          sudo tee /mnt/x86/usr/bin/systemctl > /dev/null <<'EOF'
+          #!/bin/sh
+          exit 0
+          EOF
+          sudo chmod +x /mnt/x86/usr/bin/systemctl
+
       - name: Run Ansible playbook
         run: |
           sudo rsync -av --exclude='*.img' . /mnt/x86/tmp/mcomzos/
@@ -326,7 +344,9 @@ jobs:
           LOOP="${{ steps.disk.outputs.loop }}"
           IMG="${{ steps.disk.outputs.img }}"
 
-          sudo rm -f /mnt/x86/usr/sbin/policy-rc.d
+          sudo rm -f /mnt/x86/usr/bin/systemctl \
+                     /mnt/x86/usr/sbin/policy-rc.d
+          sudo mv /mnt/x86/usr/bin/systemctl.real /mnt/x86/usr/bin/systemctl 2>/dev/null || true
           sudo rm -rf /mnt/x86/tmp/mcomzos
 
           for fs in run sys proc dev/pts dev boot/efi; do
