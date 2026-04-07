@@ -4,7 +4,7 @@
   become: yes
   vars:
     ansible_python_interpreter: /usr/bin/python3
-    mcomz_user: "pi"
+    mcomz_user: "mcomz"
     # Set true to install only what is needed for JS8Call + WiFi AP + dashboard.
     # All other services (Pat, ardopcf, Mumble, Meshtastic, MeshCore, Kiwix) are skipped.
     minimal_build: false
