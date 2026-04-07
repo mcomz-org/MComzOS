@@ -202,7 +202,6 @@ jobs:
   # ===========================================================
   build-x86:
     name: x86_64 (amd64)
-    if: false
     runs-on: ubuntu-latest
 
     steps:

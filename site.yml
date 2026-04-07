@@ -111,22 +111,16 @@
       systemd:
         name: hostapd
         enabled: no
-        daemon_reload: yes
-      ignore_errors: yes
 
     - name: Disable dnsmasq at boot (started by AP fallback service only if needed)
       systemd:
         name: dnsmasq
         enabled: no
-        daemon_reload: yes
-      ignore_errors: yes
 
     - name: Enable avahi-daemon at boot (mDNS — always needed for mcomz.local)
       systemd:
         name: avahi-daemon
         enabled: yes
-        daemon_reload: yes
-      ignore_errors: yes
 
     - name: Deploy mcomz-apmode-fallback script
       # Waits 5 minutes for a routable LAN IP; if none arrives, activates WiFi AP.
@@ -214,6 +208,7 @@
       apt:
         name:
           - git
+          - gnupg
           - python3-apt
           - python3-pip
         state: present
@@ -472,13 +467,36 @@
         daemon_reload: yes
       when: not (minimal_build | default(false))
 
+    - name: Resolve FreeDATA latest AppImage URL
+      # FreeDATA does not always publish AppImages; probe the API and skip if absent.
+      shell: |
+        curl -sf https://api.github.com/repos/DJ2LS/FreeDATA/releases/latest \
+          | python3 -c "
+        import sys, json
+        data = json.load(sys.stdin)
+        arch = '{{ deb_arch }}'
+        for a in data.get('assets', []):
+            n = a['name'].lower()
+            if n.endswith('.appimage') and 'linux' in n:
+                if arch in n or (arch == 'arm64' and 'aarch64' in n) or (arch == 'amd64' and 'x86_64' in n):
+                    print(a['browser_download_url']); sys.exit(0)
+        sys.exit(1)
+        " 2>/dev/null
+      register: freedata_url
+      failed_when: false
+      changed_when: false
+      when: not (minimal_build | default(false))
+
     - name: Download FreeDATA AppImage
       get_url:
-        url: "https://github.com/DJ2LS/FreeDATA/releases/latest/download/FreeDATA-linux-{{ deb_arch }}.AppImage"
+        url: "{{ freedata_url.stdout | trim }}"
         dest: /usr/local/bin/freedata
         mode: '0755'
-      when: not (minimal_build | default(false))
-      # FreeDATA does not currently publish AppImages; will fail until they do
+      when:
+        - not (minimal_build | default(false))
+        - freedata_url.rc is defined
+        - freedata_url.rc == 0
+        - freedata_url.stdout | trim | length > 0
 
     - name: Clone Mercury Modem (HERMES v2 - Machine Sync)
       git:
@@ -540,7 +558,7 @@
           [Service]
           Type=simple
           User={{ mcomz_user }}
-          ExecStart=/usr/bin/pat --listen :8081 http
+          ExecStart=/usr/bin/pat http
           Restart=on-failure
 
           [Install]
@@ -802,13 +820,42 @@
         enabled: yes
         daemon_reload: yes
 
+    - name: Create TLS certificate directory
+      file:
+        path: /etc/ssl/mcomz
+        state: directory
+        mode: '0755'
+
+    - name: Generate self-signed TLS certificate for HTTPS
+      # Browsers require HTTPS for getUserMedia() (microphone access in Mumble).
+      # Self-signed cert is acceptable for a closed LAN emergency hub — users
+      # accept it once in the browser, then microphone and VNC audio both work.
+      command: >
+        openssl req -x509 -nodes -days 3650
+        -newkey rsa:2048
+        -keyout /etc/ssl/mcomz/mcomz.key
+        -out /etc/ssl/mcomz/mcomz.crt
+        -subj "/CN=mcomz.local/O=MComzOS/C=XX"
+        -addext "subjectAltName=DNS:mcomz.local,DNS:mcomz,IP:192.168.4.1"
+      args:
+        creates: /etc/ssl/mcomz/mcomz.crt
+
     - name: Deploy nginx site config with service proxy rules
       copy:
         dest: /etc/nginx/sites-available/mcomz
         content: |
+          # Redirect HTTP to HTTPS (browsers require HTTPS for microphone access)
           server {
               listen 80 default_server;
               server_name mcomz.local mcomz _;
+              return 301 https://$host$request_uri;
+          }
+
+          server {
+              listen 443 ssl default_server;
+              server_name mcomz.local mcomz _;
+              ssl_certificate /etc/ssl/mcomz/mcomz.crt;
+              ssl_certificate_key /etc/ssl/mcomz/mcomz.key;
               root /var/www/html;
               index index.html;
 
@@ -877,11 +924,30 @@
         state: absent
       notify: Reload nginx
 
-    - name: Configure OverlayFS (Read-Only Root) for power-pull safety
+    - name: Configure OverlayFS (Read-Only Root) for power-pull safety — RPi
       command: raspi-config nonint enable_overlayfs
       notify: Reboot System
       when:
         - ansible_architecture == 'aarch64'
+        - not (build_mode | default(false))
+
+    - name: Install overlayroot for write-protection on x86_64
+      apt:
+        name: overlayroot
+        state: present
+      when:
+        - ansible_architecture == 'x86_64'
+        - not (build_mode | default(false))
+
+    - name: Configure OverlayFS (Read-Only Root) for power-pull safety — x86_64
+      copy:
+        dest: /etc/overlayroot.conf
+        content: |
+          overlayroot="tmpfs"
+          overlayroot_cfgdisk="disabled"
+      notify: Update initramfs
+      when:
+        - ansible_architecture == 'x86_64'
         - not (build_mode | default(false))
 
   handlers:
@@ -889,6 +955,9 @@
       service:
         name: nginx
         state: reloaded
+
+    - name: Update initramfs
+      command: update-initramfs -u
 
     - name: Reboot System
       reboot:
