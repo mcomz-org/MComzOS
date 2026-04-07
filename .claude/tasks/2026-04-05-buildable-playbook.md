@@ -121,7 +121,7 @@
     ```
   - Fix option B: Hardcode a known-good version (e.g. `pat_0.19.2_linux_{{ deb_arch }}.deb`) and update manually on upgrades
 
-- [ ] **Fake systemctl removed — `daemon_reload` tasks may fail in chroot** (build-image.yml): Gemini removed the fake systemctl stub, relying on real systemctl behaviour. Phase 0 service enablement has `ignore_errors: yes` but all other `systemd: daemon_reload: yes` tasks (VNC, ardopcf, direwolf, pat, mumble, meshtasticd, meshcore, kiwix, mcomz-status) do not. **v0.0.1-pre-alpha.5 build passed with warning "Target is a chroot or systemd is offline"** — daemon_reload tasks appear to have succeeded or been skipped (minimal_build). Monitor full build logs when minimal_build=false. If daemon-reload fails, the correct fix is restoring the fake stub — NOT adding more `ignore_errors`.
+- ✅ **Fake systemctl restored in both chroot builds**: `/usr/bin/systemctl` replaced with `exit 0` stub before Ansible runs; real binary saved as `systemctl.real` and restored in teardown. x86 stub installed after all `apt-get` steps to prevent dpkg overwriting it.
 
 - ✅ **`ignore_errors: yes` on Phase 0 service enablement**: Removed `daemon_reload: yes` from enable/disable tasks (daemon reload not needed for symlink operations, was the chroot failure cause); `ignore_errors` no longer needed.
 
