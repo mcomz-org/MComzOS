@@ -49,11 +49,11 @@ Download and install [Raspberry Pi Imager](https://www.raspberrypi.com/software/
 
 ### Step 2 — Add the MComzOS repository
 
-Open Raspberry Pi Imager. **Before choosing a device or OS**, click **App Options** in the bottom-left corner.
+Open Raspberry Pi Imager. **Before choosing a device or OS**, click **APP OPTIONS** in the bottom-left corner.
 
-Click **Edit** next to **Content Repository**.
+Click **EDIT** next to **Content Repository**.
 
-Select **Use Custom URL** and paste:
+Select **Use custom URL** and paste:
 ```
 https://mcomz-org.github.io/MComzOS/os-list.json
 ```
@@ -62,35 +62,31 @@ Click **Apply & restart.**
 
 ### Step 3 — Choose your Raspberry Pi model
 
-After Imager restarts, select your Raspberry Pi model (in the **Device**). Click **Next**.
+After Imager restarts, select your Raspberry Pi model (in the **Device** tab). Click **NEXT**.
 
 ### Step 4 — Choose MComzOS
 
-**MComzOS** should appear at the top of the list in the Click **OS** tab. Select it and click **Next**.
+**MComzOS** should appear at the top of the list (in the **OS** tab). Select it and click **NEXT**.
 
 ### Step 5 — Choose your storage device
 
-Select your microSD card or USB drive in the **Storage** tab.
+Select your microSD card or USB drive (in the **Storage** tab).
 
 > **Warning:** Everything on the selected drive will be erased. Double-check you've selected the right device.
 
-Click **Next**.
+Click **NEXT**.
 
 ### Step 6 — Configure Wi-Fi and SSH (recommended)
 
-When prompted with *"Would you like to apply OS customisation settings?"*, click **Edit Settings**:
-
-- **General tab:** Set a hostname (e.g. `mcomz`), username, and password
-- **General tab:** Enter your Wi-Fi network name (SSID) and password
-- **Services tab:** Enable SSH and select *Use password authentication*
-
-> These settings are applied on first boot. They let you manage your hub remotely and allow the hub to connect to the internet for updates. You can skip this and connect devices directly to the hub's own Wi-Fi network instead.
-
-Click **Save**, then **Yes** to apply the settings.
+- Set a hostname (e.g. `mcomz`) and click **NEXT**.
+- Set your Capital city: (mine is `London (United Kingdom)`), your time zone (mine is `Europe/London`) and keyboard layout (mine is `gb`) and click **NEXT**.
+- Set a Username (e.g. `mcomz`), set and confirm a password for your device twice then click **NEXT**.
+- Under SSID enter your Wi-Fi network name and enter your network password twice then click **NEXT**.
+- Enable SSH and select your preferred means of authentication then click **NEXT**.
 
 ### Step 7 — Write the image
 
-Click **Write** and confirm when prompted. Writing takes around 5–10 minutes.
+Check the summary then click **WRITE** if it is correct, and confirm when prompted. Writing takes around 5–10 minutes.
 
 Once complete, safely eject the card or drive.
 
