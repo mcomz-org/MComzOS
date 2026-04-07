@@ -48,28 +48,11 @@
         state: directory
         mode: '0755'
 
-    - name: Prevent NetworkManager from managing the WiFi AP interface
-      # Without this, NetworkManager fights hostapd for control of wlan0
-      copy:
-        dest: /etc/NetworkManager/conf.d/99-mcomz-ap.conf
-        content: |
-          [keyfile]
-          unmanaged-devices=interface-name:{{ wifi_interface }}
-
     - name: Ensure network interfaces directory exists
       file:
         path: /etc/network/interfaces.d
         state: directory
         mode: '0755'
-
-    - name: Assign static IP to WiFi AP interface
-      copy:
-        dest: /etc/network/interfaces.d/{{ wifi_interface }}
-        content: |
-          auto {{ wifi_interface }}
-          iface {{ wifi_interface }} inet static
-              address {{ ap_ip }}
-              netmask 255.255.255.0
 
     - name: Configure hostapd (WiFi access point)
       copy:
@@ -124,16 +107,93 @@
         regexp: '^127\.0\.1\.1'
         line: "127.0.1.1\tmcomz"
 
-    - name: Enable WiFi AP services at boot
+    - name: Disable hostapd at boot (started by AP fallback service only if needed)
       systemd:
-        name: "{{ item }}"
+        name: hostapd
+        enabled: no
+        daemon_reload: yes
+      ignore_errors: yes
+
+    - name: Disable dnsmasq at boot (started by AP fallback service only if needed)
+      systemd:
+        name: dnsmasq
+        enabled: no
+        daemon_reload: yes
+      ignore_errors: yes
+
+    - name: Enable avahi-daemon at boot (mDNS — always needed for mcomz.local)
+      systemd:
+        name: avahi-daemon
         enabled: yes
         daemon_reload: yes
-      loop:
-        - hostapd
-        - dnsmasq
-        - avahi-daemon
       ignore_errors: yes
+
+    - name: Deploy mcomz-apmode-fallback script
+      # Waits 5 minutes for a routable LAN IP; if none arrives, activates WiFi AP.
+      # This runs on every boot — in normal use it exits immediately once DHCP lands.
+      copy:
+        dest: /usr/local/bin/mcomz-apmode-fallback
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          TIMEOUT=300
+          INTERVAL=10
+          WIFI="{{ wifi_interface }}"
+          AP_IP="{{ ap_ip }}"
+          elapsed=0
+
+          has_routable_ip() {
+              ip -4 addr show scope global | grep -q 'inet '
+          }
+
+          while [ $elapsed -lt $TIMEOUT ]; do
+              if has_routable_ip; then
+                  logger -t mcomz-apmode "Routable IP found after ${elapsed}s — LAN mode active"
+                  exit 0
+              fi
+              sleep $INTERVAL
+              elapsed=$((elapsed + INTERVAL))
+          done
+
+          logger -t mcomz-apmode "No LAN after ${TIMEOUT}s — activating WiFi AP fallback"
+
+          # Release wlan0 from NetworkManager so hostapd can own it
+          nmcli device set "$WIFI" managed no 2>/dev/null || true
+
+          # Assign static IP to the AP interface
+          ip addr flush dev "$WIFI" 2>/dev/null || true
+          ip addr add "${AP_IP}/24" dev "$WIFI"
+          ip link set "$WIFI" up
+
+          # Start AP services
+          systemctl start hostapd
+          systemctl start dnsmasq
+
+          logger -t mcomz-apmode "WiFi AP active — SSID: {{ ap_ssid }}, IP: ${AP_IP}"
+
+    - name: Deploy mcomz-apmode-fallback systemd service
+      copy:
+        dest: /etc/systemd/system/mcomz-apmode-fallback.service
+        content: |
+          [Unit]
+          Description=MComzOS WiFi AP Fallback (activates hotspot if no LAN after 5 min)
+          After=network.target
+          Wants=network.target
+
+          [Service]
+          Type=oneshot
+          RemainAfterExit=yes
+          ExecStart=/usr/local/bin/mcomz-apmode-fallback
+          TimeoutStartSec=400
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Enable mcomz-apmode-fallback service
+      systemd:
+        name: mcomz-apmode-fallback
+        enabled: yes
+        daemon_reload: yes
 
     # ---------------------------------------------------------
     # PHASE 1: CORE SYSTEM & RESILIENCE

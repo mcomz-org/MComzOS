@@ -94,13 +94,15 @@ Once complete, safely eject the card or drive.
 
 Insert the microSD card (or USB drive) into your Raspberry Pi and plug in power. The hub takes around 60–90 seconds to start up on first boot.
 
-Your hub will broadcast its own WiFi network — **SSID: MComzOS**. Connect any phone, tablet, or laptop to that network and open a browser:
+Your hub will join your home WiFi (or ethernet) network and be accessible at:
 
 ```
 http://mcomz.local
 ```
 
 You will see the MComzOS dashboard with all available services listed.
+
+> **Emergency / no-router mode:** If the hub cannot get a network address within 5 minutes of booting (e.g. your router is down or unavailable), it will automatically fall back to broadcasting its own WiFi hotspot — **SSID: MComzOS**, password: `mcomzos1`. Connect to that network and open `http://mcomz.local` as normal. No configuration is required; this happens automatically.
 
 ---
 
