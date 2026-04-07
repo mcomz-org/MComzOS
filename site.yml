@@ -258,12 +258,13 @@
 
     - name: Create VNC password for mcomz user
       shell: |
-        mkdir -p /home/{{ mcomz_user }}/.vnc
+        mkdir -p /home/{{ mcomz_user }}/.vnc /home/{{ mcomz_user }}/.config/tigervnc
         echo "{{ vnc_password | default('mcomz') }}" | vncpasswd -f > /home/{{ mcomz_user }}/.vnc/passwd
-        chmod 600 /home/{{ mcomz_user }}/.vnc/passwd
-        chown -R {{ mcomz_user }}:{{ mcomz_user }} /home/{{ mcomz_user }}/.vnc
+        cp /home/{{ mcomz_user }}/.vnc/passwd /home/{{ mcomz_user }}/.config/tigervnc/passwd
+        chmod 600 /home/{{ mcomz_user }}/.vnc/passwd /home/{{ mcomz_user }}/.config/tigervnc/passwd
+        chown -R {{ mcomz_user }}:{{ mcomz_user }} /home/{{ mcomz_user }}/.vnc /home/{{ mcomz_user }}/.config/tigervnc
       args:
-        creates: /home/{{ mcomz_user }}/.vnc/passwd
+        creates: /home/{{ mcomz_user }}/.config/tigervnc/passwd
 
     - name: Deploy VNC xstartup (launches Openbox window manager)
       copy:
@@ -311,6 +312,8 @@
           ExecStart=/usr/bin/vncserver :1 -geometry 1280x800 -depth 24 -localhost yes -fg
           ExecStop=/usr/bin/vncserver -kill :1
           Restart=on-failure
+          RestartSec=5s
+          StartLimitIntervalSec=0
 
           [Install]
           WantedBy=multi-user.target
