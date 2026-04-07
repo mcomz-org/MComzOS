@@ -62,17 +62,19 @@ Click **Apply & restart.**
 
 ### Step 3 — Choose your Raspberry Pi model
 
-After Imager restarts, click **Choose Device** and select your Raspberry Pi model. Click **Next**.
+After Imager restarts, select your Raspberry Pi model (in the **Device**). Click **Next**.
 
 ### Step 4 — Choose MComzOS
 
-Click **Choose OS**. **MComzOS** should appear near the top of the list. Select it and click **Next**.
+**MComzOS** should appear at the top of the list in the Click **OS** tab. Select it and click **Next**.
 
 ### Step 5 — Choose your storage device
 
-Click **Choose Storage** and select your microSD card or USB drive. Click **Next**.
+Select your microSD card or USB drive in the **Storage** tab.
 
 > **Warning:** Everything on the selected drive will be erased. Double-check you've selected the right device.
+
+Click **Next**.
 
 ### Step 6 — Configure Wi-Fi and SSH (recommended)
 
