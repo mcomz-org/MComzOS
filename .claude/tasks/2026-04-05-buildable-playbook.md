@@ -123,35 +123,25 @@
 
 - [ ] **Fake systemctl removed — `daemon_reload` tasks may fail in chroot** (build-image.yml): Gemini removed the fake systemctl stub, relying on real systemctl behaviour. Phase 0 service enablement has `ignore_errors: yes` but all other `systemd: daemon_reload: yes` tasks (VNC, ardopcf, direwolf, pat, mumble, meshtasticd, meshcore, kiwix, mcomz-status) do not. **v0.0.1-pre-alpha.5 build passed with warning "Target is a chroot or systemd is offline"** — daemon_reload tasks appear to have succeeded or been skipped (minimal_build). Monitor full build logs when minimal_build=false. If daemon-reload fails, the correct fix is restoring the fake stub — NOT adding more `ignore_errors`.
 
-- [ ] **`ignore_errors: yes` on Phase 0 service enablement** (site.yml line ~129): Added by Gemini to suppress SysV init warnings. Should be replaced with a proper fix once the root cause is understood (likely systemctl not finding a running D-Bus in chroot). Not acceptable long-term.
+- ✅ **`ignore_errors: yes` on Phase 0 service enablement**: Removed `daemon_reload: yes` from enable/disable tasks (daemon reload not needed for symlink operations, was the chroot failure cause); `ignore_errors` no longer needed.
 
 - ✅ **`ignore_errors: yes` on FreeDATA download** — replaced with `when: not (minimal_build | default(false))` (pre-alpha.5)
 
-- [ ] **Pat service command wrong — runtime failure** (site.yml line 431): `ExecStart=/usr/bin/pat --listen :8081 http` — Pat has no `--listen` flag; HTTP address comes from config.json `http_addr`. Won't fail the build but Pat service will not start at runtime.
-  - Fix: Change to `ExecStart=/usr/bin/pat http`
+- ✅ **Pat service command wrong — runtime failure**: `ExecStart=/usr/bin/pat http` (port from config.json `http_addr`)
 
 ### P2 — x86 build (do not revisit until RPi builds cleanly with no error suppression)
 
-- [ ] **gnupg missing on x86 debootstrap** (site.yml line 493): `gpg --dearmor` for Meshtastic key requires `gnupg`; debootstrap installs only `gpgv`. RPi OS Lite has gnupg pre-installed.
-  - Fix: Add `gnupg` to Phase 1 base tools
+- ✅ **gnupg missing on x86 debootstrap**: Added `gnupg` to Phase 1 base tools
 
-- [ ] **OverlayFS on non-Pi hardware** (site.yml)
-  - `raspi-config nonint enable_overlayfs` only works on Raspberry Pi
-  - Need conditional task or alternative for x86_64 (e.g. overlayroot package)
+- ✅ **OverlayFS on non-Pi hardware**: `overlayroot` package + `/etc/overlayroot.conf` with `overlayroot="tmpfs"` + `update-initramfs` handler; guarded by `ansible_architecture == 'x86_64'`
 
-- [ ] **Re-enable x86 build** (build-image.yml): Disabled with `if: false`. Re-enable only after RPi builds cleanly and all `ignore_errors` are removed.
-  - Fix: Remove `if: false` from `build-x86` job
+- ✅ **Re-enable x86 build**: `if: false` removed from `build-x86` job
 
 ### P2 — Other important but not blocking basic functionality
 
-- [ ] **FreeDATA ARM64 AppImage availability**
-  - FreeDATA may not publish ARM64 AppImages — URL may 404
-  - Needs verification or alternative install method (build from source, Docker)
+- ✅ **FreeDATA AppImage availability**: GitHub API probe replaces hardcoded URL; download task skipped gracefully if no AppImage published for arch
 
-- [ ] **Mumble HTTPS for microphone access**
-  - Browsers require HTTPS for `getUserMedia()` (microphone)
-  - Need self-signed TLS cert generation task in site.yml
-  - nginx TLS config to terminate HTTPS for mumble-web and noVNC
+- ✅ **Mumble HTTPS for microphone access**: Self-signed cert generated via openssl (`/etc/ssl/mcomz/`); nginx now serves HTTPS on 443 and redirects HTTP→HTTPS; dashboard shows warning banner if loaded over HTTP
 
 ## Service Port Map
 
