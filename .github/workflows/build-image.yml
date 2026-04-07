@@ -148,6 +148,7 @@ jobs:
               "extract_sha256": os.environ["EXTRACT_SHA256"],
               "image_download_size": int(os.environ["DOWNLOAD_SIZE"]),
               "release_date": datetime.date.today().isoformat(),
+              "init_format": "cloudinit-rpi",
               "devices": ["pi4-64bit", "pi5-64bit"]
             }]
           }

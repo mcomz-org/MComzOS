@@ -49,7 +49,7 @@ Download and install [Raspberry Pi Imager](https://www.raspberrypi.com/software/
 
 ### Step 2 — Add the MComzOS repository
 
-Open Raspberry Pi Imager. **Before choosing an OS**, click **App Options** in the bottom-left corner.
+Open Raspberry Pi Imager. **Before choosing a device or OS**, click **App Options** in the bottom-left corner.
 
 Click **Edit** next to **Content Repository**.
 
@@ -60,34 +60,39 @@ https://mcomz-org.github.io/MComzOS/os-list.json
 
 Click **Apply & restart.**
 
-### Step 3 — Choose MComzOS
+### Step 3 — Choose your Raspberry Pi model
 
-After Imager restarts, click **Choose OS**. Scroll down to find **MComzOS** in the list and select it.
+After Imager restarts, click **Choose Device** and select your Raspberry Pi model. Click **Next**.
 
-### Step 4 — Choose your storage device
+### Step 4 — Choose MComzOS
 
-Click **Choose Storage** and select your microSD card or USB drive.
+Click **Choose OS**. **MComzOS** should appear near the top of the list. Select it and click **Next**.
+
+### Step 5 — Choose your storage device
+
+Click **Choose Storage** and select your microSD card or USB drive. Click **Next**.
 
 > **Warning:** Everything on the selected drive will be erased. Double-check you've selected the right device.
 
-### Step 5 — Configure Wi-Fi and SSH (recommended)
+### Step 6 — Configure Wi-Fi and SSH (recommended)
 
-Click **Next**. When prompted, click **Edit Settings** to pre-configure your hub before writing:
+When prompted with *"Would you like to apply OS customisation settings?"*, click **Edit Settings**:
 
 - **General tab:** Set a hostname (e.g. `mcomz`), username, and password
+- **General tab:** Enter your Wi-Fi network name (SSID) and password
 - **Services tab:** Enable SSH and select *Use password authentication*
 
-> These settings let you manage your hub remotely without a monitor or keyboard attached. You can skip this step and configure everything via the dashboard later.
+> These settings are applied on first boot. They let you manage your hub remotely and allow the hub to connect to the internet for updates. You can skip this and connect devices directly to the hub's own Wi-Fi network instead.
 
 Click **Save**, then **Yes** to apply the settings.
 
-### Step 6 — Write the image
+### Step 7 — Write the image
 
 Click **Write** and confirm when prompted. Writing takes around 5–10 minutes.
 
 Once complete, safely eject the card or drive.
 
-### Step 7 — First boot
+### Step 8 — First boot
 
 Insert the microSD card (or USB drive) into your Raspberry Pi and plug in power. The hub takes around 60–90 seconds to start up on first boot.
 
