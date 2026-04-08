@@ -154,9 +154,8 @@
 
 **High-risk tasks to monitor in build logs (may need fixes):**
 - `npm install -g mumble-web` — webpack build under qemu emulation (~30-40% failure)
-- `make` ardopcf — C compilation under qemu ARM64 (~30-40% failure on RPi, fine on x86)
-- Mercury `pip install` — unknown native extension deps
-- MeshCore `pip install` — unknown native extension deps
+- `make` ardopcf — C compilation under qemu ARM64 (now fails loudly instead of skipping; may need to restore a retry)
+- MeshCore `pip install` — `pymc_core[hardware]` native extensions under qemu ARM64 (still wrapped in `ignore_errors`)
 - Pat GitHub API URL resolution — rate limiting risk even with token
 - Meshtastic OBS repo availability
 
