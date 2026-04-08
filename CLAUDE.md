@@ -16,7 +16,7 @@ Off-grid emergency communications hub. Ansible playbook (`site.yml`) builds a ma
 - Images built by GitHub Actions on version tag push → released as `mcomzos-rpi.img.xz` / `mcomzos-x86_64.img.xz`
 
 ## Current Task Roadmap
-See [.claude/tasks/2026-04-05-buildable-playbook.md](.claude/tasks/2026-04-05-buildable-playbook.md) for full status of outstanding work.
+See [.claude/tasks/todo.md](.claude/tasks/todo.md) for full status of outstanding work.
 
 **Next priorities (P2):**
 1. OverlayFS on non-Pi hardware — `raspi-config` only works on RPi; x86 needs `overlayroot` package

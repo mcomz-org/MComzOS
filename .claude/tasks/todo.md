@@ -1,4 +1,4 @@
-# MComzOS: Road to Buildable Playbook
+# MComzOS TODO
 
 ## Completed
 - ✅ Multi-architecture support (deb_arch variable for arm64/amd64)
