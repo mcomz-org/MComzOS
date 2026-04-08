@@ -25,7 +25,7 @@ Once deployed, your MComzOS hub provides:
   - **HF radio:**
     - **Extreme Weak-Signal Paging:** Join us on the #MCOMZ net (currently 1500Z Sundays at 7078 MHz) using [JS8Call](http://js8call.com/) — accessible from any browser on your hub's network, no software to install. The remote desktop password is `mcomz`.
     - **Internet-Free Email:** Automated global email via [Pat](https://getpat.io) — browser-based interface included.
-    - **Peer-to-Peer File Transfer:** Share files directly over the air with [Pat](https://getpat.io) and, coming soon, [FreeDATA](https://freedata.app/) — accessible from any browser on your hub's network, no software to install.
+    - **Peer-to-Peer File Transfer:** Share files directly over the air with [Pat](https://getpat.io) and, coming soon, [FreeDATA](https://freedata.app/) — accessible from any browser on your hub's network, no software to install. *(Note: FreeDATA does not currently publish pre-built packages for any Linux platform. The playbook will attempt to download it but will skip gracefully if unavailable.)*
     - **Automated Data Sync (Coming Soon):** Maintain and update your MComzOS autonomously, following testing this will be powered by [Rhizomatica](https://www.rhizomatica.org/)'s HERMES v2 Mercury, [FreeDATA](https://freedata.app/) or [Pat](https://getpat.io).
   - **VHF/UHF radio:**
     - **APRS Telemetry:** Decode APRS position and telemetry packets from VHF radio using [Direwolf](https://github.com/wb2osz/direwolf). (Visual map plotting is planned for a future release.)
