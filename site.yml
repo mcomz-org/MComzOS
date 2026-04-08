@@ -406,35 +406,16 @@
         - pat_deb_url.rc == 0
         - pat_deb_url.stdout | default('') | trim | length > 0
 
-    - name: Clone ardopcf (Active ARDOP fork)
-      # pflarue/ardopcf is the active fork; pflarue/ardop is the older upstream (wrong repo).
-      git:
-        repo: 'https://github.com/pflarue/ardopcf.git'
-        dest: /opt/ardopcf
-        update: yes
-      register: ardopcf_clone
-      ignore_errors: yes  # SCAFFOLD: GitHub availability; subsequent tasks guard on this result.
-      when: not (minimal_build | default(false))
-
-    - name: Build ardopcf from source
-      make:
-        chdir: /opt/ardopcf
-      register: ardopcf_build
-      ignore_errors: yes  # SCAFFOLD: C compilation can fail under qemu ARM64 emulation.
-      when:
-        - not (minimal_build | default(false))
-        - ardopcf_clone is succeeded
-
-    - name: Install ardopcf binary to PATH
-      copy:
-        src: /opt/ardopcf/ardopcf
+    - name: Download ardopcf pre-built binary
+      # pflarue/ardop ships pre-built binaries; building from source fails in ARM64 chroot
+      # (rawhid.c type error) and is unnecessary when upstream provides the binary.
+      # Arch map: arm64 -> arm_Linux_64, amd64 -> amd64_Linux_64
+      get_url:
+        url: "https://github.com/pflarue/ardop/releases/latest/download/ardopcf_{{ 'arm_Linux_64' if deb_arch == 'arm64' else 'amd64_Linux_64' }}"
         dest: /usr/local/bin/ardopcf
         mode: '0755'
-        remote_src: yes
-      ignore_errors: yes  # SCAFFOLD: skips gracefully if make failed and binary doesn't exist.
-      when:
-        - not (minimal_build | default(false))
-        - ardopcf_build is succeeded
+      ignore_errors: yes  # SCAFFOLD: skip gracefully if GitHub is unavailable.
+      when: not (minimal_build | default(false))
 
     - name: Deploy ardopcf systemd service (HF modem daemon for Pat)
       copy:
