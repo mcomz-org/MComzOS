@@ -24,6 +24,9 @@
     ardopcf_audio_out: "default"
     direwolf_audio_device: "default"
 
+  environment:
+    GIT_TERMINAL_PROMPT: "0"  # Prevent git credential prompts in chroot (no TTY available)
+
   tasks:
     # ---------------------------------------------------------
     # PHASE 0: WIFI ACCESS POINT & NETWORK
@@ -377,6 +380,8 @@
       register: pat_deb_url
       changed_when: false
       failed_when: false  # SCAFFOLD: GitHub API rate limit or schema change; skip Pat install if URL not resolved.
+      environment:
+        GITHUB_TOKEN: "{{ lookup('env', 'GITHUB_TOKEN') }}"  # Explicitly propagate into chroot task
       when: not (minimal_build | default(false))
 
     - name: Install Pat (Winlink)
@@ -404,7 +409,7 @@
       ignore_errors: yes  # SCAFFOLD: C compilation can fail under qemu ARM64 emulation.
       when:
         - not (minimal_build | default(false))
-        - ardopcf_clone is not failed
+        - ardopcf_clone is succeeded
 
     - name: Install ardopcf binary to PATH
       copy:
@@ -415,7 +420,7 @@
       ignore_errors: yes  # SCAFFOLD: skips gracefully if make failed and binary doesn't exist.
       when:
         - not (minimal_build | default(false))
-        - ardopcf_build is not failed
+        - ardopcf_build is succeeded
 
     - name: Deploy ardopcf systemd service (HF modem daemon for Pat)
       copy:
@@ -527,15 +532,14 @@
       ignore_errors: yes  # SCAFFOLD: GitHub availability.
       when: not (minimal_build | default(false))
 
-    - name: Install Mercury Python dependencies
-      pip:
-        requirements: /opt/mercury/requirements.txt
-        state: present
-        extra_args: "--break-system-packages"
-      ignore_errors: yes  # SCAFFOLD: requirements.txt may include packages with native extensions.
+    - name: Build Mercury from source
+      # Mercury (rhizomatica/mercury) is a C HF modem daemon, not a Python package.
+      make:
+        chdir: /opt/mercury
+      ignore_errors: yes  # SCAFFOLD: build dependencies may not all be present.
       when:
         - not (minimal_build | default(false))
-        - mercury_clone is not failed
+        - mercury_clone is succeeded
 
     - name: Create Pat config directory
       file:
@@ -649,6 +653,16 @@
     # ---------------------------------------------------------
     # MESHTASTIC INTEGRATION
     # ---------------------------------------------------------
+    - name: Add Debian Bookworm main archive (meshtasticd deps not in Raspbian mirror)
+      # meshtasticd requires libgpiod2 and libyaml-cpp0.7 which are in the Debian
+      # archive but absent from the Raspbian mirror used by RPi OS Lite images.
+      apt_repository:
+        repo: "deb http://deb.debian.org/debian bookworm main"
+        state: present
+        filename: debian-bookworm-main
+      ignore_errors: yes  # SCAFFOLD: non-fatal if already present or unavailable.
+      when: not (minimal_build | default(false))
+
     - name: Add Meshtastic apt repository GPG key
       get_url:
         url: https://download.opensuse.org/repositories/network:Meshtastic:beta/Debian_12/Release.key
@@ -678,7 +692,8 @@
         name: meshtasticd
         update_cache: yes
         state: present
-      ignore_errors: yes  # SCAFFOLD: depends on OBS repo being available above; skip if repo not added.
+      register: meshtasticd_install
+      ignore_errors: yes  # SCAFFOLD: depends on OBS repo and Debian main being available above.
       when: not (minimal_build | default(false))
 
     - name: Enable meshtasticd built-in web server on port 8080
@@ -690,7 +705,10 @@
           Webserver:
             Port: 8080
             RootPath: /usr/share/meshtasticd/web
-      when: not (minimal_build | default(false))
+      ignore_errors: yes  # SCAFFOLD: config.d dir won't exist if meshtasticd install failed.
+      when:
+        - not (minimal_build | default(false))
+        - meshtasticd_install is succeeded
 
     - name: Enable meshtasticd service
       systemd:
