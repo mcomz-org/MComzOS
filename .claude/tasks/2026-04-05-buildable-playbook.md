@@ -143,6 +143,42 @@
 
 - ✅ **Mumble HTTPS for microphone access**: Self-signed cert generated via openssl (`/etc/ssl/mcomz/`); nginx now serves HTTPS on 443 and redirects HTTP→HTTPS; dashboard shows warning banner if loaded over HTTP
 
+### P1 — Chroot build reliability (v0.0.2-pre-alpha series)
+
+#### Phase A: Get the build green (use `ignore_errors` as scaffolding)
+
+- [ ] **Fix meshtasticd enable** — same chroot failure as avahi-daemon (package-installed unit, no init script). Add `ignore_errors: yes` with comment.
+- [ ] **Add `ignore_errors: yes` to ALL `daemon_reload: yes` service enable tasks** — in chroot builds the fake systemctl makes daemon_reload meaningless; the unit files are on disk and systemd picks them up on real boot. This eliminates the entire class of "service not found in chroot" failures.
+- [ ] **Add `ignore_errors: yes` to Meshtastic OBS repo tasks** — external third-party repo is outside our control; if download.opensuse.org is unavailable the build shouldn't die.
+- [ ] **Add timeout to `npm install -g mumble-web`** — webpack postinstall under qemu ARM64 emulation can stall; default npm timeout may exceed GitHub Actions step limits.
+
+**High-risk tasks to monitor in build logs (may need fixes):**
+- `npm install -g mumble-web` — webpack build under qemu emulation (~30-40% failure)
+- `make` ardopcf — C compilation under qemu ARM64 (~30-40% failure on RPi, fine on x86)
+- Mercury `pip install` — unknown native extension deps
+- MeshCore `pip install` — unknown native extension deps
+- Pat GitHub API URL resolution — rate limiting risk even with token
+- Meshtastic OBS repo availability
+
+#### Phase B: Replace `ignore_errors` with proper chroot-safe patterns
+
+Once the build is green and tested, systematically remove every `ignore_errors`:
+
+- [ ] **Service enables**: Replace `systemd: enabled: yes` + `ignore_errors` with direct symlink creation (`file: state=link`) for chroot builds, guarded by `when: build_mode`. Keep the `systemd:` task for live installs. This is the correct fix — `systemctl enable` just creates symlinks, so we can do it without systemd running.
+- [ ] **Meshtastic OBS repo**: Add a verification step that checks the repo is reachable before adding it; skip the entire Meshtastic block (repo + install + enable) if unavailable, rather than failing mid-sequence.
+- [ ] **avahi-daemon enable**: Same symlink pattern as above; remove `ignore_errors`.
+- [ ] **meshtasticd enable**: Same symlink pattern as above; remove `ignore_errors`.
+- [ ] **Audit**: Confirm zero `ignore_errors` remain in site.yml. Every task either succeeds or fails the build intentionally.
+
+#### Phase C: First flash and hardware validation
+
+- [ ] Flash RPi image, boot, verify `https://mcomz.local` loads
+- [ ] Dashboard: all service status dots showing correct state
+- [ ] WiFi panel: scan, connect, forget, AP mode toggle
+- [ ] Each service link: Kiwix, Pat, VNC (JS8Call), Mumble voice
+- [ ] AP fallback: unplug router, wait 5 min, verify `MComzOS` hotspot appears
+- [ ] x86: flash to USB, boot on a PC, same checks
+
 ## Post-v0.0.2 Roadmap
 
 ### WAN Remote Access (WireGuard VPN)
