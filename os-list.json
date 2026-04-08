@@ -1,12 +1,12 @@
 {
   "os_list": [
     {
-      "name": "MComzOS v0.0.2-pre-alpha.6",
+      "name": "MComzOS v0.0.2-pre-alpha.7",
       "description": "Off-grid emergency communications hub \u2014 Raspberry Pi 4/5 (ARM64)",
-      "url": "https://github.com/mcomz-org/MComzOS/releases/download/v0.0.2-pre-alpha.6/mcomzos-rpi.img.xz",
+      "url": "https://github.com/mcomz-org/MComzOS/releases/download/v0.0.2-pre-alpha.7/mcomzos-rpi.img.xz",
       "extract_size": 8355053568,
-      "extract_sha256": "74b291d11b32b31648ac30f9463f0b8de45e1da66f8b59967a8fe0e83748337c",
-      "image_download_size": 1473037116,
+      "extract_sha256": "cdde06058de147325adbb253f5300c4e4461800a2817462f6ad19a51395bf98c",
+      "image_download_size": 1507109280,
       "release_date": "2026-04-08",
       "init_format": "cloudinit-rpi",
       "devices": [
