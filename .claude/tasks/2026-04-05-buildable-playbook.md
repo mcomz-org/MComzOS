@@ -160,6 +160,35 @@
 - Pat GitHub API URL resolution — rate limiting risk even with token
 - Meshtastic OBS repo availability
 
+#### Phase A.5: Findings from v0.0.2-pre-alpha.7 build log (2026-04-08)
+
+Build reported green (`ok=82 changed=58 failed=0 ignored=15`) but the `ignored=15` was hiding real problems. RPi job: 1h 36m. x86_64 job: 14m. Full log: run 24131314223.
+
+**Service enable failures in chroot (9 units, all `Could not find the requested service … : host`):**
+- avahi-daemon, mcomz-apmode-fallback, ardopcf, direwolf, pat, mcomz-mumble-ws, meshtasticd, mcomz-meshcore, kiwix-serve (plus mcomz-status, mcomz-vnc, mcomz-novnc that were already skirted with ignore_errors)
+- Root cause: Ansible `service`/`systemd` module can't enumerate units inside a chroot mount.
+- ✅ **Fixed:** replaced every `systemd: enabled=yes` with `file: state=link` creating the symlink directly in `/etc/systemd/system/multi-user.target.wants/`. This is exactly what `systemctl enable` does for simple `WantedBy=multi-user.target` units, and it works identically inside the chroot and on live systems. All 12 enable tasks are now chroot-safe with no `ignore_errors`.
+- ✅ **Fixed** the cosmetic hostapd/dnsmasq init-script warnings the same way — disable is just `file: state=absent` on the wants symlink.
+
+**Real bugs masked by `ignore_errors`:**
+- ✅ **ardopcf repo URL wrong** — `https://github.com/pflarue/ardopcf.git` returns 404; the real repo is `pflarue/ardop` (binary built is named `ardopcf`). The clone was failing with `terminal prompts disabled` (GitHub's 401 response, masked as a credential prompt), `ignore_errors` swallowed it, and the downstream build/install tasks skipped silently. Fixed the URL and removed all `ignore_errors` / `is succeeded` guards from the ardopcf clone/build/install chain — failures will now surface.
+- ✅ **FreeDATA skip** — confirmed working as designed (no ARM64 AppImage upstream; the API probe skips cleanly).
+- ✅ **MeshCore install** — pyMC_Repeater has no `requirements.txt`; it uses `pyproject.toml` with entry point `repeater.main:main`. Rewrote as: `pip install file:///opt/meshcore-repeater` into the venv, deploy `/etc/pymc_repeater/config.yaml` (minimal SX1262 starter config), update systemd unit to `python -m repeater.main --config …`, create `/var/lib/pymc_repeater` storage dir. **Also gated the entire MeshCore block on `ansible_architecture == 'aarch64'`** — it's a LoRa HAT daemon with SPI/GPIO deps that has no use on x86 hardware. `ignore_errors` kept on the pip install itself since hardware extras (`pymc_core[hardware]`) can fail to build under qemu; the unit file and config still ship so users can finish the install on real hardware.
+- ✅ **Mercury removed entirely** — the build was failing with `pulse/pulseaudio.h: No such file or directory` (missing libpulse-dev). Upstream only ships an apt repo for Debian 13 Trixie; Bookworm requires building from source, and the main consumer (FreeDATA) has no ARM64 build anyway. Left an inline comment pointing at `debian.hermes.radio` for when MComzOS moves to Trixie or FreeDATA ARM64 lands.
+
+**Cosmetic / low priority:**
+- ✅ **Node.js 20 deprecation** — bumped `actions/checkout@v4` → `v6` (Node 24) in both workflows. `softprops/action-gh-release` is still on Node 20 upstream (v2.6.1 has not yet migrated); leave as-is until upstream upgrades.
+- ✅ hostapd/dnsmasq init-script warnings silenced by the symlink pattern above.
+
+**Time hotspots (for future optimization, not urgent):**
+- "Install hardware multiplexing and time-sync tools": 23 min (biggest single task, likely chrony + gpsd + i2c deps under qemu)
+- Murmur install: 7 min
+- meshtasticd install: 5 min
+- Mercury build: 5 min → 0 min (removed)
+- TigerVNC/noVNC/Openbox: 4 min
+
+**Net effect:** expected alpha.8 build should install ardopcf correctly, install MeshCore cleanly on RPi, skip MeshCore on x86, enable all 12 services at boot (no more silent `ignored=15`), and not attempt Mercury. The build should either be truly green or fail loudly — no more hidden skips.
+
 #### Phase B: Replace `ignore_errors` with proper chroot-safe patterns
 
 Once the build is green and tested, systematically remove every `ignore_errors`:

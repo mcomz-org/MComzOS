@@ -110,22 +110,32 @@
         regexp: '^127\.0\.1\.1'
         line: "127.0.1.1\tmcomz"
 
+    # Chroot-safe service enablement: systemctl enable/disable just creates or
+    # removes symlinks in /etc/systemd/system/multi-user.target.wants/. We do
+    # that directly with the file module so it works both inside the image
+    # build chroot (no running systemd) and on a live system.
+    - name: Ensure systemd wants directory exists
+      file:
+        path: /etc/systemd/system/multi-user.target.wants
+        state: directory
+        mode: '0755'
+
     - name: Disable hostapd at boot (started by AP fallback service only if needed)
-      systemd:
-        name: hostapd
-        enabled: no
+      file:
+        path: /etc/systemd/system/multi-user.target.wants/hostapd.service
+        state: absent
 
     - name: Disable dnsmasq at boot (started by AP fallback service only if needed)
-      systemd:
-        name: dnsmasq
-        enabled: no
+      file:
+        path: /etc/systemd/system/multi-user.target.wants/dnsmasq.service
+        state: absent
 
     - name: Enable avahi-daemon at boot (mDNS — always needed for mcomz.local)
-      systemd:
-        name: avahi-daemon
-        enabled: yes
-      ignore_errors: yes  # avahi-daemon has no init script; systemd module fails in chroot.
-                          # Debian postinst (deb-systemd-helper) enables it on install anyway.
+      file:
+        src: /lib/systemd/system/avahi-daemon.service
+        dest: /etc/systemd/system/multi-user.target.wants/avahi-daemon.service
+        state: link
+        force: yes
 
     - name: Deploy mcomz-apmode-fallback script
       # Waits 5 minutes for a routable LAN IP; if none arrives, activates WiFi AP.
@@ -192,11 +202,11 @@
           WantedBy=multi-user.target
 
     - name: Enable mcomz-apmode-fallback service
-      systemd:
-        name: mcomz-apmode-fallback
-        enabled: yes
-        daemon_reload: yes
-      ignore_errors: yes  # SCAFFOLD: chroot has no running systemd; unit file is on disk and will be picked up on real boot.
+      file:
+        src: /etc/systemd/system/mcomz-apmode-fallback.service
+        dest: /etc/systemd/system/multi-user.target.wants/mcomz-apmode-fallback.service
+        state: link
+        force: yes
 
     # ---------------------------------------------------------
     # PHASE 1: CORE SYSTEM & RESILIENCE
@@ -337,14 +347,14 @@
           WantedBy=multi-user.target
 
     - name: Enable VNC and noVNC services
-      systemd:
-        name: "{{ item }}"
-        enabled: yes
-        daemon_reload: yes
+      file:
+        src: "/etc/systemd/system/{{ item }}.service"
+        dest: "/etc/systemd/system/multi-user.target.wants/{{ item }}.service"
+        state: link
+        force: yes
       loop:
         - mcomz-vnc
         - mcomz-novnc
-      ignore_errors: yes  # SCAFFOLD: chroot has no running systemd; unit files are on disk and will be picked up on real boot.
 
     # ---------------------------------------------------------
     # PHASE 3: THE RADIO STACK (HF & VHF)
@@ -397,22 +407,17 @@
         - pat_deb_url.stdout | default('') | trim | length > 0
 
     - name: Clone ardopcf (Active ARDOP fork)
+      # Repo is pflarue/ardop; the binary it builds is named `ardopcf`.
       git:
-        repo: 'https://github.com/pflarue/ardopcf.git'
+        repo: 'https://github.com/pflarue/ardop.git'
         dest: /opt/ardopcf
         update: yes
-      register: ardopcf_clone
-      ignore_errors: yes  # SCAFFOLD: GitHub availability; subsequent tasks guard on this result.
       when: not (minimal_build | default(false))
 
     - name: Build ardopcf from source
       make:
         chdir: /opt/ardopcf
-      register: ardopcf_build
-      ignore_errors: yes  # SCAFFOLD: C compilation can fail under qemu ARM64 emulation.
-      when:
-        - not (minimal_build | default(false))
-        - ardopcf_clone is succeeded
+      when: not (minimal_build | default(false))
 
     - name: Install ardopcf binary to PATH
       copy:
@@ -420,10 +425,7 @@
         dest: /usr/local/bin/ardopcf
         mode: '0755'
         remote_src: yes
-      ignore_errors: yes  # SCAFFOLD: skips gracefully if make failed and binary doesn't exist.
-      when:
-        - not (minimal_build | default(false))
-        - ardopcf_build is succeeded
+      when: not (minimal_build | default(false))
 
     - name: Deploy ardopcf systemd service (HF modem daemon for Pat)
       copy:
@@ -445,11 +447,11 @@
       when: not (minimal_build | default(false))
 
     - name: Enable ardopcf service
-      systemd:
-        name: ardopcf
-        enabled: yes
-        daemon_reload: yes
-      ignore_errors: yes  # SCAFFOLD: chroot has no running systemd; unit file is on disk and will be picked up on real boot.
+      file:
+        src: /etc/systemd/system/ardopcf.service
+        dest: /etc/systemd/system/multi-user.target.wants/ardopcf.service
+        state: link
+        force: yes
       when: not (minimal_build | default(false))
 
     - name: Configure Direwolf (VHF APRS software TNC)
@@ -488,11 +490,11 @@
       when: not (minimal_build | default(false))
 
     - name: Enable Direwolf service
-      systemd:
-        name: direwolf
-        enabled: yes
-        daemon_reload: yes
-      ignore_errors: yes  # SCAFFOLD: chroot has no running systemd; unit file is on disk and will be picked up on real boot.
+      file:
+        src: /etc/systemd/system/direwolf.service
+        dest: /etc/systemd/system/multi-user.target.wants/direwolf.service
+        state: link
+        force: yes
       when: not (minimal_build | default(false))
 
     - name: Resolve FreeDATA latest AppImage URL
@@ -526,23 +528,12 @@
         - freedata_url.rc == 0
         - freedata_url.stdout | trim | length > 0
 
-    - name: Clone Mercury Modem (HERMES v2 - Machine Sync)
-      git:
-        repo: 'https://github.com/rhizomatica/mercury.git'
-        dest: /opt/mercury
-        update: yes
-      register: mercury_clone
-      ignore_errors: yes  # SCAFFOLD: GitHub availability.
-      when: not (minimal_build | default(false))
-
-    - name: Build Mercury from source
-      # Mercury (rhizomatica/mercury) is a C HF modem daemon, not a Python package.
-      make:
-        chdir: /opt/mercury
-      ignore_errors: yes  # SCAFFOLD: build dependencies may not all be present.
-      when:
-        - not (minimal_build | default(false))
-        - mercury_clone is succeeded
+    # Mercury (rhizomatica/mercury v2) is an HF modem used by FreeDATA. Upstream
+    # ships a Debian Trixie (13) apt repo; building from source on Bookworm (12)
+    # requires libpulse-dev and a large C toolchain under qemu emulation, and
+    # FreeDATA — its only consumer — has no ARM64 build anyway. Once FreeDATA
+    # lands on ARM64 (or MComzOS moves to Trixie), switch to the upstream apt
+    # repo at debian.hermes.radio. For now, Mercury is intentionally omitted.
 
     - name: Create Pat config directory
       file:
@@ -598,11 +589,11 @@
       when: not (minimal_build | default(false))
 
     - name: Enable Pat service
-      systemd:
-        name: pat
-        enabled: yes
-        daemon_reload: yes
-      ignore_errors: yes  # SCAFFOLD: chroot has no running systemd; unit file is on disk and will be picked up on real boot.
+      file:
+        src: /etc/systemd/system/pat.service
+        dest: /etc/systemd/system/multi-user.target.wants/pat.service
+        state: link
+        force: yes
       when: not (minimal_build | default(false))
 
     # ---------------------------------------------------------
@@ -646,11 +637,11 @@
       when: not (minimal_build | default(false))
 
     - name: Enable Mumble WebSocket bridge service
-      systemd:
-        name: mcomz-mumble-ws
-        enabled: yes
-        daemon_reload: yes
-      ignore_errors: yes  # SCAFFOLD: chroot has no running systemd; unit file is on disk and will be picked up on real boot.
+      file:
+        src: /etc/systemd/system/mcomz-mumble-ws.service
+        dest: /etc/systemd/system/multi-user.target.wants/mcomz-mumble-ws.service
+        state: link
+        force: yes
       when: not (minimal_build | default(false))
 
     # ---------------------------------------------------------
@@ -714,38 +705,50 @@
         - meshtasticd_install is succeeded
 
     - name: Enable meshtasticd service
-      systemd:
-        name: meshtasticd
-        enabled: yes
-        daemon_reload: yes
-      ignore_errors: yes  # SCAFFOLD: package-installed unit (no init script); systemd module fails in chroot. Debian postinst enables it anyway.
-      when: not (minimal_build | default(false))
+      file:
+        src: /lib/systemd/system/meshtasticd.service
+        dest: /etc/systemd/system/multi-user.target.wants/meshtasticd.service
+        state: link
+        force: yes
+      when:
+        - not (minimal_build | default(false))
+        - meshtasticd_install is succeeded
 
     # ---------------------------------------------------------
-    # MESHCORE INTEGRATION
+    # MESHCORE INTEGRATION (ARM64 / Raspberry Pi only)
+    # pyMC_Repeater is a MeshCore daemon that talks to an SX1262 LoRa HAT
+    # over SPI. It has no use on x86_64 hardware, so we only install it on
+    # aarch64. The package is defined via pyproject.toml (no requirements.txt)
+    # and pulls pymc_core[hardware] which needs spidev and RPi-GPIO bindings.
     # ---------------------------------------------------------
-    - name: Install Python3 venv for MeshCore repeater
+    - name: Install Python3 venv and SPI tooling for MeshCore repeater
       apt:
         name:
           - python3-venv
+          - python3-dev
+          - build-essential
         state: present
-      when: not (minimal_build | default(false))
+      when:
+        - not (minimal_build | default(false))
+        - ansible_architecture == 'aarch64'
 
     - name: Clone pyMC_Repeater (MeshCore daemon with web dashboard)
       git:
         repo: 'https://github.com/rightup/pyMC_Repeater.git'
         dest: /opt/meshcore-repeater
         update: yes
-      register: meshcore_clone
-      ignore_errors: yes  # SCAFFOLD: GitHub availability.
-      when: not (minimal_build | default(false))
+      when:
+        - not (minimal_build | default(false))
+        - ansible_architecture == 'aarch64'
 
     - name: Ensure /opt/mcomz directory exists
       file:
         path: /opt/mcomz
         state: directory
         mode: '0755'
-      when: not (minimal_build | default(false))
+      when:
+        - not (minimal_build | default(false))
+        - ansible_architecture == 'aarch64'
 
     - name: Create MeshCore Python virtual environment
       command:
@@ -753,16 +756,129 @@
         creates: /opt/mcomz/meshcore-venv/bin/python
       when:
         - not (minimal_build | default(false))
-        - meshcore_clone is not failed
+        - ansible_architecture == 'aarch64'
 
-    - name: Install MeshCore repeater Python dependencies
+    - name: Install pyMC_Repeater into virtualenv (from pyproject.toml)
+      # pyMC_Repeater defines its deps in pyproject.toml; there is no
+      # requirements.txt. Installing the package itself pulls in pymc_core,
+      # cherrypy, paho-mqtt, etc., and registers the `pymc-repeater` entry
+      # point. We explicitly upgrade pip first because the Debian-provided pip
+      # in python3-venv (~22.x) can reject modern wheel metadata.
       pip:
-        requirements: /opt/meshcore-repeater/requirements.txt
+        name:
+          - pip
+          - wheel
+          - setuptools
         virtualenv: /opt/mcomz/meshcore-venv
-      ignore_errors: yes  # SCAFFOLD: requirements.txt may include packages with native extensions.
+        state: latest
       when:
         - not (minimal_build | default(false))
-        - meshcore_clone is not failed
+        - ansible_architecture == 'aarch64'
+
+    - name: Install pyMC_Repeater package itself
+      pip:
+        name: "file:///opt/meshcore-repeater"
+        virtualenv: /opt/mcomz/meshcore-venv
+      ignore_errors: yes  # Native extensions (pymc_core hardware deps) may fail under qemu;
+                          # unit is deployed so the service can run once hardware + deps are in place.
+      when:
+        - not (minimal_build | default(false))
+        - ansible_architecture == 'aarch64'
+
+    - name: Ensure MeshCore config directory exists
+      file:
+        path: /etc/pymc_repeater
+        state: directory
+        mode: '0755'
+      when:
+        - not (minimal_build | default(false))
+        - ansible_architecture == 'aarch64'
+
+    - name: Deploy MeshCore repeater config
+      # Minimal starter config. Users MUST edit this to match their LoRa HAT
+      # pinout, frequency band (EU/US), and node identity before the daemon
+      # can usefully participate in a mesh.
+      copy:
+        dest: /etc/pymc_repeater/config.yaml
+        mode: '0644'
+        force: no
+        content: |
+          repeater:
+            node_name: "mcomz-repeater-01"
+            latitude: 0.0
+            longitude: 0.0
+            identity_file: null
+            cache_ttl: 60
+            send_advert_interval_hours: 10
+            allow_discovery: true
+          mesh:
+            global_flood_allow: true
+          radio:
+            frequency: 869618000
+            tx_power: 14
+            bandwidth: 62500
+            spreading_factor: 8
+            coding_rate: 8
+            preamble_length: 17
+            sync_word: 13380
+            crc_enabled: true
+            implicit_header: false
+          sx1262:
+            bus_id: 0
+            cs_id: 0
+            cs_pin: 21
+            reset_pin: 18
+            busy_pin: 20
+            irq_pin: 16
+            txen_pin: -1
+            rxen_pin: -1
+            txled_pin: -1
+            rxled_pin: -1
+            use_dio3_tcxo: false
+            is_waveshare: false
+          delays:
+            tx_delay_factor: 1.0
+            direct_tx_delay_factor: 0.5
+          duty_cycle:
+            enforcement_enabled: false
+            max_airtime_per_minute: 3600
+          storage:
+            storage_dir: "/var/lib/pymc_repeater"
+            mqtt:
+              enabled: false
+              broker: "localhost"
+              port: 1883
+              username: null
+              password: null
+              base_topic: "meshcore/repeater"
+            retention:
+              sqlite_cleanup_days: 31
+          letsmesh:
+            enabled: false
+            iata_code: "Test"
+            broker_index: 0
+            status_interval: 300
+            owner: ""
+            email: ""
+            disallowed_packet_types: []
+          logging:
+            level: INFO
+            format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+          web:
+            cors_enabled: false
+      when:
+        - not (minimal_build | default(false))
+        - ansible_architecture == 'aarch64'
+
+    - name: Ensure MeshCore storage directory exists
+      file:
+        path: /var/lib/pymc_repeater
+        state: directory
+        owner: "{{ mcomz_user }}"
+        mode: '0755'
+      when:
+        - not (minimal_build | default(false))
+        - ansible_architecture == 'aarch64'
 
     - name: Deploy MeshCore Repeater systemd service
       # pyMC_Repeater acts as a MeshCore node over a serial-connected LoRa
@@ -778,20 +894,25 @@
           Type=simple
           User={{ mcomz_user }}
           WorkingDirectory=/opt/meshcore-repeater
-          ExecStart=/opt/mcomz/meshcore-venv/bin/python repeater.py
+          ExecStart=/opt/mcomz/meshcore-venv/bin/python -m repeater.main --config /etc/pymc_repeater/config.yaml
           Restart=on-failure
+          RestartSec=5
 
           [Install]
           WantedBy=multi-user.target
-      when: not (minimal_build | default(false))
+      when:
+        - not (minimal_build | default(false))
+        - ansible_architecture == 'aarch64'
 
     - name: Enable MeshCore Repeater service
-      systemd:
-        name: mcomz-meshcore
-        enabled: yes
-        daemon_reload: yes
-      ignore_errors: yes  # SCAFFOLD: chroot has no running systemd; unit file is on disk and will be picked up on real boot.
-      when: not (minimal_build | default(false))
+      file:
+        src: /etc/systemd/system/mcomz-meshcore.service
+        dest: /etc/systemd/system/multi-user.target.wants/mcomz-meshcore.service
+        state: link
+        force: yes
+      when:
+        - not (minimal_build | default(false))
+        - ansible_architecture == 'aarch64'
 
     - name: Install Kiwix-Serve (Offline Library)
       apt:
@@ -834,11 +955,11 @@
       when: not (minimal_build | default(false))
 
     - name: Enable kiwix-serve service
-      systemd:
-        name: kiwix-serve
-        enabled: yes
-        daemon_reload: yes
-      ignore_errors: yes  # SCAFFOLD: chroot has no running systemd; unit file is on disk and will be picked up on real boot.
+      file:
+        src: /etc/systemd/system/kiwix-serve.service
+        dest: /etc/systemd/system/multi-user.target.wants/kiwix-serve.service
+        state: link
+        force: yes
       when: not (minimal_build | default(false))
 
     # ---------------------------------------------------------
@@ -878,11 +999,11 @@
           WantedBy=multi-user.target
 
     - name: Enable status API service
-      systemd:
-        name: mcomz-status
-        enabled: yes
-        daemon_reload: yes
-      ignore_errors: yes  # SCAFFOLD: chroot has no running systemd; unit file is on disk and will be picked up on real boot.
+      file:
+        src: /etc/systemd/system/mcomz-status.service
+        dest: /etc/systemd/system/multi-user.target.wants/mcomz-status.service
+        state: link
+        force: yes
 
     - name: Create TLS certificate directory
       file:
