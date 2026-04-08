@@ -143,6 +143,26 @@
 
 - ✅ **Mumble HTTPS for microphone access**: Self-signed cert generated via openssl (`/etc/ssl/mcomz/`); nginx now serves HTTPS on 443 and redirects HTTP→HTTPS; dashboard shows warning banner if loaded over HTTP
 
+## Post-v0.0.2 Roadmap
+
+### WAN Remote Access (WireGuard VPN)
+Currently the hub is LAN-only. WireGuard is the recommended approach (fully open source, aligns with "no closed ecosystems" philosophy).
+
+- **Why:** "Internet is up but I'm not home" use case — access the dashboard, relay messages, check service status remotely.
+- **Approach:** WireGuard peer config generated at provision time; hub is a peer, user devices are peers, a VPS or home router acts as the relay endpoint. Key generation and `wg0.conf` deployed by Ansible.
+- **Alternatives considered:** Tailscale (coordination server is closed), Headscale (fully open, more complex to self-host), ZeroTier (similar trade-off to Tailscale).
+- **Not a priority** when internet is down (core use case) — but valuable for pre-positioned hubs managed remotely.
+
+### FreeDATA ARM64 Support
+No ARM64 AppImage exists upstream (v0.17.8 only ships Windows + Ubuntu x86 binaries). FreeDATA is Python + Vue.js and can be built from source; the blocker is a bundled x86 `libcodec2.so` that needs replacing with the ARM64 system library (`/usr/lib/aarch64-linux-gnu/libcodec2.so.1.2`).
+
+- **Correct fix:** Upstream PR to DJ2LS/FreeDATA adding ARM64 to their GitHub Actions build matrix.
+- **Do not** work around this in MComzOS — the fix belongs in their repo.
+- **Current behaviour:** Playbook silently skips FreeDATA if no AppImage found for the arch.
+
+### APRS Map Viewer
+Direwolf decodes APRS packets but there is no map UI. README updated to reflect this. A future release could add Xastir or a lightweight web-based APRS viewer.
+
 ## Service Port Map
 
 | Service | Port | Status |
