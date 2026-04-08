@@ -20,6 +20,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # full history so `git describe` can find the previous tag for release notes
 
       - name: Free runner disk space
         run: |
@@ -196,6 +198,9 @@ jobs:
             git -C "$GH_PAGES" commit -m "Update OS list for ${{ github.ref_name }}"
           git -C "$GH_PAGES" push origin gh-pages
 
+      - name: Generate release notes
+        run: bash scripts/generate-release-notes.sh "${{ github.ref_name }}" "${{ github.repository }}" > release-notes.md
+
       - name: Publish to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -203,7 +208,7 @@ jobs:
             mcomzos-rpi.img.xz
             mcomzos-rpi-imager.json
           fail_on_unmatched_files: true
-          generate_release_notes: true
+          body_path: release-notes.md
 
   # ===========================================================
   # x86_64 image
@@ -216,6 +221,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # full history so `git describe` can find the previous tag for release notes
 
       - name: Free runner disk space
         run: |
@@ -360,9 +367,12 @@ jobs:
           xz -T0 -v "$IMG"
           echo "x86_64 image: $(du -sh ${IMG}.xz)"
 
+      - name: Generate release notes
+        run: bash scripts/generate-release-notes.sh "${{ github.ref_name }}" "${{ github.repository }}" > release-notes.md
+
       - name: Publish to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: mcomzos-x86_64.img.xz
           fail_on_unmatched_files: true
-          generate_release_notes: true
+          body_path: release-notes.md
