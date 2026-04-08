@@ -121,6 +121,8 @@
       systemd:
         name: avahi-daemon
         enabled: yes
+      ignore_errors: yes  # avahi-daemon has no init script; systemd module fails in chroot.
+                          # Debian postinst (deb-systemd-helper) enables it on install anyway.
 
     - name: Deploy mcomz-apmode-fallback script
       # Waits 5 minutes for a routable LAN IP; if none arrives, activates WiFi AP.

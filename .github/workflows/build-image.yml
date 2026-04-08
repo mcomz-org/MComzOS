@@ -329,9 +329,11 @@ jobs:
           sudo chmod +x /mnt/x86/usr/bin/systemctl
 
       - name: Run Ansible playbook
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           sudo rsync -av --exclude='*.img' . /mnt/x86/tmp/mcomzos/
-          sudo chroot /mnt/x86 env HOME=/root \
+          sudo -E chroot /mnt/x86 env HOME=/root GITHUB_TOKEN="$GITHUB_TOKEN" \
             ansible-playbook \
               --connection=local \
               -i localhost, \
