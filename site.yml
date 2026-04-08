@@ -376,24 +376,35 @@
         "
       register: pat_deb_url
       changed_when: false
+      failed_when: false  # SCAFFOLD: GitHub API rate limit or schema change; skip Pat install if URL not resolved.
       when: not (minimal_build | default(false))
 
     - name: Install Pat (Winlink)
       apt:
-        deb: "{{ pat_deb_url.stdout }}"
-      when: not (minimal_build | default(false))
+        deb: "{{ pat_deb_url.stdout | trim }}"
+      when:
+        - not (minimal_build | default(false))
+        - pat_deb_url.rc is defined
+        - pat_deb_url.rc == 0
+        - pat_deb_url.stdout | default('') | trim | length > 0
 
     - name: Clone ardopcf (Active ARDOP fork)
       git:
         repo: 'https://github.com/pflarue/ardopcf.git'
         dest: /opt/ardopcf
         update: yes
+      register: ardopcf_clone
+      ignore_errors: yes  # SCAFFOLD: GitHub availability; subsequent tasks guard on this result.
       when: not (minimal_build | default(false))
 
     - name: Build ardopcf from source
       make:
         chdir: /opt/ardopcf
-      when: not (minimal_build | default(false))
+      register: ardopcf_build
+      ignore_errors: yes  # SCAFFOLD: C compilation can fail under qemu ARM64 emulation.
+      when:
+        - not (minimal_build | default(false))
+        - ardopcf_clone is not failed
 
     - name: Install ardopcf binary to PATH
       copy:
@@ -401,7 +412,10 @@
         dest: /usr/local/bin/ardopcf
         mode: '0755'
         remote_src: yes
-      when: not (minimal_build | default(false))
+      ignore_errors: yes  # SCAFFOLD: skips gracefully if make failed and binary doesn't exist.
+      when:
+        - not (minimal_build | default(false))
+        - ardopcf_build is not failed
 
     - name: Deploy ardopcf systemd service (HF modem daemon for Pat)
       copy:
@@ -509,6 +523,8 @@
         repo: 'https://github.com/rhizomatica/mercury.git'
         dest: /opt/mercury
         update: yes
+      register: mercury_clone
+      ignore_errors: yes  # SCAFFOLD: GitHub availability.
       when: not (minimal_build | default(false))
 
     - name: Install Mercury Python dependencies
@@ -516,7 +532,10 @@
         requirements: /opt/mercury/requirements.txt
         state: present
         extra_args: "--break-system-packages"
-      when: not (minimal_build | default(false))
+      ignore_errors: yes  # SCAFFOLD: requirements.txt may include packages with native extensions.
+      when:
+        - not (minimal_build | default(false))
+        - mercury_clone is not failed
 
     - name: Create Pat config directory
       file:
@@ -696,6 +715,8 @@
         repo: 'https://github.com/rightup/pyMC_Repeater.git'
         dest: /opt/meshcore-repeater
         update: yes
+      register: meshcore_clone
+      ignore_errors: yes  # SCAFFOLD: GitHub availability.
       when: not (minimal_build | default(false))
 
     - name: Ensure /opt/mcomz directory exists
@@ -709,13 +730,18 @@
       command:
         cmd: python3 -m venv /opt/mcomz/meshcore-venv
         creates: /opt/mcomz/meshcore-venv/bin/python
-      when: not (minimal_build | default(false))
+      when:
+        - not (minimal_build | default(false))
+        - meshcore_clone is not failed
 
     - name: Install MeshCore repeater Python dependencies
       pip:
         requirements: /opt/meshcore-repeater/requirements.txt
         virtualenv: /opt/mcomz/meshcore-venv
-      when: not (minimal_build | default(false))
+      ignore_errors: yes  # SCAFFOLD: requirements.txt may include packages with native extensions.
+      when:
+        - not (minimal_build | default(false))
+        - meshcore_clone is not failed
 
     - name: Deploy MeshCore Repeater systemd service
       # pyMC_Repeater acts as a MeshCore node over a serial-connected LoRa
