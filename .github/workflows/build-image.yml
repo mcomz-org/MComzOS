@@ -208,6 +208,7 @@ jobs:
             mcomzos-rpi.img.xz
             mcomzos-rpi-imager.json
           fail_on_unmatched_files: true
+          prerelease: true
           body_path: release-notes.md
 
   # ===========================================================
@@ -375,4 +376,5 @@ jobs:
         with:
           files: mcomzos-x86_64.img.xz
           fail_on_unmatched_files: true
+          prerelease: true
           body_path: release-notes.md
