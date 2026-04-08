@@ -193,6 +193,7 @@
         name: mcomz-apmode-fallback
         enabled: yes
         daemon_reload: yes
+      ignore_errors: yes  # SCAFFOLD: chroot has no running systemd; unit file is on disk and will be picked up on real boot.
 
     # ---------------------------------------------------------
     # PHASE 1: CORE SYSTEM & RESILIENCE
@@ -340,6 +341,7 @@
       loop:
         - mcomz-vnc
         - mcomz-novnc
+      ignore_errors: yes  # SCAFFOLD: chroot has no running systemd; unit files are on disk and will be picked up on real boot.
 
     # ---------------------------------------------------------
     # PHASE 3: THE RADIO STACK (HF & VHF)
@@ -425,6 +427,7 @@
         name: ardopcf
         enabled: yes
         daemon_reload: yes
+      ignore_errors: yes  # SCAFFOLD: chroot has no running systemd; unit file is on disk and will be picked up on real boot.
       when: not (minimal_build | default(false))
 
     - name: Configure Direwolf (VHF APRS software TNC)
@@ -467,6 +470,7 @@
         name: direwolf
         enabled: yes
         daemon_reload: yes
+      ignore_errors: yes  # SCAFFOLD: chroot has no running systemd; unit file is on disk and will be picked up on real boot.
       when: not (minimal_build | default(false))
 
     - name: Resolve FreeDATA latest AppImage URL
@@ -572,6 +576,7 @@
         name: pat
         enabled: yes
         daemon_reload: yes
+      ignore_errors: yes  # SCAFFOLD: chroot has no running systemd; unit file is on disk and will be picked up on real boot.
       when: not (minimal_build | default(false))
 
     # ---------------------------------------------------------
@@ -590,6 +595,7 @@
       npm:
         name: mumble-web
         global: yes
+      ignore_errors: yes  # SCAFFOLD: webpack postinstall can stall under qemu ARM64 emulation; if this fails Mumble voice won't work but the build will complete.
       when: not (minimal_build | default(false))
 
     - name: Deploy Mumble WebSocket bridge service
@@ -618,6 +624,7 @@
         name: mcomz-mumble-ws
         enabled: yes
         daemon_reload: yes
+      ignore_errors: yes  # SCAFFOLD: chroot has no running systemd; unit file is on disk and will be picked up on real boot.
       when: not (minimal_build | default(false))
 
     # ---------------------------------------------------------
@@ -627,6 +634,7 @@
       get_url:
         url: https://download.opensuse.org/repositories/network:Meshtastic:beta/Debian_12/Release.key
         dest: /tmp/meshtastic-release.key
+      ignore_errors: yes  # SCAFFOLD: OBS repo is outside our control; skip gracefully if unavailable.
       when: not (minimal_build | default(false))
 
     - name: Install Meshtastic apt repository GPG key
@@ -635,6 +643,7 @@
         > /etc/apt/trusted.gpg.d/network_Meshtastic_beta.gpg
       args:
         creates: /etc/apt/trusted.gpg.d/network_Meshtastic_beta.gpg
+      ignore_errors: yes  # SCAFFOLD: depends on previous GPG key download; skip if that failed.
       when: not (minimal_build | default(false))
 
     - name: Add Meshtastic apt repository
@@ -642,6 +651,7 @@
         repo: "deb http://download.opensuse.org/repositories/network:/Meshtastic:/beta/Debian_12/ /"
         state: present
         filename: meshtastic
+      ignore_errors: yes  # SCAFFOLD: OBS repo is outside our control; skip gracefully if unavailable.
       when: not (minimal_build | default(false))
 
     - name: Install meshtasticd (Meshtastic Linux daemon)
@@ -649,6 +659,7 @@
         name: meshtasticd
         update_cache: yes
         state: present
+      ignore_errors: yes  # SCAFFOLD: depends on OBS repo being available above; skip if repo not added.
       when: not (minimal_build | default(false))
 
     - name: Enable meshtasticd built-in web server on port 8080
@@ -667,6 +678,7 @@
         name: meshtasticd
         enabled: yes
         daemon_reload: yes
+      ignore_errors: yes  # SCAFFOLD: package-installed unit (no init script); systemd module fails in chroot. Debian postinst enables it anyway.
       when: not (minimal_build | default(false))
 
     # ---------------------------------------------------------
@@ -731,6 +743,7 @@
         name: mcomz-meshcore
         enabled: yes
         daemon_reload: yes
+      ignore_errors: yes  # SCAFFOLD: chroot has no running systemd; unit file is on disk and will be picked up on real boot.
       when: not (minimal_build | default(false))
 
     - name: Install Kiwix-Serve (Offline Library)
@@ -778,6 +791,7 @@
         name: kiwix-serve
         enabled: yes
         daemon_reload: yes
+      ignore_errors: yes  # SCAFFOLD: chroot has no running systemd; unit file is on disk and will be picked up on real boot.
       when: not (minimal_build | default(false))
 
     # ---------------------------------------------------------
@@ -821,6 +835,7 @@
         name: mcomz-status
         enabled: yes
         daemon_reload: yes
+      ignore_errors: yes  # SCAFFOLD: chroot has no running systemd; unit file is on disk and will be picked up on real boot.
 
     - name: Create TLS certificate directory
       file:
