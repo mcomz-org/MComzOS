@@ -8,7 +8,7 @@ MComzOS turns any computer* into an off-grid emergency communications hub. It is
 1. **Completely accessible** to users with zero IT or radio experience, yet
 2. **a force multiplier** for IT professionals and licensed radio operators, unlocking their full potential in a crisis.
 
-Even if you have zero interest in emergency communications, if you have a spare computer, we encourage you to spend 30 minutes setting it up today. Should the internet ever fail, you can then reach `http://mcomz.local` on any device and learn what to do next.
+Even if you have zero interest in emergency communications, if you have a spare computer, we encourage you to spend 30 minutes setting it up today. Should the internet ever fail, you can then reach `https://mcomz.local` on any device and learn what to do next.
 
 ## Core Capabilities
 Once deployed, your MComzOS hub provides:
@@ -28,7 +28,7 @@ Once deployed, your MComzOS hub provides:
     - **Peer-to-Peer File Transfer:** Share files directly over the air with [Pat](https://getpat.io) and, coming soon, [FreeDATA](https://freedata.app/) — accessible from any browser on your hub's network, no software to install.
     - **Automated Data Sync (Coming Soon):** Maintain and update your MComzOS autonomously, following testing this will be powered by [Rhizomatica](https://www.rhizomatica.org/)'s HERMES v2 Mercury, [FreeDATA](https://freedata.app/) or [Pat](https://getpat.io).
   - **VHF/UHF radio:**
-    - **Tactical Radar:** Decode APRS telemetry using [Direwolf](https://github.com/wb2osz/direwolf) to visually plot local emergency responders and mobile units on an offline map.
+    - **APRS Telemetry:** Decode APRS position and telemetry packets from VHF radio using [Direwolf](https://github.com/wb2osz/direwolf). (Visual map plotting is planned for a future release.)
     - **Regional Email:** Connect to local Winlink gateways over VHF packet radio for robust, mid-range message delivery.
 
 MComzOS is strictly open-source. No proprietary licenses, no internet-dependent authentication, and no closed ecosystems. If the global internet falls, MComzOS survives. See [STACK.md](STACK.md) for the full list of open-source tools that make this possible.
@@ -38,7 +38,7 @@ MComzOS is strictly open-source. No proprietary licenses, no internet-dependent 
 You can expect the setup process to take around 15–30 minutes (mostly waiting for the image to write).
 
 Before you begin you'll need:
-- A Raspberry Pi 4 or 5 (PC support coming soon)
+- A Raspberry Pi 4 or 5, or any 64-bit PC (x86_64 support is experimental from v0.0.2-pre-alpha)
 - A blank microSD card or USB drive — **16 GB minimum**, 32 GB recommended
 - A suitable power supply for your Raspberry Pi
 - A computer with internet access and the ability to write to a microSD card or USB drive
@@ -97,18 +97,20 @@ Insert the microSD card (or USB drive) into your Raspberry Pi and plug in power.
 Your hub will join your home WiFi (or ethernet) network and be accessible at:
 
 ```
-http://mcomz.local
+https://mcomz.local
 ```
 
-You will see the MComzOS dashboard with all available services listed.
+> **First-visit certificate warning:** MComzOS uses a self-signed HTTPS certificate so that browser microphone access (required for voice chat) works. On first visit your browser will show a security warning — this is expected. Click **Advanced → Proceed** (Chrome/Edge) or **Show Details → visit this website** (Safari) to continue. You only need to do this once per device.
 
-> **Emergency / no-router mode:** If the hub cannot get a network address within 5 minutes of booting (e.g. your router is down or unavailable), it will automatically fall back to broadcasting its own WiFi hotspot — **SSID: MComzOS**, password: `mcomzos1`. Connect to that network and open `http://mcomz.local` as normal. No configuration is required; this happens automatically.
+You will see the MComz dashboard with all available services listed.
+
+> **Emergency / no-router mode:** If the hub cannot get a network address within 5 minutes of booting (e.g. your router is down or unavailable), it will automatically fall back to broadcasting its own WiFi hotspot — **SSID: MComzOS**, password: `mcomzos1`. Connect to that network and open `https://mcomz.local` as normal. No configuration is required; this happens automatically.
 
 ---
 
 ### PC, Mac, or any 64-bit computer — USB boot
 
-> **Note:** x86_64 images are not yet available. This section describes the intended install flow for a future release.
+> **Note:** x86_64 image builds are re-enabled from v0.0.2-pre-alpha and considered experimental — not yet validated on real hardware. If you test one, please report findings as an issue.
 
 1. Download [Balena Etcher](https://etcher.balena.io/) — free, works on Windows, Mac, and Linux
 2. Open Etcher → **Flash from URL** → paste:
