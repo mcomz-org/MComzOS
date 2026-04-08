@@ -1,4 +1,4 @@
-# MComzOS: Project Specification (v0.0.1)
+# MComzOS: Project Specification
 
 _**WARNING INITIAL COMMIT WAS 4 APRIL, THIS IS COMPLETELY UNTESTED: probably better to contact us before you start testing, or wait for v0.1.0, all assistance gratefully received**_
 
