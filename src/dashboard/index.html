@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MComzOS Basecamp</title>
+    <title>MComz</title>
     <style>
         :root {
             --bg: #121212;
@@ -14,6 +14,7 @@
             --blue: #29b6f6;
             --orange: #ff9800;
             --red: #ef5350;
+            --pink: #f06292;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -25,7 +26,7 @@
         header {
             display: flex;
             justify-content: space-between;
-            align-items: baseline;
+            align-items: center;
             border-bottom: 2px solid #333;
             padding-bottom: 12px;
             margin-bottom: 24px;
@@ -61,6 +62,7 @@
         .btn-green  { background: var(--green); }
         .btn-blue   { background: var(--blue); }
         .btn-orange { background: var(--orange); }
+        .btn-pink   { background: var(--pink); }
         .btn[disabled] { background: #333; color: var(--muted); cursor: not-allowed; }
 
         /* Status grid */
@@ -90,13 +92,65 @@
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
 
         .note { color: var(--muted); font-size: 0.8rem; margin-top: 8px; }
+
+        /* Mesh expand/collapse */
+        #mesh-detail { display: none; }
+        #mesh-detail.open { display: block; }
+        .mesh-section { border-top: 1px solid #333; padding-top: 12px; margin-top: 10px; }
+
+        /* WiFi panel */
+        #wifi-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.6); z-index: 100;
+        }
+        #wifi-panel {
+            display: none; position: fixed; top: 0; right: 0;
+            height: 100vh; width: 360px; max-width: 100vw;
+            background: #1a1a1a; z-index: 101;
+            overflow-y: auto; padding: 20px;
+            box-shadow: -4px 0 24px rgba(0,0,0,0.6);
+        }
+        .wifi-net {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 8px; border-bottom: 1px solid #252525;
+            cursor: pointer; border-radius: 4px; margin-bottom: 2px;
+            background: #111;
+        }
+        .wifi-net:hover { background: #1c1c1c; }
+        .wifi-net.connected { border-left: 3px solid var(--green); }
+        .wifi-saved-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 8px; background: #111; border-radius: 4px; margin-bottom: 4px;
+        }
+        .wifi-section-head {
+            font-size: 0.75rem; color: var(--muted); letter-spacing: .05em;
+            text-transform: uppercase; margin-bottom: 8px; margin-top: 16px;
+        }
+        #wifi-btn {
+            background: #1e1e1e; border: 1px solid #444; color: var(--text);
+            padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem;
+        }
+        #wifi-btn:hover { border-color: #666; }
+        .wifi-input {
+            width: 100%; background: #222; border: 1px solid #444; color: var(--text);
+            padding: 9px; border-radius: 4px; font-size: 0.9rem; margin-bottom: 8px;
+        }
+        .wifi-input:focus { outline: none; border-color: var(--blue); }
+        .small-btn {
+            background: none; border: 1px solid #555; color: #aaa;
+            padding: 3px 8px; border-radius: 3px; cursor: pointer; font-size: 0.75rem;
+        }
+        .small-btn:hover { border-color: #888; color: var(--text); }
     </style>
 </head>
 <body>
 
 <header>
-    <h1>MComzOS Basecamp</h1>
-    <span id="clock">Loading…</span>
+    <h1>MComz</h1>
+    <div style="display:flex;align-items:center;gap:12px;">
+        <button id="wifi-btn" onclick="openWifi()">📶 WiFi</button>
+        <span id="clock">Loading…</span>
+    </div>
 </header>
 
 <div id="https-warn" style="display:none;background:#1a1200;border:1px solid #ff9800;border-radius:6px;padding:12px 16px;margin-bottom:16px;font-size:0.85rem;color:#ff9800;">
@@ -105,50 +159,114 @@
 </div>
 <script>if(location.protocol!=='https:')document.getElementById('https-warn').style.display='block';</script>
 
+<!-- WiFi slide-in panel -->
+<div id="wifi-overlay" onclick="closeWifi()"></div>
+<div id="wifi-panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h2 style="font-size:1.1rem;">WiFi</h2>
+        <button onclick="closeWifi()" style="background:none;border:none;color:#aaa;cursor:pointer;font-size:1.3rem;line-height:1;">✕</button>
+    </div>
+
+    <!-- Current status -->
+    <div id="wifi-current" style="background:#111;border-radius:6px;padding:12px;margin-bottom:12px;font-size:0.85rem;">
+        Checking connection…
+    </div>
+
+    <!-- Hotspot toggle -->
+    <button id="ap-btn" onclick="toggleAP()" class="btn" style="background:#333;color:#fff;margin-bottom:4px;">
+        📡 Start Hotspot (AP Mode)
+    </button>
+    <p class="note" style="margin-bottom:16px;">Hotspot creates a WiFi network called <strong>MComzOS</strong> — use when there's no router. Other devices connect directly to this hub.</p>
+
+    <!-- Available networks -->
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="wifi-section-head" style="margin:0;">Available Networks</div>
+        <button onclick="scanNetworks()" id="scan-btn" class="small-btn">Scan</button>
+    </div>
+    <div id="wifi-networks" style="margin-top:8px;margin-bottom:4px;">
+        <div style="color:var(--muted);font-size:0.85rem;padding:8px 0;">Tap Scan to find networks</div>
+    </div>
+
+    <!-- Connect form (shown inline when network selected) -->
+    <div id="wifi-connect-form" style="display:none;background:#111;border-radius:6px;padding:12px;margin-top:8px;">
+        <div style="font-size:0.9rem;font-weight:600;margin-bottom:10px;" id="wifi-connect-ssid"></div>
+        <input id="wifi-password" type="password" placeholder="Password" class="wifi-input">
+        <p class="note" style="margin-bottom:10px;">If the hub switches networks, reconnect to <strong>mcomz.local</strong> or the <strong>MComzOS</strong> hotspot.</p>
+        <div style="display:flex;gap:8px;">
+            <button onclick="submitConnect()" style="flex:1;background:var(--green);color:#000;border:none;padding:9px;border-radius:4px;cursor:pointer;font-weight:600;">Connect</button>
+            <button onclick="cancelConnect()" style="background:#333;color:#fff;border:none;padding:9px 14px;border-radius:4px;cursor:pointer;">Cancel</button>
+        </div>
+        <div id="wifi-connect-msg" style="margin-top:8px;font-size:0.8rem;"></div>
+    </div>
+
+    <!-- Saved networks -->
+    <div class="wifi-section-head">Saved Networks</div>
+    <div id="wifi-saved">
+        <div style="color:var(--muted);font-size:0.85rem;padding:4px 0;">Loading…</div>
+    </div>
+</div>
+
 <div class="grid">
 
     <!-- OFFLINE LIBRARY -->
     <div class="card">
-        <h2 style="color:var(--blue)">📚 Offline Library</h2>
+        <h2 style="color:var(--green)">📚 Offline Library</h2>
         <p class="note">Guides, manuals, and reference books — no internet needed.</p>
-        <a href="/library/" class="btn btn-blue">Open Library</a>
+        <a href="/library/" class="btn btn-green">Open Library</a>
     </div>
 
     <!-- VOICE & TEXT -->
     <div class="card">
-        <h2 style="color:var(--green)">🎙 Voice &amp; Text Chat</h2>
+        <h2 style="color:var(--blue)">🎙 Voice &amp; Text Chat</h2>
         <p class="note">Browser-based voice and text channels. Works on any phone.</p>
-        <a href="/mumble/" class="btn btn-green">Join Voice Channel (Mumble)</a>
+        <a href="/mumble/" class="btn btn-blue">Join Voice Channel (Mumble)</a>
     </div>
 
-    <!-- MESHTASTIC -->
+    <!-- HF: PAT -->
     <div class="card">
-        <h2 style="color:var(--orange)">📡 Meshtastic Mesh</h2>
-        <p class="note">Monitor and message on the public LoRa mesh network.</p>
-        <a href="/meshtastic/" class="btn btn-orange">Open Meshtastic</a>
+        <h2 style="color:var(--pink)">✉️ Winlink Email <small style="color:var(--muted)">(licensed)</small></h2>
+        <p class="note">Send and receive email over radio without internet, using the global Winlink network.</p>
+        <a href="/pat/" class="btn btn-pink">Open Pat — Winlink Email</a>
     </div>
 
-    <!-- MESHCORE -->
+    <!-- HF: JS8CALL -->
     <div class="card">
-        <h2 style="color:var(--orange)">🔐 MeshCore Tactical Mesh</h2>
-        <p class="note">Encrypted multi-hop messaging. Flash radios to join.</p>
-        <a href="/meshcore/" class="btn btn-orange">MeshCore Dashboard</a>
-        <a href="https://flasher.meshcore.co.uk" target="_blank" rel="noopener"
-           class="btn" style="background:#333;color:#fff;margin-top:4px;">
-            Flash Radio to MeshCore ↗
-        </a>
+        <h2 style="color:var(--pink)">📻 JS8Call <small style="color:var(--muted)">(licensed)</small></h2>
+        <p class="note">Keyboard-to-keyboard HF messaging via weak-signal digital mode. Join the #MCOMZ net Sundays 1500Z on 7.078 MHz.</p>
+        <a href="/vnc/vnc.html?path=websockify&autoconnect=true" class="btn btn-pink">Open JS8Call (Remote Desktop)</a>
     </div>
 
-    <!-- HF RADIO (licensed) -->
+    <!-- HF: FREEDATA -->
     <div class="card">
-        <h2 style="color:var(--blue)">📻 HF Radio <small style="color:var(--muted)">(licensed operators)</small></h2>
-        <p class="note">Winlink email and weak-signal messaging over shortwave.</p>
-        <a href="/pat/" class="btn btn-blue">Pat — Winlink Email</a>
-        <a href="/vnc/vnc.html?path=websockify&autoconnect=true" class="btn" style="background:#333;color:#fff;">JS8Call / FreeDATA (Remote Desktop)</a>
-        <p class="note">VNC password: <strong>mcomz</strong></p>
+        <h2 style="color:var(--pink)">📡 FreeDATA <small style="color:var(--muted)">(licensed)</small></h2>
+        <p class="note">High-speed HF data modem for file transfer and peer-to-peer data exchange over radio.</p>
+        <a href="/vnc/vnc.html?path=websockify&autoconnect=true" class="btn btn-pink">Open FreeDATA (Remote Desktop)</a>
+        <p class="note">FreeDATA may not be installed — AppImage availability varies by release.</p>
     </div>
 
-    <!-- SERVICE STATUS — full width -->
+    <!-- MESH COMMUNICATION -->
+    <div class="card">
+        <h2 style="color:var(--orange)">🔗 Mesh Communication</h2>
+        <p class="note">Do you have a Meshtastic/MeshCore/LoRa radio?</p>
+        <button class="btn btn-orange" onclick="toggleMesh(this)">Show Mesh Capabilities</button>
+
+        <div id="mesh-detail">
+            <div class="mesh-section">
+                <h2 style="color:var(--orange);font-size:0.9rem;margin-bottom:6px;">📡 Meshtastic</h2>
+                <p class="note">Public LoRa mesh network — any Meshtastic device can join and exchange text messages. Ideal for neighbourhood-wide comms without infrastructure.</p>
+                <a href="/meshtastic/" class="btn btn-orange" style="margin-top:8px;">Open Meshtastic</a>
+            </div>
+            <div class="mesh-section">
+                <h2 style="color:var(--orange);font-size:0.9rem;margin-bottom:6px;">🔐 MeshCore</h2>
+                <p class="note">Private tactical mesh — this hub acts as a node and repeater. You control the network: flash your own LoRa radios with MeshCore firmware to join.</p>
+                <a href="/meshcore/" class="btn btn-orange" style="margin-top:8px;">MeshCore Dashboard</a>
+                <a href="https://flasher.meshcore.co.uk" target="_blank" rel="noopener"
+                   class="btn" style="background:#333;color:#fff;">Flash Radio to MeshCore ↗</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- SERVICE STATUS -->
     <div class="card full">
         <h2>System Status</h2>
         <div id="status-grid" class="status-grid">
@@ -160,40 +278,218 @@
 </div>
 
 <script>
-    // Clock
-    function tick() {
-        const now = new Date();
-        document.getElementById('clock').textContent =
-            now.toUTCString().replace(' GMT', 'Z');
-    }
-    tick();
-    setInterval(tick, 1000);
+// ── Clock ────────────────────────────────────────────────────────────────────
+function tick() {
+    document.getElementById('clock').textContent =
+        new Date().toUTCString().replace(' GMT', 'Z');
+}
+tick();
+setInterval(tick, 1000);
 
-    // Service status
-    function renderStatus(data) {
-        const grid = document.getElementById('status-grid');
-        grid.innerHTML = Object.entries(data).map(([, svc]) => {
-            const active = svc.status === 'active';
-            const cls = active ? 'active' : 'inactive';
-            const link = svc.path
-                ? `<a href="${svc.path}" style="color:inherit;text-decoration:none;">${svc.label}</a>`
-                : svc.label;
-            return `<div class="svc"><div class="dot ${cls}"></div>${link}</div>`;
-        }).join('');
-    }
+// ── Service status ───────────────────────────────────────────────────────────
+function renderStatus(data) {
+    const grid = document.getElementById('status-grid');
+    grid.innerHTML = Object.entries(data).map(([, svc]) => {
+        const cls = svc.status === 'active' ? 'active' : 'inactive';
+        const inner = svc.path
+            ? `<a href="${svc.path}" style="color:inherit;text-decoration:none;">${svc.label}</a>`
+            : svc.label;
+        return `<div class="svc"><div class="dot ${cls}"></div>${inner}</div>`;
+    }).join('');
+}
+function fetchStatus() {
+    fetch('/api/status')
+        .then(r => r.json()).then(renderStatus)
+        .catch(() => {
+            document.getElementById('status-grid').innerHTML =
+                '<div class="svc"><div class="dot inactive"></div>Status API unavailable</div>';
+        });
+}
+fetchStatus();
+setInterval(fetchStatus, 15000);
 
-    function fetchStatus() {
-        fetch('/api/status')
-            .then(r => r.json())
-            .then(renderStatus)
-            .catch(() => {
-                document.getElementById('status-grid').innerHTML =
-                    '<div class="svc"><div class="dot inactive"></div>Status API unavailable</div>';
-            });
-    }
+// ── Mesh expand/collapse ─────────────────────────────────────────────────────
+function toggleMesh(btn) {
+    const detail = document.getElementById('mesh-detail');
+    const open = detail.classList.toggle('open');
+    btn.textContent = open ? 'Hide Mesh Capabilities' : 'Show Mesh Capabilities';
+}
 
-    fetchStatus();
-    setInterval(fetchStatus, 15000);
+// ── WiFi panel ───────────────────────────────────────────────────────────────
+let pendingSSID = '';
+let apActive = false;
+
+function openWifi() {
+    document.getElementById('wifi-overlay').style.display = 'block';
+    document.getElementById('wifi-panel').style.display = 'block';
+    loadWifiStatus();
+    loadSavedNetworks();
+}
+function closeWifi() {
+    document.getElementById('wifi-overlay').style.display = 'none';
+    document.getElementById('wifi-panel').style.display = 'none';
+}
+
+function loadWifiStatus() {
+    fetch('/api/wifi/networks')
+        .then(r => r.json())
+        .then(data => {
+            apActive = !!data.ap_active;
+            const el = document.getElementById('wifi-current');
+            const btn = document.getElementById('ap-btn');
+            if (apActive) {
+                el.innerHTML = '📡 <strong>Hotspot active</strong> — SSID: MComzOS, password: mcomzos1';
+                btn.textContent = '⬛ Stop Hotspot';
+            } else {
+                const connected = (data.networks || []).find(n => n.in_use);
+                el.innerHTML = connected
+                    ? `✅ Connected to <strong>${esc(connected.ssid)}</strong> (signal: ${connected.signal}%)`
+                    : '⚠️ Not connected to any WiFi network';
+                btn.textContent = '📡 Start Hotspot (AP Mode)';
+            }
+        })
+        .catch(() => {
+            document.getElementById('wifi-current').textContent = 'Unable to check WiFi status';
+        });
+}
+
+function scanNetworks() {
+    const btn = document.getElementById('scan-btn');
+    const container = document.getElementById('wifi-networks');
+    btn.textContent = 'Scanning…';
+    btn.disabled = true;
+    container.innerHTML = '<div style="color:var(--muted);font-size:0.85rem;padding:8px 0;">Scanning…</div>';
+
+    fetch('/api/wifi/networks?scan=1')
+        .then(r => r.json())
+        .then(data => {
+            btn.textContent = 'Scan'; btn.disabled = false;
+            apActive = !!data.ap_active;
+            const networks = data.networks || [];
+            if (!networks.length) {
+                container.innerHTML = '<div style="color:var(--muted);font-size:0.85rem;padding:8px 0;">No networks found</div>';
+                return;
+            }
+            // Refresh connection status
+            const connected = networks.find(n => n.in_use);
+            if (connected && !apActive) {
+                document.getElementById('wifi-current').innerHTML =
+                    `✅ Connected to <strong>${esc(connected.ssid)}</strong> (signal: ${connected.signal}%)`;
+            }
+            container.innerHTML = networks.map(n =>
+                `<div class="wifi-net${n.in_use ? ' connected' : ''}" onclick="selectNetwork('${esc(n.ssid)}',${!n.security})">
+                    <span style="font-size:0.85rem;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(n.ssid)}</span>
+                    <span style="font-size:0.8rem;color:var(--muted);white-space:nowrap;margin-left:8px;">${bars(n.signal)} ${n.security ? '🔒' : '🔓'}</span>
+                </div>`
+            ).join('');
+        })
+        .catch(() => {
+            btn.textContent = 'Scan'; btn.disabled = false;
+            container.innerHTML = '<div style="color:var(--red);font-size:0.85rem;padding:8px 0;">Scan failed — WiFi may not be available on this device</div>';
+        });
+}
+
+function bars(signal) {
+    if (signal >= 80) return '▂▄▆█';
+    if (signal >= 60) return '▂▄▆·';
+    if (signal >= 40) return '▂▄··';
+    if (signal >= 20) return '▂···';
+    return '····';
+}
+
+function selectNetwork(ssid, isOpen) {
+    pendingSSID = ssid;
+    if (isOpen) {
+        document.getElementById('wifi-connect-form').style.display = 'none';
+        doConnect('');
+        return;
+    }
+    document.getElementById('wifi-connect-ssid').textContent = ssid;
+    document.getElementById('wifi-password').value = '';
+    document.getElementById('wifi-connect-msg').textContent = '';
+    document.getElementById('wifi-connect-form').style.display = 'block';
+    setTimeout(() => document.getElementById('wifi-password').focus(), 50);
+}
+
+function cancelConnect() {
+    document.getElementById('wifi-connect-form').style.display = 'none';
+    pendingSSID = '';
+}
+
+function submitConnect() {
+    doConnect(document.getElementById('wifi-password').value);
+}
+
+function doConnect(password) {
+    const msg = document.getElementById('wifi-connect-msg');
+    if (msg) msg.textContent = 'Connecting…';
+    fetch('/api/wifi/connect', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ssid: pendingSSID, password})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.ok) {
+            document.getElementById('wifi-connect-form').style.display = 'none';
+            loadWifiStatus();
+            loadSavedNetworks();
+        } else {
+            if (msg) msg.innerHTML = `<span style="color:var(--red);">Failed: ${esc(data.error || 'unknown')}</span>`;
+        }
+    })
+    .catch(() => {
+        if (msg) msg.innerHTML = '<span style="color:var(--orange);">Hub may have switched networks — try reconnecting to mcomz.local or the MComzOS hotspot.</span>';
+    });
+}
+
+function loadSavedNetworks() {
+    fetch('/api/wifi/known')
+        .then(r => r.json())
+        .then(data => {
+            const el = document.getElementById('wifi-saved');
+            const nets = data.networks || [];
+            if (!nets.length) {
+                el.innerHTML = '<div style="color:var(--muted);font-size:0.85rem;padding:4px 0;">No saved networks</div>';
+                return;
+            }
+            el.innerHTML = nets.map(n =>
+                `<div class="wifi-saved-row">
+                    <span style="font-size:0.85rem;">${esc(n.name)}</span>
+                    <button class="small-btn" onclick="forgetNetwork('${esc(n.name)}')">Forget</button>
+                </div>`
+            ).join('');
+        })
+        .catch(() => {
+            document.getElementById('wifi-saved').innerHTML =
+                '<div style="color:var(--muted);font-size:0.85rem;">Unable to load saved networks</div>';
+        });
+}
+
+function forgetNetwork(name) {
+    if (!confirm(`Forget "${name}"?`)) return;
+    fetch('/api/wifi/forget', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({name})
+    }).then(() => { loadSavedNetworks(); loadWifiStatus(); });
+}
+
+function toggleAP() {
+    const btn = document.getElementById('ap-btn');
+    btn.disabled = true;
+    btn.textContent = apActive ? 'Stopping…' : 'Starting…';
+    fetch(apActive ? '/api/wifi/ap/stop' : '/api/wifi/ap/start', {method: 'POST'})
+        .then(() => { loadWifiStatus(); btn.disabled = false; })
+        .catch(() => { btn.disabled = false; loadWifiStatus(); });
+}
+
+function esc(s) {
+    return String(s)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+        .replace(/'/g,'&#39;');
+}
 </script>
 
 </body>
