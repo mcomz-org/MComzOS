@@ -637,72 +637,64 @@
     # ---------------------------------------------------------
     # MESHTASTIC INTEGRATION
     # ---------------------------------------------------------
-    - name: Add Debian Bookworm main archive (meshtasticd deps not in Raspbian mirror)
-      # meshtasticd requires libgpiod2 and libyaml-cpp0.7 which are in the Debian
-      # archive but absent from the Raspbian mirror used by RPi OS Lite images.
-      apt_repository:
-        repo: "deb http://deb.debian.org/debian bookworm main"
-        state: present
-        filename: debian-bookworm-main
-      ignore_errors: yes  # SCAFFOLD: non-fatal if already present or unavailable.
+    - name: Install Meshtastic (meshtasticd from OBS)
+      # Grouped in a block so a failure anywhere (OBS repo down, GPG key
+      # unreachable, Debian archive blocked) cleanly skips the whole Meshtastic
+      # install with a single warning instead of cascading misleading errors.
+      block:
+        - name: Add Debian Bookworm main archive (meshtasticd deps not in Raspbian mirror)
+          # meshtasticd requires libgpiod2 and libyaml-cpp0.7 which are in the Debian
+          # archive but absent from the Raspbian mirror used by RPi OS Lite images.
+          apt_repository:
+            repo: "deb http://deb.debian.org/debian bookworm main"
+            state: present
+            filename: debian-bookworm-main
+
+        - name: Add Meshtastic apt repository GPG key
+          get_url:
+            url: https://download.opensuse.org/repositories/network:Meshtastic:beta/Debian_12/Release.key
+            dest: /tmp/meshtastic-release.key
+
+        - name: Install Meshtastic apt repository GPG key
+          shell: >
+            gpg --dearmor < /tmp/meshtastic-release.key
+            > /etc/apt/trusted.gpg.d/network_Meshtastic_beta.gpg
+          args:
+            creates: /etc/apt/trusted.gpg.d/network_Meshtastic_beta.gpg
+
+        - name: Add Meshtastic apt repository
+          apt_repository:
+            repo: "deb http://download.opensuse.org/repositories/network:/Meshtastic:/beta/Debian_12/ /"
+            state: present
+            filename: meshtastic
+
+        - name: Install meshtasticd (Meshtastic Linux daemon)
+          apt:
+            name: meshtasticd
+            update_cache: yes
+            state: present
+
+        - name: Enable meshtasticd built-in web server on port 8080
+          # The bundled web client at /usr/share/meshtasticd/web provides a full
+          # browser UI for monitoring and configuring the attached LoRa device.
+          copy:
+            dest: /etc/meshtasticd/config.d/webserver.yaml
+            content: |
+              Webserver:
+                Port: 8080
+                RootPath: /usr/share/meshtasticd/web
+
+        - name: Enable meshtasticd service
+          file:
+            src: /lib/systemd/system/meshtasticd.service
+            dest: /etc/systemd/system/multi-user.target.wants/meshtasticd.service
+            state: link
+            force: yes
+      rescue:
+        - name: Warn that Meshtastic install was skipped
+          debug:
+            msg: "Meshtastic install skipped (OBS repo, GPG key, or Debian main unavailable). LoRa hardware will need manual setup after first boot."
       when: not (minimal_build | default(false))
-
-    - name: Add Meshtastic apt repository GPG key
-      get_url:
-        url: https://download.opensuse.org/repositories/network:Meshtastic:beta/Debian_12/Release.key
-        dest: /tmp/meshtastic-release.key
-      ignore_errors: yes  # SCAFFOLD: OBS repo is outside our control; skip gracefully if unavailable.
-      when: not (minimal_build | default(false))
-
-    - name: Install Meshtastic apt repository GPG key
-      shell: >
-        gpg --dearmor < /tmp/meshtastic-release.key
-        > /etc/apt/trusted.gpg.d/network_Meshtastic_beta.gpg
-      args:
-        creates: /etc/apt/trusted.gpg.d/network_Meshtastic_beta.gpg
-      ignore_errors: yes  # SCAFFOLD: depends on previous GPG key download; skip if that failed.
-      when: not (minimal_build | default(false))
-
-    - name: Add Meshtastic apt repository
-      apt_repository:
-        repo: "deb http://download.opensuse.org/repositories/network:/Meshtastic:/beta/Debian_12/ /"
-        state: present
-        filename: meshtastic
-      ignore_errors: yes  # SCAFFOLD: OBS repo is outside our control; skip gracefully if unavailable.
-      when: not (minimal_build | default(false))
-
-    - name: Install meshtasticd (Meshtastic Linux daemon)
-      apt:
-        name: meshtasticd
-        update_cache: yes
-        state: present
-      register: meshtasticd_install
-      ignore_errors: yes  # SCAFFOLD: depends on OBS repo and Debian main being available above.
-      when: not (minimal_build | default(false))
-
-    - name: Enable meshtasticd built-in web server on port 8080
-      # The bundled web client at /usr/share/meshtasticd/web provides a full
-      # browser UI for monitoring and configuring the attached LoRa device.
-      copy:
-        dest: /etc/meshtasticd/config.d/webserver.yaml
-        content: |
-          Webserver:
-            Port: 8080
-            RootPath: /usr/share/meshtasticd/web
-      ignore_errors: yes  # SCAFFOLD: config.d dir won't exist if meshtasticd install failed.
-      when:
-        - not (minimal_build | default(false))
-        - meshtasticd_install is succeeded
-
-    - name: Enable meshtasticd service
-      file:
-        src: /lib/systemd/system/meshtasticd.service
-        dest: /etc/systemd/system/multi-user.target.wants/meshtasticd.service
-        state: link
-        force: yes
-      when:
-        - not (minimal_build | default(false))
-        - meshtasticd_install is succeeded
 
     # ---------------------------------------------------------
     # MESHCORE INTEGRATION (ARM64 / Raspberry Pi only)
