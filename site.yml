@@ -1139,6 +1139,13 @@
         state: absent
       notify: Reload nginx
 
+    - name: Enable nginx service at boot (chroot-safe symlink — deb-systemd-helper defers enables in chroot)
+      file:
+        src: /lib/systemd/system/nginx.service
+        dest: /etc/systemd/system/multi-user.target.wants/nginx.service
+        state: link
+        force: yes
+
     - name: Create nginx systemd drop-in directory
       file:
         path: /etc/systemd/system/nginx.service.d
