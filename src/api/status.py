@@ -14,7 +14,7 @@ SERVICES = {
     "meshtasticd":      {"label": "Meshtastic",              "path": "/meshtastic/"},
     "mcomz-meshcore":   {"label": "MeshCore",                "path": "/meshcore/"},
     "kiwix-serve":      {"label": "Offline Library",         "path": "/library/"},
-    "pat":              {"label": "Winlink Email (Pat)",      "path": "/pat/"},
+    "pat":              {"label": "Winlink Email (Pat)",      "path": None},
     "direwolf":         {"label": "APRS (Direwolf)",         "path": None},
     "ardopcf":          {"label": "HF Modem (ardopcf)",      "path": None},
     "mcomz-vnc":        {"label": "Remote Desktop",          "path": "/vnc/"},

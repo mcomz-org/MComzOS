@@ -562,7 +562,7 @@
             "auxiliary_addresses": [],
             "locator": "",
             "service_codes": ["PUBLIC"],
-            "http_addr": "0.0.0.0:8081",
+            "http_addr": "127.0.0.1:18081",
             "motd": ["MComzOS Winlink Gateway"],
             "connect_aliases": {},
             "listen": [],
@@ -1092,11 +1092,6 @@
                   proxy_pass http://127.0.0.1:8000/;
               }
 
-              # Pat Winlink HTTP gateway (port 8081)
-              location /pat/ {
-                  proxy_pass http://127.0.0.1:8081/;
-              }
-
               # noVNC browser remote desktop — static files served by nginx,
               # WebSocket tunnel proxied to websockify (VNC-tunnel-only on port 6080)
               location /vnc/ {
@@ -1109,6 +1104,20 @@
                   proxy_set_header Upgrade $http_upgrade;
                   proxy_set_header Connection "upgrade";
                   proxy_read_timeout 86400;
+              }
+          }
+
+          # Pat Winlink — served on its own HTTPS port so its absolute-path
+          # Vue.js frontend works without subpath rewriting.
+          server {
+              listen 8081 ssl default_server;
+              server_name mcomz.local mcomz _;
+              ssl_certificate /etc/ssl/mcomz/mcomz.crt;
+              ssl_certificate_key /etc/ssl/mcomz/mcomz.key;
+
+              location / {
+                  proxy_pass http://127.0.0.1:18081/;
+                  proxy_set_header Host $host;
               }
           }
 
