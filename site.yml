@@ -783,11 +783,19 @@
         - ansible_architecture == 'aarch64'
 
     - name: Install pyMC_Repeater package itself
-      pip:
-        name: "file:///opt/meshcore-repeater"
-        virtualenv: /opt/mcomz/meshcore-venv
-      ignore_errors: yes  # Native extensions (pymc_core hardware deps) may fail under qemu;
-                          # unit is deployed so the service can run once hardware + deps are in place.
+      # Native extensions (pymc_core hardware deps) may fail under qemu ARM64
+      # emulation. Wrap in block/rescue so a failure warns loudly but still
+      # lets the rest of the build complete — the systemd unit is deployed
+      # regardless so the service can run once deps are in place on real HW.
+      block:
+        - name: pip install pyMC_Repeater into venv
+          pip:
+            name: "file:///opt/meshcore-repeater"
+            virtualenv: /opt/mcomz/meshcore-venv
+      rescue:
+        - name: Warn pyMC_Repeater install failed
+          debug:
+            msg: "pyMC_Repeater pip install failed (likely pymc_core native extensions under qemu). MeshCore daemon won't start until manually installed on real hardware: /opt/mcomz/meshcore-venv/bin/pip install file:///opt/meshcore-repeater"
       when:
         - not (minimal_build | default(false))
         - ansible_architecture == 'aarch64'
