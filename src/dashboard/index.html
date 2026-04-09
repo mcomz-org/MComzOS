@@ -478,10 +478,35 @@ function forgetNetwork(name) {
 function toggleAP() {
     const btn = document.getElementById('ap-btn');
     btn.disabled = true;
-    btn.textContent = apActive ? 'Stopping…' : 'Starting…';
-    fetch(apActive ? '/api/wifi/ap/stop' : '/api/wifi/ap/start', {method: 'POST'})
-        .then(() => { loadWifiStatus(); btn.disabled = false; })
-        .catch(() => { btn.disabled = false; loadWifiStatus(); });
+    const starting = !apActive;
+    btn.textContent = starting ? 'Starting…' : 'Stopping…';
+
+    // AP start drops our WiFi connection before the response arrives — use a short
+    // timeout so the button never stays frozen if the connection dies mid-request.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+
+    fetch(starting ? '/api/wifi/ap/start' : '/api/wifi/ap/stop', {
+        method: 'POST', signal: controller.signal
+    })
+    .catch(() => {}) // connection drop on AP start is expected — treat as success
+    .finally(() => {
+        clearTimeout(timer);
+        btn.disabled = false;
+        if (starting) {
+            // Can't reload status — WiFi connection is gone.
+            // Update state manually and show reconnect guidance.
+            apActive = true;
+            document.getElementById('wifi-current').innerHTML =
+                '📡 <strong>Hotspot starting…</strong> If you lose this page, connect to ' +
+                'WiFi network <strong>MComzOS</strong> (password: <code>mcomzos1</code>) then reload.';
+            btn.textContent = '⬛ Stop Hotspot';
+            btn.style.background = '#444';
+        } else {
+            // Stopping AP — give NetworkManager a moment to reconnect then reload.
+            setTimeout(loadWifiStatus, 3000);
+        }
+    });
 }
 
 function esc(s) {

@@ -1124,6 +1124,24 @@
         state: absent
       notify: Reload nginx
 
+    - name: Create nginx systemd drop-in directory
+      file:
+        path: /etc/systemd/system/nginx.service.d
+        state: directory
+        mode: '0755'
+
+    - name: Add nginx restart-on-failure drop-in
+      # nginx ships without Restart= in its unit file; a drop-in ensures it retries
+      # on first-boot if a transient condition (e.g. systemd settling) caused it to fail.
+      copy:
+        dest: /etc/systemd/system/nginx.service.d/restart.conf
+        content: |
+          [Service]
+          Restart=on-failure
+          RestartSec=5
+        owner: root
+        mode: '0644'
+
     - name: Configure OverlayFS (Read-Only Root) for power-pull safety — RPi
       command: raspi-config nonint enable_overlayfs
       notify: Reboot System
