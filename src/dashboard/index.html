@@ -216,9 +216,19 @@
     <!-- VOICE & TEXT -->
     <div class="card">
         <h2 style="color:var(--blue)">🎙 Voice &amp; Text Chat</h2>
-        <p class="note">Browser-based voice and text — works on any phone, no app needed. Voice and text are in the same channel.</p>
+        <p class="note">Browser-based voice and text — works on any phone, no app needed.</p>
         <a href="#" class="btn btn-blue" onclick="location.href='/mumble/?address='+location.hostname+'&port=443/mumble/ws';return false;">Join Channel (Mumble)</a>
-        <p class="note" style="margin-top:6px;">Enter any username and leave password blank. <strong>Use Safari</strong> on Mac or iPhone for voice — Chrome blocks microphone access for self-signed certificates.</p>
+        <div class="note" style="margin-top:8px;line-height:1.6;">
+            <strong>How to use:</strong>
+            <ul style="margin:4px 0 4px 16px;">
+                <li>Enter any name, leave password blank, press Connect</li>
+                <li>Type in the box at the bottom — press Enter to send</li>
+                <li>Voice is <em>voice-activated</em> — just speak, no button to hold</li>
+                <li>To private message someone: click their name in the user list</li>
+                <li>The mic button mutes/unmutes you</li>
+            </ul>
+            <strong style="color:var(--orange);">Use Safari</strong> for voice on Mac or iPhone — Chrome blocks microphone access for self-signed certificates.
+        </div>
     </div>
 
     <!-- HF: PAT -->
