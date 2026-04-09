@@ -604,10 +604,18 @@
       when: not (minimal_build | default(false))
 
     - name: Install mumble-web browser client via npm
-      npm:
-        name: mumble-web
-        global: yes
-      ignore_errors: yes  # SCAFFOLD: webpack postinstall can stall under qemu ARM64 emulation; if this fails Mumble voice won't work but the build will complete.
+      # Wrapped in block/rescue with a hard timeout because the webpack postinstall
+      # can stall under qemu ARM64 emulation. A stall or registry outage warns and
+      # skips the browser voice client rather than silently masking the failure.
+      block:
+        - name: Install mumble-web via npm (with timeout)
+          shell: timeout 600 npm install -g mumble-web
+          args:
+            creates: /usr/lib/node_modules/mumble-web/package.json
+      rescue:
+        - name: Warn mumble-web install failed
+          debug:
+            msg: "mumble-web npm install failed or timed out (webpack stall under qemu ARM64 or npm registry unavailable). Browser voice client won't work until manually installed: npm install -g mumble-web"
       when: not (minimal_build | default(false))
 
     - name: Deploy Mumble WebSocket bridge service
