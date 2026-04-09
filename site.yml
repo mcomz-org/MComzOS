@@ -962,7 +962,7 @@
 
           [Service]
           Type=simple
-          ExecStart=/usr/bin/kiwix-serve --port 8888 --library /var/mcomz/library.xml
+          ExecStart=/usr/bin/kiwix-serve --port 8888 --library /var/mcomz/library.xml --urlRootLocation /library
           Restart=on-failure
 
           [Install]

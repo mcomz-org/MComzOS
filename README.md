@@ -80,7 +80,7 @@ Click **NEXT**.
 
 - Set a hostname (e.g. `mcomz`) and click **NEXT**.
 - Set your Capital city: (mine is `London (United Kingdom)`), your time zone (mine is `Europe/London`) and keyboard layout (mine is `gb`) and click **NEXT**.
-- Set a Username (e.g. `mcomz`), set and confirm a password for your device twice then click **NEXT**.
+- Set the Username to **`mcomz`** (this is required — MComzOS services run as this user), set and confirm a password for your device twice then click **NEXT**.
 - Under SSID enter your Wi-Fi network name and enter your network password twice then click **NEXT**.
 - Enable SSH and select your preferred means of authentication then click **NEXT**.
 

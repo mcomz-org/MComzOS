@@ -14,6 +14,31 @@
 
 ## Outstanding
 
+### P0 — Bugs found during first hardware test (v0.0.2-pre-alpha.11, RPi 5, 2026-04-09)
+
+- [ ] **Kiwix CSS/images broken** (`site.yml` kiwix-serve ExecStart)
+  - Root cause: kiwix-serve returns HTML with absolute paths (e.g. `/skin/base.css`). When proxied at `/library/`, the browser fetches these from the nginx root, getting 404s.
+  - Fix: add `--urlRootLocation /library` to the kiwix-serve `ExecStart` so kiwix prefixes all its internal URLs with `/library`. No nginx change needed.
+
+- [ ] **Pat fails to start — wrong user** (`build-image.yml` extra-vars)
+  - Root cause: CI passes `mcomz_user=pi` as extra-var; playbook writes `User=pi` into all service files; but the actual system user (set via RPi Imager cloud-init) is `mcomz`. systemd reports exit 217/USER (user not found).
+  - Fix: remove `mcomz_user=pi` from both CI extra-vars (RPi and x86 build steps). The playbook default is already `mcomz_user: "mcomz"` which matches the README-recommended username. Document in README that users must set their RPi Imager username to `mcomz`.
+  - Note: this also affects ardopcf, direwolf, VNC and any other service with `User={{ mcomz_user }}`.
+
+- [ ] **mumble-web WebSocket bridge fails** (`site.yml` mumble-web npm install)
+  - Root cause: `npm install -g mumble-web` hits the SCAFFOLD `ignore_errors` and silently fails in the ARM64 chroot build. websockify starts but can't find `/usr/lib/node_modules/mumble-web/dist`.
+  - Fix: part of the overnight SCAFFOLD removal run. Specifically needs the block/rescue + timeout approach from overnight-run.md § "mumble-web npm install". If npm still fails under qemu, the rescue must warn clearly rather than silently continuing.
+
+- [ ] **AP hotspot button stuck on "Starting..."** (`src/dashboard/index.html` + `src/api/status.py`)
+  - Symptom: clicking "Create Hotspot" shows "Starting..." indefinitely (observed for >1 hour).
+  - Likely cause: the `/api/wifi/ap/start` POST completes but the dashboard's status poll either doesn't pick up the transition, or the hostapd/dnsmasq start sequence fails silently and the button never resets.
+  - Fix: investigate `ap_start()` in status.py; add explicit success/failure response; ensure dashboard resets button on both success and error response.
+
+- [ ] **nginx does not start on first boot** (boot ordering / systemd dependency)
+  - Symptom: nginx symlink present in `multi-user.target.wants/` but service inactive on first boot; starts fine when manually triggered.
+  - Likely cause: boot-ordering race — nginx starts before its dependencies (networking, certs) are ready and fails silently without being marked failed.
+  - Fix: investigate nginx service file dependencies; add `After=network.target` if not present; consider `Restart=on-failure` with a short delay.
+
 ### P0 — Hub is non-functional without these
 
 - ✅ **WiFi AP + captive portal** (site.yml)
@@ -243,6 +268,31 @@ Direwolf decodes APRS packets but there is no map UI. README updated to reflect 
 | Direwolf APRS | 8010 (AGWPORT), 8011 (KISS) | ✅ Running |
 | ardopcf HF modem | 8515 (TCP) | ✅ Running |
 | Status API | 9000 → /api/ | ✅ Running |
+
+## Post-v0.0.2 Dashboard Features (requested 2026-04-09)
+
+### Radio Communications tab
+- [ ] Add a "Radio Communications" tab to the dashboard alongside "Mesh Communications"
+- [ ] Gate licenced-radio features behind a question: "Do you have an Amateur Radio licence and a radio?"
+  - If No: show explanation of what a licence enables, link to licensing info
+  - If Yes: reveal JS8Call (VNC), Pat (Winlink), ardopcf, Direwolf APRS, FreeDATA (when available)
+- [ ] Unlicenced LoRa hardware (Meshtastic, MeshCore) stays visible without the gate
+
+### Admin login / protected functions
+- [ ] Add a login screen protecting admin-only functions (simple password, stored locally — no internet auth)
+- [ ] Protected functions include: power off / reboot RPi, WiFi settings panel, add Kiwix books, any action that could impact other users on the network
+- [ ] Non-admin users can use all comms features without logging in
+
+### Kiwix library onboarding
+- [ ] Flash screen on first login (or if library is empty) suggesting the user adds at least WikiMed Medical Encyclopedia
+- [ ] "Add Books" button in the Library section — requires login
+- [ ] Recommended books list with variants (full / no-pic / mini) and approximate sizes:
+  - Wikipedia (full, mini)
+  - Wikipedia 0.8 (English simplified)
+  - WikiMed Medical Encyclopedia
+  - Appropedia (appropriate technology / survival)
+  - Wikisource "The Free Library" (Bible, Shakespeare, etc.)
+- [ ] Clicking a recommended book triggers a kiwix-manage download on the Pi (requires kiwix-manage integration in status.py API)
 
 ## Key Decisions Made
 - TigerVNC + noVNC chosen over Wayland + RustDesk (lighter, browser-native, battle-tested)
