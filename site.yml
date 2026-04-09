@@ -315,6 +315,7 @@
           [Unit]
           Description=MComzOS Headless VNC Server
           After=network.target
+          StartLimitIntervalSec=0
 
           [Service]
           Type=simple
@@ -324,7 +325,6 @@
           ExecStop=/usr/bin/vncserver -kill :1
           Restart=on-failure
           RestartSec=5s
-          StartLimitIntervalSec=0
 
           [Install]
           WantedBy=multi-user.target
@@ -336,13 +336,13 @@
           [Unit]
           Description=MComzOS noVNC Browser Gateway
           After=mcomz-vnc.service
+          StartLimitIntervalSec=0
 
           [Service]
           Type=simple
           ExecStart=/usr/bin/websockify 6080 localhost:5901
           Restart=on-failure
           RestartSec=5
-          StartLimitIntervalSec=0
 
           [Install]
           WantedBy=multi-user.target
@@ -645,7 +645,7 @@
 
           [Service]
           Type=simple
-          ExecStart=/usr/bin/websockify 64737 localhost:64738
+          ExecStart=/usr/bin/websockify --ssl-target 64737 localhost:64738
           Restart=on-failure
 
           [Install]
