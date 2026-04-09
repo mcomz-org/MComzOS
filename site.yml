@@ -392,10 +392,22 @@
         "
       register: pat_deb_url
       changed_when: false
-      failed_when: false  # SCAFFOLD: GitHub API rate limit or schema change; skip Pat install if URL not resolved.
+      # Curl network failure = hard build failure (runner network is broken).
+      # The warning task below covers GitHub API rate limits / schema changes
+      # as a soft skip (curl succeeds but stdout is empty).
+      failed_when: pat_deb_url.rc != 0
       environment:
         GITHUB_TOKEN: "{{ lookup('env', 'GITHUB_TOKEN') }}"  # Explicitly propagate into chroot task
       when: not (minimal_build | default(false))
+
+    - name: Warn if Pat release URL could not be resolved
+      debug:
+        msg: "Pat release URL could not be resolved (GitHub API error, rate limit, or schema change). Pat (Winlink) will not be installed."
+      when:
+        - not (minimal_build | default(false))
+        - pat_deb_url.rc is defined
+        - pat_deb_url.rc == 0
+        - pat_deb_url.stdout | default('') | trim | length == 0
 
     - name: Install Pat (Winlink)
       apt:
