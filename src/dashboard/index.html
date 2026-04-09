@@ -80,15 +80,13 @@
             background: #111;
             border-radius: 4px;
         }
-        .dot {
-            width: 10px; height: 10px;
-            border-radius: 50%;
-            flex-shrink: 0;
-            background: #444;
+        .svc-badge {
+            font-size: 0.7rem; font-weight: 700;
+            width: 26px; flex-shrink: 0; text-align: center;
         }
-        .dot.active   { background: var(--green); }
-        .dot.inactive { background: var(--red); }
-        .dot.checking { background: var(--orange); animation: pulse 1s infinite; }
+        .svc-badge.on  { color: var(--green); }
+        .svc-badge.off { color: var(--red); }
+        .svc-badge.checking { color: var(--orange); animation: pulse 1s infinite; }
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
 
         .note { color: var(--muted); font-size: 0.8rem; margin-top: 8px; }
@@ -233,14 +231,14 @@
     <div class="card">
         <h2 style="color:var(--pink)">📻 JS8Call <small style="color:var(--muted)">(licensed)</small></h2>
         <p class="note">Keyboard-to-keyboard HF messaging via weak-signal digital mode. Join the #MCOMZ net Sundays 1500Z on 7.078 MHz.</p>
-        <a href="/vnc/vnc.html?path=websockify&autoconnect=true" class="btn btn-pink">Open JS8Call (Remote Desktop)</a>
+        <a href="/vnc/vnc.html?path=vnc/websockify&autoconnect=true" class="btn btn-pink">Open JS8Call (Remote Desktop)</a>
     </div>
 
     <!-- HF: FREEDATA -->
     <div class="card">
         <h2 style="color:var(--pink)">📡 FreeDATA <small style="color:var(--muted)">(licensed)</small></h2>
         <p class="note">High-speed HF data modem for file transfer and peer-to-peer data exchange over radio.</p>
-        <a href="/vnc/vnc.html?path=websockify&autoconnect=true" class="btn btn-pink">Open FreeDATA (Remote Desktop)</a>
+        <a href="/vnc/vnc.html?path=vnc/websockify&autoconnect=true" class="btn btn-pink">Open FreeDATA (Remote Desktop)</a>
         <p class="note">FreeDATA may not be installed — AppImage availability varies by release.</p>
     </div>
 
@@ -270,7 +268,7 @@
     <div class="card full">
         <h2>System Status</h2>
         <div id="status-grid" class="status-grid">
-            <div class="svc"><div class="dot checking"></div>Loading…</div>
+            <div class="svc"><span class="svc-badge checking">…</span>Loading…</div>
         </div>
         <p class="note" style="margin-top:12px;">Refreshes every 15 seconds.</p>
     </div>
@@ -290,11 +288,12 @@ setInterval(tick, 1000);
 function renderStatus(data) {
     const grid = document.getElementById('status-grid');
     grid.innerHTML = Object.entries(data).map(([, svc]) => {
-        const cls = svc.status === 'active' ? 'active' : 'inactive';
+        const active = svc.status === 'active';
+        const badge = `<span class="svc-badge ${active ? 'on' : 'off'}">${active ? 'on' : 'off'}</span>`;
         const inner = svc.path
             ? `<a href="${svc.path}" style="color:inherit;text-decoration:none;">${svc.label}</a>`
             : svc.label;
-        return `<div class="svc"><div class="dot ${cls}"></div>${inner}</div>`;
+        return `<div class="svc">${badge}${inner}</div>`;
     }).join('');
 }
 function fetchStatus() {
