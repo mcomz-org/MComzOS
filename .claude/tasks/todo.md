@@ -27,7 +27,23 @@
 - ✅ **AP hotspot button stuck on "Starting..."** — AbortController with 4s timeout added to `toggleAP()`; connection drop treated as success; manual state update and reconnect guidance shown; no longer freezes.
   - Note: actual hostapd/dnsmasq startup on hardware needs verification in next flash test.
 
-- ✅ **nginx does not start on first boot** — `nginx.service.d/restart.conf` drop-in with `Restart=on-failure` + `RestartSec=5` deployed by Ansible. If nginx fails on boot (certs not ready, port conflict), systemd retries automatically.
+- ✅ **nginx does not start on first boot** — Root cause: `deb-systemd-helper` detects chroot build and defers enables instead of creating symlinks. Fix: explicit `multi-user.target.wants/nginx.service` symlink deployed by Ansible, same as all custom services.
+
+### P0 — Bugs found during second hardware test (v0.0.2-pre-alpha.13, RPi 5, 2026-04-09)
+
+- ✅ **Safari iOS refuses to open HTTPS** — Self-signed cert was 3650 days; iOS Safari hard-blocks any cert with validity > 398 days since iOS 14. Fixed: cert regenerated with 397-day validity.
+
+- ✅ **Kiwix returns `/libraryINVALID URL` 404** — nginx `proxy_pass http://127.0.0.1:8888/` stripped the `/library/` prefix, but kiwix with `--urlRootLocation /library` expects to receive the full `/library/...` path. Fixed: `proxy_pass http://127.0.0.1:8888/library/` (preserves prefix).
+
+- [ ] **VNC Connect button does nothing** — mcomz-novnc has `Requires=mcomz-vnc`. If VNC server restarts during boot (it does — `Restart=on-failure`), novnc is stopped by systemd and never restarted. Fixed in code: removed `Requires=`, added `StartLimitIntervalSec=0`. Needs hardware verification.
+
+- [ ] **Mumble controls greyed on macOS Chrome** — `mcomz-mumble-ws` (websockify bridge) was not in the SERVICES dict so its status was invisible. Added to dashboard. Root cause of greyed controls unknown until websockify status is confirmed on device.
+
+- [ ] **Mumble microphone on iOS** — iOS Chrome cannot access microphone (Apple restricts WebRTC to Safari only on iOS). Added "use Safari on iPhone/iPad" note to dashboard. Safari iOS also had the cert validity issue (now fixed above).
+
+- [ ] **Meshtastic / MeshCore 502 Bad Gateway** — both services are off (no LoRa hardware). 502 is the correct nginx response when backend isn't running, but the dashboard should handle this gracefully rather than showing a raw nginx error page.
+
+- [ ] **hostapd / dnsmasq showing "off" in status** — correct behaviour (AP mode only activates when not connected to WiFi), but confusing to users who don't know the AP is on standby.
 
 ### P0 — Hub is non-functional without these
 

@@ -11,6 +11,7 @@ SERVICES = {
     "dnsmasq":          {"label": "DHCP / DNS",              "path": None},
     "avahi-daemon":     {"label": "mDNS (.local)",           "path": None},
     "mumble-server":    {"label": "Voice & Text (Mumble)",   "path": "/mumble/"},
+    "mcomz-mumble-ws":  {"label": "Mumble WebSocket Bridge", "path": None},
     "meshtasticd":      {"label": "Meshtastic",              "path": "/meshtastic/"},
     "mcomz-meshcore":   {"label": "MeshCore",                "path": "/meshcore/"},
     "kiwix-serve":      {"label": "Offline Library",         "path": "/library/"},
@@ -18,6 +19,7 @@ SERVICES = {
     "direwolf":         {"label": "APRS (Direwolf)",         "path": None},
     "ardopcf":          {"label": "HF Modem (ardopcf)",      "path": None},
     "mcomz-vnc":        {"label": "Remote Desktop",          "path": "/vnc/"},
+    "mcomz-novnc":      {"label": "VNC WebSocket Bridge",    "path": None},
     "nginx":            {"label": "Web Server",              "path": None},
 }
 

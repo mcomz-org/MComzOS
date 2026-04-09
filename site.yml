@@ -336,12 +336,13 @@
           [Unit]
           Description=MComzOS noVNC Browser Gateway
           After=mcomz-vnc.service
-          Requires=mcomz-vnc.service
 
           [Service]
           Type=simple
           ExecStart=/usr/bin/websockify 6080 localhost:5901
           Restart=on-failure
+          RestartSec=5
+          StartLimitIntervalSec=0
 
           [Install]
           WantedBy=multi-user.target
@@ -1031,12 +1032,13 @@
       # Self-signed cert is acceptable for a closed LAN emergency hub — users
       # accept it once in the browser, then microphone and VNC audio both work.
       command: >
-        openssl req -x509 -nodes -days 3650
+        openssl req -x509 -nodes -days 397
         -newkey rsa:2048
         -keyout /etc/ssl/mcomz/mcomz.key
         -out /etc/ssl/mcomz/mcomz.crt
         -subj "/CN=mcomz.local/O=MComzOS/C=XX"
         -addext "subjectAltName=DNS:mcomz.local,DNS:mcomz,IP:192.168.4.1"
+      # 397 days: iOS Safari hard-blocks self-signed certs with validity > 398 days (since iOS 14)
       args:
         creates: /etc/ssl/mcomz/mcomz.crt
 
@@ -1070,8 +1072,10 @@
               }
 
               # Offline Library (kiwix-serve on port 8888)
+              # kiwix uses --urlRootLocation /library so it expects the full /library/...
+              # path — do NOT strip the prefix (proxy_pass must include /library/)
               location /library/ {
-                  proxy_pass http://127.0.0.1:8888/;
+                  proxy_pass http://127.0.0.1:8888/library/;
               }
 
               # Mumble browser voice client — static files served by nginx,
