@@ -410,11 +410,16 @@
       # pflarue/ardop ships pre-built binaries; building from source fails in ARM64 chroot
       # (rawhid.c type error) and is unnecessary when upstream provides the binary.
       # Arch map: arm64 -> arm_Linux_64, amd64 -> amd64_Linux_64
-      get_url:
-        url: "https://github.com/pflarue/ardop/releases/latest/download/ardopcf_{{ 'arm_Linux_64' if deb_arch == 'arm64' else 'amd64_Linux_64' }}"
-        dest: /usr/local/bin/ardopcf
-        mode: '0755'
-      ignore_errors: yes  # SCAFFOLD: skip gracefully if GitHub is unavailable.
+      block:
+        - name: Fetch ardopcf binary from pflarue/ardop releases
+          get_url:
+            url: "https://github.com/pflarue/ardop/releases/latest/download/ardopcf_{{ 'arm_Linux_64' if deb_arch == 'arm64' else 'amd64_Linux_64' }}"
+            dest: /usr/local/bin/ardopcf
+            mode: '0755'
+      rescue:
+        - name: Warn ardopcf download failed
+          debug:
+            msg: "ardopcf binary download failed (GitHub unavailable or no release for this arch). HF modem (ARDOP) will not work until manually installed."
       when: not (minimal_build | default(false))
 
     - name: Deploy ardopcf systemd service (HF modem daemon for Pat)
