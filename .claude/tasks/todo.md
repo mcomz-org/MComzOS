@@ -16,28 +16,18 @@
 
 ### P0 — Bugs found during first hardware test (v0.0.2-pre-alpha.11, RPi 5, 2026-04-09)
 
-- [ ] **Kiwix CSS/images broken** (`site.yml` kiwix-serve ExecStart)
-  - Root cause: kiwix-serve returns HTML with absolute paths (e.g. `/skin/base.css`). When proxied at `/library/`, the browser fetches these from the nginx root, getting 404s.
-  - Fix: add `--urlRootLocation /library` to the kiwix-serve `ExecStart` so kiwix prefixes all its internal URLs with `/library`. No nginx change needed.
+- ✅ **Kiwix CSS/images broken** — `--urlRootLocation /library` added to kiwix-serve ExecStart so all internal URL paths are prefixed correctly.
 
-- [ ] **Pat fails to start — wrong user** (`build-image.yml` extra-vars)
-  - Root cause: CI passes `mcomz_user=pi` as extra-var; playbook writes `User=pi` into all service files; but the actual system user (set via RPi Imager cloud-init) is `mcomz`. systemd reports exit 217/USER (user not found).
-  - Fix: remove `mcomz_user=pi` from both CI extra-vars (RPi and x86 build steps). The playbook default is already `mcomz_user: "mcomz"` which matches the README-recommended username. Document in README that users must set their RPi Imager username to `mcomz`.
-  - Note: this also affects ardopcf, direwolf, VNC and any other service with `User={{ mcomz_user }}`.
+- ✅ **Pat fails to start — wrong user** — `mcomz_user=pi` removed from both CI extra-vars; playbook default `mcomz_user: mcomz` now used for all service files.
 
-- [ ] **mumble-web WebSocket bridge fails** (`site.yml` mumble-web npm install)
-  - Root cause: `npm install -g mumble-web` hits the SCAFFOLD `ignore_errors` and silently fails in the ARM64 chroot build. websockify starts but can't find `/usr/lib/node_modules/mumble-web/dist`.
-  - Fix: part of the overnight SCAFFOLD removal run. Specifically needs the block/rescue + timeout approach from overnight-run.md § "mumble-web npm install". If npm still fails under qemu, the rescue must warn clearly rather than silently continuing.
+- ✅ **mumble-web WebSocket bridge fails** — Fixed in two parts:
+  1. npm install path: `creates:` guard and websockify ExecStart updated to use `/usr/local/lib/node_modules/` (actual npm global path on Debian).
+  2. WebSocket routing: websockify runs TCP-only (no `--web` flag); nginx serves mumble-web static files via `alias /usr/local/lib/node_modules/mumble-web/dist/` at `/mumble/`; WebSocket-only endpoint at `/mumble/ws`; dashboard button URL updated to `port=443/mumble/ws`.
 
-- [ ] **AP hotspot button stuck on "Starting..."** (`src/dashboard/index.html` + `src/api/status.py`)
-  - Symptom: clicking "Create Hotspot" shows "Starting..." indefinitely (observed for >1 hour).
-  - Likely cause: the `/api/wifi/ap/start` POST completes but the dashboard's status poll either doesn't pick up the transition, or the hostapd/dnsmasq start sequence fails silently and the button never resets.
-  - Fix: investigate `ap_start()` in status.py; add explicit success/failure response; ensure dashboard resets button on both success and error response.
+- ✅ **AP hotspot button stuck on "Starting..."** — AbortController with 4s timeout added to `toggleAP()`; connection drop treated as success; manual state update and reconnect guidance shown; no longer freezes.
+  - Note: actual hostapd/dnsmasq startup on hardware needs verification in next flash test.
 
-- [ ] **nginx does not start on first boot** (boot ordering / systemd dependency)
-  - Symptom: nginx symlink present in `multi-user.target.wants/` but service inactive on first boot; starts fine when manually triggered.
-  - Likely cause: boot-ordering race — nginx starts before its dependencies (networking, certs) are ready and fails silently without being marked failed.
-  - Fix: investigate nginx service file dependencies; add `After=network.target` if not present; consider `Restart=on-failure` with a short delay.
+- ✅ **nginx does not start on first boot** — `nginx.service.d/restart.conf` drop-in with `Restart=on-failure` + `RestartSec=5` deployed by Ansible. If nginx fails on boot (certs not ready, port conflict), systemd retries automatically.
 
 ### P0 — Hub is non-functional without these
 
@@ -270,6 +260,11 @@ Direwolf decodes APRS packets but there is no map UI. README updated to reflect 
 | Status API | 9000 → /api/ | ✅ Running |
 
 ## Post-v0.0.2 Dashboard Features (requested 2026-04-09)
+
+### Inline service guides (offline-friendly)
+- [ ] Mumble: inline "How to connect" guide on the dashboard card (don't rely on external docs link which requires internet). Cover: enter any username, leave password blank, allow microphone when prompted, push-to-talk vs voice-activated.
+- [ ] JS8Call: brief inline guide covering the #MCOMZ net schedule and how to send a message
+- [ ] Pat: inline guide covering callsign setup and sending a Winlink check-in
 
 ### Radio Communications tab
 - [ ] Add a "Radio Communications" tab to the dashboard alongside "Mesh Communications"

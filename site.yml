@@ -644,7 +644,7 @@
 
           [Service]
           Type=simple
-          ExecStart=/usr/bin/websockify --web /usr/local/lib/node_modules/mumble-web/dist 64737 localhost:64738
+          ExecStart=/usr/bin/websockify 64737 localhost:64738
           Restart=on-failure
 
           [Install]
@@ -1074,12 +1074,18 @@
                   proxy_pass http://127.0.0.1:8888/;
               }
 
-              # Mumble browser voice client (websockify on port 64737 — needs WS upgrade)
-              location /mumble/ {
+              # Mumble browser voice client — static files served by nginx,
+              # WebSocket tunnel proxied to websockify (TCP-only on port 64737)
+              location /mumble/ws {
                   proxy_pass http://127.0.0.1:64737/;
                   proxy_http_version 1.1;
                   proxy_set_header Upgrade $http_upgrade;
                   proxy_set_header Connection "upgrade";
+              }
+              location /mumble/ {
+                  alias /usr/local/lib/node_modules/mumble-web/dist/;
+                  index index.html;
+                  try_files $uri $uri/ /mumble/index.html;
               }
 
               # Meshtastic web UI (meshtasticd on port 8080)
