@@ -652,6 +652,24 @@
           WantedBy=multi-user.target
       when: not (minimal_build | default(false))
 
+    - name: Patch websockify ssl_target to use SSLContext (ssl.wrap_socket removed in Python 3.12)
+      # websockify 0.12 on Debian Trixie still calls ssl.wrap_socket() in the --ssl-target
+      # code path, which was removed in Python 3.12/3.13. Replace inline with SSLContext.
+      shell: |
+        python3 - <<'PYEOF'
+        path = '/usr/lib/python3/dist-packages/websockify/websockifyserver.py'
+        old = '                    sock = ssl.wrap_socket(sock)'
+        new = ('                    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)\n'
+               '                    ctx.check_hostname = False\n'
+               '                    ctx.verify_mode = ssl.CERT_NONE\n'
+               '                    sock = ctx.wrap_socket(sock)')
+        src = open(path).read()
+        if old in src:
+            open(path, 'w').write(src.replace(old, new, 1))
+        PYEOF
+      changed_when: true
+      when: not (minimal_build | default(false))
+
     - name: Enable Mumble WebSocket bridge service
       file:
         src: /etc/systemd/system/mcomz-mumble-ws.service
