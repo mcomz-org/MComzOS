@@ -623,7 +623,7 @@
         - name: Install mumble-web via npm (with timeout)
           shell: timeout 600 npm install -g mumble-web
           args:
-            creates: /usr/lib/node_modules/mumble-web/package.json
+            creates: /usr/local/lib/node_modules/mumble-web/package.json
       rescue:
         - name: Warn mumble-web install failed
           debug:
@@ -644,7 +644,7 @@
 
           [Service]
           Type=simple
-          ExecStart=/usr/bin/websockify --web /usr/lib/node_modules/mumble-web/dist 64737 localhost:64738
+          ExecStart=/usr/bin/websockify --web /usr/local/lib/node_modules/mumble-web/dist 64737 localhost:64738
           Restart=on-failure
 
           [Install]
