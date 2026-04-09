@@ -1,0 +1,13 @@
+## v0.0.2-pre-alpha.11 — 2026-04-09 01:50Z
+- Build result: RPi ok=84 changed=72 failed=0 skipped=6 rescued=0 ignored=0 ✓ / x86 failed at "Resolve Pat latest .deb download URL" (curl: not found in chroot)
+- SCAFFOLD markers remaining: 0
+- ignore_errors remaining: 0
+- What was fixed this iteration:
+  - Meshtastic OBS install: 5 tasks wrapped in block/rescue (meshtasticd service enable moved inside block)
+  - ardopcf binary download: block/rescue with warning
+  - mumble-web: `timeout 600 npm install -g mumble-web` + block/rescue
+  - Pat URL resolve: `failed_when: rc != 0` + separate warn-on-empty debug task
+  - pyMC_Repeater pip: block/rescue with warning (last remaining ignore_errors)
+- What failed or needs attention:
+  - x86_64 build exposed a pre-existing latent bug: debootstrap base image does not ship `curl`, so the Pat URL resolve shell task dies with `curl: not found`. Previously masked by `failed_when: false`. RPi build uses qemu+host curl so was unaffected.
+- Next planned action: Add `curl` to the `apt-get install` list in the "Install Ansible inside chroot" step of build-image.yml, retag as v0.0.2-pre-alpha.12.

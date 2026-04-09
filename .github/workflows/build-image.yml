@@ -326,7 +326,7 @@ jobs:
 
       - name: Install Ansible inside chroot
         run: |
-          sudo chroot /mnt/x86 apt-get install -y ansible python3
+          sudo chroot /mnt/x86 apt-get install -y ansible python3 curl
 
           # Stub out systemctl after all apt installs are done (prevents dpkg overwriting it)
           sudo mv /mnt/x86/usr/bin/systemctl /mnt/x86/usr/bin/systemctl.real 2>/dev/null || true
