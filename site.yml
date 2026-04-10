@@ -996,6 +996,138 @@
         force: yes
       when: not (minimal_build | default(false))
 
+    - name: Download MComzLibrary ZIMs (Scriptures, Literature, Survival)
+      # Fetches the most recent MComzLibrary GitHub release (prerelease-aware —
+      # /releases/latest returns 404 for repos that only publish prereleases).
+      # Soft failure: if GitHub is unreachable the image boots without these ZIMs.
+      # TODO: add a systemd timer to re-check for updated ZIMs on a running system.
+      shell: |
+        python3 - <<'PYEOF'
+        import urllib.request, json, os, sys
+
+        ZIM_DIR = '/var/mcomz/library'
+        TOKEN = os.environ.get('GITHUB_TOKEN', '')
+
+        req = urllib.request.Request(
+            'https://api.github.com/repos/mcomz-org/MComzLibrary/releases?per_page=1'
+        )
+        if TOKEN:
+            req.add_header('Authorization', f'Bearer {TOKEN}')
+
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                data = json.load(r)
+        except Exception as e:
+            print(f'WARN: Could not fetch MComzLibrary release: {e}', file=sys.stderr)
+            sys.exit(0)
+
+        if not data or isinstance(data, dict):
+            print(f'WARN: GitHub API error: {data}', file=sys.stderr)
+            sys.exit(0)
+
+        zims = [(a['name'], a['browser_download_url'])
+                for a in data[0].get('assets', [])
+                if a['name'].endswith('.zim')]
+
+        for name, url in zims:
+            dest = os.path.join(ZIM_DIR, name)
+            if os.path.exists(dest):
+                print(f'Already present: {name}')
+                continue
+            print(f'Downloading {name} ...')
+            tmp = dest + '.tmp'
+            try:
+                with urllib.request.urlopen(url) as r, open(tmp, 'wb') as f:
+                    while True:
+                        chunk = r.read(1024 * 1024)
+                        if not chunk:
+                            break
+                        f.write(chunk)
+                os.rename(tmp, dest)
+                print(f'Done: {name}')
+            except Exception as e:
+                if os.path.exists(tmp):
+                    os.unlink(tmp)
+                print(f'WARN: Failed to download {name}: {e}', file=sys.stderr)
+        PYEOF
+      args:
+        executable: /bin/bash
+      environment:
+        GITHUB_TOKEN: "{{ lookup('env', 'GITHUB_TOKEN') }}"
+      failed_when: false
+      when: not (minimal_build | default(false))
+
+    - name: Download WikiMed Mini (wikipedia_en_medicine_mini, latest from Kiwix)
+      # Queries the Kiwix OPDS catalog for the latest WikiMed Mini URL; ~155 MB.
+      # Soft failure: image boots without WikiMed if Kiwix is unreachable.
+      # TODO: add to the systemd update-checker timer alongside MComz-Survival.zim.
+      shell: |
+        python3 - <<'PYEOF'
+        import urllib.request, xml.etree.ElementTree as ET, os, sys
+
+        ZIM_DIR = '/var/mcomz/library'
+        DEST = os.path.join(ZIM_DIR, 'wikimed-mini.zim')
+
+        if os.path.exists(DEST):
+            print('WikiMed Mini already present')
+            sys.exit(0)
+
+        # Find the latest wikipedia_en_medicine_mini URL from the Kiwix OPDS catalog.
+        try:
+            catalog_url = 'https://library.kiwix.org/catalog/v2/entries?lang=eng&category=wikipedia'
+            with urllib.request.urlopen(catalog_url, timeout=30) as r:
+                root = ET.fromstring(r.read())
+        except Exception as e:
+            print(f'WARN: Could not query Kiwix catalog: {e}', file=sys.stderr)
+            sys.exit(0)
+
+        ns = {'atom': 'http://www.w3.org/2005/Atom'}
+        zim_url = None
+        for entry in root.findall('atom:entry', ns):
+            for link in entry.findall('atom:link', ns):
+                href = link.get('href', '')
+                if 'wikipedia_en_medicine_mini' in href and href.endswith('.meta4'):
+                    zim_url = href[:-6]  # strip .meta4 → direct ZIM URL
+                    break
+            if zim_url:
+                break
+
+        if not zim_url:
+            print('WARN: WikiMed Mini not found in Kiwix catalog', file=sys.stderr)
+            sys.exit(0)
+
+        print(f'Downloading WikiMed Mini from {zim_url} ...')
+        tmp = DEST + '.tmp'
+        try:
+            with urllib.request.urlopen(zim_url) as r, open(tmp, 'wb') as f:
+                while True:
+                    chunk = r.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+            os.rename(tmp, DEST)
+            print('Done: wikimed-mini.zim')
+        except Exception as e:
+            if os.path.exists(tmp):
+                os.unlink(tmp)
+            print(f'WARN: Failed to download WikiMed Mini: {e}', file=sys.stderr)
+        PYEOF
+      args:
+        executable: /bin/bash
+      failed_when: false
+      when: not (minimal_build | default(false))
+
+    - name: Register downloaded ZIMs with Kiwix library
+      shell: |
+        for zim in /var/mcomz/library/*.zim; do
+          [[ -f "$zim" ]] || continue
+          echo "Registering $(basename "$zim") ..."
+          kiwix-manage /var/mcomz/library.xml add "$zim" 2>&1 || true
+        done
+      args:
+        executable: /bin/bash
+      when: not (minimal_build | default(false))
+
     # ---------------------------------------------------------
     # PHASE 5: THE MCOMZ DASHBOARD & SYSTEMD SERVICES
     # ---------------------------------------------------------
