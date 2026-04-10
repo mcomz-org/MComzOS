@@ -35,13 +35,13 @@
 
 - ✅ **Kiwix returns `/libraryINVALID URL` 404** — nginx `proxy_pass http://127.0.0.1:8888/` stripped the `/library/` prefix, but kiwix with `--urlRootLocation /library` expects to receive the full `/library/...` path. Fixed: `proxy_pass http://127.0.0.1:8888/library/` (preserves prefix).
 
-- [ ] **VNC Connect button does nothing** — mcomz-novnc has `Requires=mcomz-vnc`. If VNC server restarts during boot (it does — `Restart=on-failure`), novnc is stopped by systemd and never restarted. Fixed in code: removed `Requires=`, added `StartLimitIntervalSec=0`. Needs hardware verification.
+- [ ] **VNC Connect button does nothing** — mcomz-novnc has `Requires=mcomz-vnc`. If VNC server restarts during boot (it does — `Restart=on-failure`), novnc is stopped by systemd and never restarted. Fixed in code: removed `Requires=`, added `StartLimitIntervalSec=0`. **Needs hardware verification.**
 
-- [ ] **Mumble controls greyed on macOS Chrome** — `mcomz-mumble-ws` (websockify bridge) was not in the SERVICES dict so its status was invisible. Added to dashboard. Root cause of greyed controls unknown until websockify status is confirmed on device.
+- [ ] **Mumble controls greyed on macOS Chrome** — `mcomz-mumble-ws` (websockify bridge) was not in the SERVICES dict so its status was invisible. Added to dashboard. Also fixed websockify SSL patch to pass `server_hostname='localhost'` to `wrap_socket()` (Python 3.12 compatibility). **Root cause of greyed controls unknown until websockify status is confirmed on device.**
 
 - [ ] **Mumble microphone on iOS** — iOS Chrome cannot access microphone (Apple restricts WebRTC to Safari only on iOS). Added "use Safari on iPhone/iPad" note to dashboard. Safari iOS also had the cert validity issue (now fixed above).
 
-- [ ] **Meshtastic / MeshCore 502 Bad Gateway** — both services are off (no LoRa hardware). 502 is the correct nginx response when backend isn't running, but the dashboard should handle this gracefully rather than showing a raw nginx error page.
+- ✅ **Meshtastic / MeshCore 502 Bad Gateway** — Both links now open in a new tab (`target="_blank"`). If the service is known inactive (from status API), an inline warning is shown: "not connected — attach your LoRa radio and reload." No raw nginx 502 navigation.
 
 - [ ] **hostapd / dnsmasq showing "off" in status** — correct behaviour (AP mode only activates when not connected to WiFi), but confusing to users who don't know the AP is on standby.
 
@@ -178,10 +178,10 @@
 
 #### Phase A: Get the build green (use `ignore_errors` as scaffolding)
 
-- [ ] **Fix meshtasticd enable** — same chroot failure as avahi-daemon (package-installed unit, no init script). Add `ignore_errors: yes` with comment.
-- [ ] **Add `ignore_errors: yes` to ALL `daemon_reload: yes` service enable tasks** — in chroot builds the fake systemctl makes daemon_reload meaningless; the unit files are on disk and systemd picks them up on real boot. This eliminates the entire class of "service not found in chroot" failures.
-- [ ] **Add `ignore_errors: yes` to Meshtastic OBS repo tasks** — external third-party repo is outside our control; if download.opensuse.org is unavailable the build shouldn't die.
-- [ ] **Add timeout to `npm install -g mumble-web`** — webpack postinstall under qemu ARM64 emulation can stall; default npm timeout may exceed GitHub Actions step limits.
+- ✅ **Fix meshtasticd enable** — uses `file: state=link` symlink pattern (same as all other services); no `ignore_errors` needed.
+- ✅ **All service enables** — all use `file: state=link` to multi-user.target.wants; no daemon_reload tasks remain.
+- ✅ **Meshtastic OBS repo tasks** — entire Meshtastic block wrapped in `block/rescue`; OBS unavailability prints a warning and continues build.
+- ✅ **npm install timeout** — `shell: timeout 600 npm install -g mumble-web` with `block/rescue` for stall protection.
 
 **High-risk tasks to monitor in build logs (may need fixes):**
 - `npm install -g mumble-web` — webpack build under qemu emulation (~30-40% failure)
