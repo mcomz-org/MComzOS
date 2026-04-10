@@ -91,6 +91,24 @@
 
         .note { color: var(--muted); font-size: 0.8rem; margin-top: 8px; }
 
+        /* Collapsible how-to */
+        details.howto { margin-top: 8px; }
+        details.howto summary {
+            cursor: pointer; font-size: 0.8rem; color: var(--blue);
+            user-select: none; list-style: none;
+        }
+        details.howto summary::-webkit-details-marker { display: none; }
+        details.howto summary::before { content: "▸ "; }
+        details.howto[open] summary::before { content: "▾ "; }
+        details.howto .howto-body {
+            margin-top: 6px; font-size: 0.8rem; color: var(--muted); line-height: 1.6;
+        }
+        details.howto .howto-body ul { margin: 4px 0 4px 16px; }
+
+        /* Power buttons */
+        .btn-danger { background: #b71c1c; color: #fff; }
+        .btn-danger:hover { background: #d32f2f; }
+
         /* Mesh expand/collapse */
         #mesh-detail { display: none; }
         #mesh-detail.open { display: block; }
@@ -218,17 +236,19 @@
         <h2 style="color:var(--blue)">🎙 Voice &amp; Text Chat</h2>
         <p class="note">Browser-based voice and text — works on any phone, no app needed.</p>
         <a href="#" class="btn btn-blue" onclick="location.href='/mumble/?address='+location.hostname+'&port=443/mumble/ws';return false;">Join Channel (Mumble)</a>
-        <div class="note" style="margin-top:8px;line-height:1.6;">
-            <strong>How to use:</strong>
-            <ul style="margin:4px 0 4px 16px;">
-                <li>Enter any name, leave password blank, press Connect</li>
-                <li>Type in the box at the bottom — press Enter to send</li>
-                <li>Voice is <em>voice-activated</em> — just speak, no button to hold</li>
-                <li>To private message someone: click their name in the user list</li>
-                <li>The mic button mutes/unmutes you</li>
-            </ul>
-            <strong style="color:var(--orange);">Use Safari</strong> for voice on Mac or iPhone — Chrome blocks microphone access for self-signed certificates.
-        </div>
+        <details class="howto">
+            <summary>How to use</summary>
+            <div class="howto-body">
+                <ul>
+                    <li>Enter any name, leave password blank, press Connect</li>
+                    <li>Type in the box at the bottom — press Enter to send</li>
+                    <li>Voice is <em>voice-activated</em> — just speak, no button to hold</li>
+                    <li>To private message someone: click their name in the user list</li>
+                    <li>The mic button mutes/unmutes you</li>
+                </ul>
+                <strong style="color:var(--orange);">Use Safari</strong> on Mac or iPhone — Chrome blocks microphone access for self-signed certificates.
+            </div>
+        </details>
     </div>
 
     <!-- HF: PAT -->
@@ -277,7 +297,15 @@
 
     <!-- SERVICE STATUS -->
     <div class="card full">
-        <h2>System Status</h2>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;">
+            <h2 style="margin-bottom:0;">System Status</h2>
+            <div style="display:flex;gap:8px;">
+                <button class="btn btn-danger" style="width:auto;padding:6px 14px;font-size:0.8rem;"
+                        onclick="confirmReboot()">↺ Reboot</button>
+                <button class="btn btn-danger" style="width:auto;padding:6px 14px;font-size:0.8rem;"
+                        onclick="confirmShutdown()">⏻ Shut Down</button>
+            </div>
+        </div>
         <div id="status-grid" class="status-grid">
             <div class="svc"><span class="svc-badge checking">…</span>Loading…</div>
         </div>
@@ -517,6 +545,30 @@ function toggleAP() {
             setTimeout(loadWifiStatus, 3000);
         }
     });
+}
+
+// ── Power controls ────────────────────────────────────────────────────────────
+function confirmShutdown() {
+    if (!confirm('Shut down the hub?\n\nAll connected users will be disconnected. You will need physical access to power it back on.')) return;
+    fetch('/api/system/poweroff', { method: 'POST' })
+        .then(() => {
+            document.body.innerHTML = '<div style="padding:40px;text-align:center;color:#e0e0e0;font-family:sans-serif;"><h2>Shutting down…</h2><p style="color:#888;margin-top:12px;">The hub is powering off. It is safe to unplug once the activity light stops.</p></div>';
+        })
+        .catch(() => {
+            alert('Shutdown command sent. The hub should power off shortly.');
+        });
+}
+
+function confirmReboot() {
+    if (!confirm('Reboot the hub?\n\nAll connected users will be briefly disconnected.')) return;
+    fetch('/api/system/reboot', { method: 'POST' })
+        .then(() => {
+            document.body.innerHTML = '<div style="padding:40px;text-align:center;color:#e0e0e0;font-family:sans-serif;"><h2>Rebooting…</h2><p style="color:#888;margin-top:12px;">The hub is restarting. This page will reload automatically.</p></div>';
+            setTimeout(() => location.reload(), 30000);
+        })
+        .catch(() => {
+            alert('Reboot command sent. Reload this page in about 30 seconds.');
+        });
 }
 
 function esc(s) {

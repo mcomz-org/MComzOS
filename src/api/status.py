@@ -4,6 +4,7 @@ Proxied by nginx at /api/. Runs as root so nmcli/ip/systemctl work without sudo.
 
 import json
 import subprocess
+import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 SERVICES = {
@@ -125,16 +126,47 @@ def wifi_forget(name):
 
 
 def ap_start():
-    """Mirror the mcomz-apmode-fallback activation sequence."""
+    """Disconnect from WiFi, release interface from NetworkManager, then start the AP.
+    Explicit disconnect before releasing avoids a race where hostapd tries to bind
+    to an interface still held in station mode by the driver."""
+    # Graceful disconnect first — best-effort, may fail if not connected
+    subprocess.run(["nmcli", "device", "disconnect", WIFI_IFACE],
+                   capture_output=True, timeout=10)
+    # Release from NetworkManager
+    subprocess.run(["nmcli", "device", "set", WIFI_IFACE, "managed", "no"],
+                   capture_output=True, timeout=10)
+    # Give the driver a moment to exit station mode before hostapd takes over
+    time.sleep(1)
+    # Configure AP interface
     for cmd in [
-        ["nmcli", "device", "set", WIFI_IFACE, "managed", "no"],
         ["ip", "addr", "flush", "dev", WIFI_IFACE],
         ["ip", "addr", "add", f"{AP_IP}/24", "dev", WIFI_IFACE],
         ["ip", "link", "set", WIFI_IFACE, "up"],
-        ["systemctl", "start", "hostapd"],
-        ["systemctl", "start", "dnsmasq"],
     ]:
         subprocess.run(cmd, capture_output=True, timeout=10)
+    # Start AP services — capture hostapd result so failures are visible in logs
+    r = subprocess.run(["systemctl", "start", "hostapd"],
+                       capture_output=True, text=True, timeout=15)
+    if r.returncode != 0:
+        # hostapd failed — the user is already offline; log the error and return it
+        # so it appears in journald (mcomz-status service) for debugging
+        import sys
+        print(f"hostapd start failed: {r.stderr.strip()}", file=sys.stderr, flush=True)
+        return {"ok": False, "error": f"hostapd failed to start: {r.stderr.strip() or 'check journalctl -u hostapd'}"}
+    subprocess.run(["systemctl", "start", "dnsmasq"], capture_output=True, timeout=10)
+    return {"ok": True}
+
+
+def system_poweroff():
+    """Initiate an immediate system shutdown. Uses Popen so the JSON response
+    returns before the system actually powers off (~2 seconds later)."""
+    subprocess.Popen(["shutdown", "-h", "now"])
+    return {"ok": True}
+
+
+def system_reboot():
+    """Initiate an immediate system reboot."""
+    subprocess.Popen(["shutdown", "-r", "now"])
     return {"ok": True}
 
 
@@ -211,6 +243,10 @@ class StatusHandler(BaseHTTPRequestHandler):
             self._json(ap_start())
         elif self.path == "/api/wifi/ap/stop":
             self._json(ap_stop())
+        elif self.path == "/api/system/poweroff":
+            self._json(system_poweroff())
+        elif self.path == "/api/system/reboot":
+            self._json(system_reboot())
         else:
             self.send_response(404)
             self.end_headers()
