@@ -280,15 +280,17 @@
         <button class="btn btn-orange" onclick="toggleMesh(this)">Show Mesh Capabilities</button>
 
         <div id="mesh-detail">
-            <div class="mesh-section">
+            <div class="mesh-section" id="meshtastic-section">
                 <h2 style="color:var(--orange);font-size:0.9rem;margin-bottom:6px;">📡 Meshtastic</h2>
                 <p class="note">Public LoRa mesh network — any Meshtastic device can join and exchange text messages. Ideal for neighbourhood-wide comms without infrastructure.</p>
-                <a href="/meshtastic/" class="btn btn-orange" style="margin-top:8px;">Open Meshtastic</a>
+                <a href="/meshtastic/" target="_blank" rel="noopener" class="btn btn-orange" style="margin-top:8px;"
+                   onclick="return guardMeshService('meshtasticd','Meshtastic',document.getElementById('meshtastic-section'))">Open Meshtastic</a>
             </div>
-            <div class="mesh-section">
+            <div class="mesh-section" id="meshcore-section">
                 <h2 style="color:var(--orange);font-size:0.9rem;margin-bottom:6px;">🔐 MeshCore</h2>
                 <p class="note">Private tactical mesh — this hub acts as a node and repeater. You control the network: flash your own LoRa radios with MeshCore firmware to join.</p>
-                <a href="/meshcore/" class="btn btn-orange" style="margin-top:8px;">MeshCore Dashboard</a>
+                <a href="/meshcore/" target="_blank" rel="noopener" class="btn btn-orange" style="margin-top:8px;"
+                   onclick="return guardMeshService('mcomz-meshcore','MeshCore',document.getElementById('meshcore-section'))">MeshCore Dashboard</a>
                 <a href="https://flasher.meshcore.co.uk" target="_blank" rel="noopener"
                    class="btn" style="background:#333;color:#fff;">Flash Radio to MeshCore ↗</a>
             </div>
@@ -324,7 +326,10 @@ tick();
 setInterval(tick, 1000);
 
 // ── Service status ───────────────────────────────────────────────────────────
+let lastStatus = null;
+
 function renderStatus(data) {
+    lastStatus = data;
     const grid = document.getElementById('status-grid');
     grid.innerHTML = Object.entries(data).map(([, svc]) => {
         const active = svc.status === 'active';
@@ -351,6 +356,25 @@ function toggleMesh(btn) {
     const detail = document.getElementById('mesh-detail');
     const open = detail.classList.toggle('open');
     btn.textContent = open ? 'Hide Mesh Capabilities' : 'Show Mesh Capabilities';
+}
+
+// Guard for Meshtastic / MeshCore links: if the service is known to be inactive,
+// show an inline warning instead of opening a dead 502 page. If status is not
+// yet loaded the link opens normally (best-effort). Always opens in a new tab.
+function guardMeshService(serviceKey, label, container) {
+    if (lastStatus && lastStatus[serviceKey] && lastStatus[serviceKey].status !== 'active') {
+        let warn = container.querySelector('.mesh-offline-warn');
+        if (!warn) {
+            warn = document.createElement('p');
+            warn.className = 'note mesh-offline-warn';
+            warn.style.color = 'var(--orange)';
+            warn.style.marginTop = '6px';
+            container.appendChild(warn);
+        }
+        warn.textContent = label + ' is not connected — attach your LoRa radio and reload.';
+        return false; // prevent link navigation
+    }
+    return true; // service active (or status unknown) — open in new tab
 }
 
 // ── WiFi panel ───────────────────────────────────────────────────────────────
