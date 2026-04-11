@@ -342,13 +342,17 @@ let lastStatus = null;
 function renderStatus(data) {
     lastStatus = data;
     const grid = document.getElementById('status-grid');
-    grid.innerHTML = Object.entries(data).map(([, svc]) => {
+    const STANDBY_SVCS = new Set(['hostapd', 'dnsmasq']);
+    grid.innerHTML = Object.entries(data).map(([name, svc]) => {
         const active = svc.status === 'active';
         const badge = `<span class="svc-badge ${active ? 'on' : 'off'}">${active ? 'on' : 'off'}</span>`;
-        const inner = svc.path
+        let label = svc.path
             ? `<a href="${svc.path}" style="color:inherit;text-decoration:none;">${svc.label}</a>`
             : svc.label;
-        return `<div class="svc">${badge}${inner}</div>`;
+        if (!active && STANDBY_SVCS.has(name)) {
+            label += ' <span style="color:var(--muted);font-size:0.75rem;">(standby — activates with hotspot)</span>';
+        }
+        return `<div class="svc">${badge}${label}</div>`;
     }).join('');
 }
 function fetchStatus() {
@@ -554,21 +558,23 @@ function toggleAP() {
     const starting = !apActive;
     btn.textContent = starting ? 'Starting…' : 'Stopping…';
 
-    // AP start drops our WiFi connection before the response arrives — use a short
-    // timeout so the button never stays frozen if the connection dies mid-request.
+    // AP start: connection drops before the response arrives, so abort after 4 s.
+    // AP stop: Python polls for reconnect for up to 30 s before responding — allow
+    // 35 s so we get the real reconnected/hint result rather than always timing out.
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 4000);
+    const timer = setTimeout(() => controller.abort(), starting ? 4000 : 35000);
 
     fetch(starting ? '/api/wifi/ap/start' : '/api/wifi/ap/stop', {
         method: 'POST', signal: controller.signal
     })
-    .catch(() => {}) // connection drop on AP start is expected — treat as success
-    .finally(() => {
+    .then(r => r.ok ? r.json() : null)
+    .catch(() => null) // connection drop on AP start is expected — treat as success
+    .then(data => {
         clearTimeout(timer);
-        btn.disabled = false;
         if (starting) {
             // Can't reload status — WiFi connection is gone.
             // Update state manually and show reconnect guidance.
+            btn.disabled = false;
             apActive = true;
             document.getElementById('wifi-current').innerHTML =
                 '📡 <strong>Hotspot starting…</strong> If you lose this page, connect to ' +
@@ -576,8 +582,25 @@ function toggleAP() {
             btn.textContent = '⬛ Stop Hotspot';
             btn.style.background = '#444';
         } else {
-            // Stopping AP — give NetworkManager a moment to reconnect then reload.
-            setTimeout(loadWifiStatus, 3000);
+            // Stopping AP — Python polled for reconnect; surface the result.
+            apActive = false;
+            btn.textContent = '📡 Start Hotspot (AP Mode)';
+            btn.style.background = '';
+            if (data && data.reconnected) {
+                document.getElementById('wifi-current').innerHTML =
+                    '✅ <strong>Hotspot stopped</strong> — reconnected to WiFi.';
+                btn.disabled = false;
+                loadWifiStatus();
+            } else {
+                // NM hasn't finished connecting yet — keep button disabled for 30 s.
+                const hint = (data && data.hint) || 'Browse to http://mcomz.local or reboot if MComzOS doesn\'t reappear.';
+                document.getElementById('wifi-current').innerHTML =
+                    '⏳ <strong>Hotspot stopped.</strong> Reconnecting… ' + esc(hint);
+                setTimeout(() => {
+                    btn.disabled = false;
+                    loadWifiStatus();
+                }, 30000);
+            }
         }
     });
 }

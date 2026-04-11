@@ -171,7 +171,12 @@ def system_reboot():
 
 
 def ap_stop():
-    """Stop the hotspot and let NetworkManager reconnect."""
+    """Stop the hotspot and poll until NetworkManager reconnects (up to 30 s).
+
+    Returns {"ok": true, "reconnected": true} on clean reconnect, or
+    {"ok": true, "reconnected": false, "hint": "..."} if NM hasn't finished
+    within the timeout — the user can still reach the hub at mcomz.local once
+    NM reconnects on its own."""
     for cmd in [
         ["systemctl", "stop", "hostapd"],
         ["systemctl", "stop", "dnsmasq"],
@@ -179,7 +184,22 @@ def ap_stop():
         ["nmcli", "device", "connect", WIFI_IFACE],
     ]:
         subprocess.run(cmd, capture_output=True, timeout=10)
-    return {"ok": True}
+
+    # Poll until wlan0 is connected or 30 s elapse.
+    for _ in range(15):
+        time.sleep(2)
+        r = subprocess.run(
+            ["nmcli", "-t", "-f", "STATE", "device", "show", WIFI_IFACE],
+            capture_output=True, text=True, timeout=5
+        )
+        if "connected" in r.stdout.lower():
+            return {"ok": True, "reconnected": True}
+
+    return {
+        "ok": True,
+        "reconnected": False,
+        "hint": "Open http://mcomz.local or reboot if MComzOS doesn't reappear.",
+    }
 
 
 class StatusHandler(BaseHTTPRequestHandler):
