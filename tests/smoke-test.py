@@ -54,7 +54,7 @@ def check(label, passed, detail=""):
 # ---------------------------------------------------------------------------
 # HTTP helpers
 # ---------------------------------------------------------------------------
-def get(url, use_ssl=False, port=None, path="/", expect_codes=(200,)):
+def get(path="/", use_ssl=False, port=None, expect_codes=(200,)):
     """Return (status_code, body_bytes) or (None, None) on error."""
     scheme = "https" if use_ssl else "http"
     port_str = f":{port}" if port else ""
@@ -196,9 +196,6 @@ if books_data:
               "not found in titles/paths")
 
 # Manage Books API endpoints
-code_dl, body_dl = get(path="/api/kiwix/download/status",
-                        use_ssl=False)
-# This needs params, refetch properly
 dl_status = get_json("/api/kiwix/download/status", params={"file": "test.zim"})
 check("Download status API responds", dl_status is not None)
 if dl_status:
