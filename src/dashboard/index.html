@@ -300,7 +300,10 @@
     <!-- SERVICE STATUS -->
     <div class="card full">
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;">
-            <h2 style="margin-bottom:0;">System Status</h2>
+            <div>
+                <h2 style="margin-bottom:0;display:inline;">System Status</h2>
+                <span id="mcomz-version" style="font-size:0.8rem;color:#888;margin-left:10px;font-weight:normal;"></span>
+            </div>
             <div style="display:flex;gap:8px;">
                 <button class="btn btn-danger" style="width:auto;padding:6px 14px;font-size:0.8rem;"
                         onclick="confirmReboot()">↺ Reboot</button>
@@ -324,6 +327,14 @@ function tick() {
 }
 tick();
 setInterval(tick, 1000);
+
+// ── Version display ──────────────────────────────────────────────────────────
+fetch('/api/version').then(r => r.json()).then(d => {
+    const el = document.getElementById('mcomz-version');
+    if (el && d.version && d.version !== 'unknown') {
+        el.innerHTML = `(<a href="https://github.com/mcomz-org/MComzOS/releases" style="color:#888;">${d.version}</a>)`;
+    }
+}).catch(() => {});
 
 // ── Service status ───────────────────────────────────────────────────────────
 let lastStatus = null;

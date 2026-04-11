@@ -215,6 +215,12 @@ class StatusHandler(BaseHTTPRequestHandler):
                 name: {"status": service_status(name), **info}
                 for name, info in SERVICES.items()
             })
+        elif path == "/api/version":
+            try:
+                with open("/etc/mcomzos-version") as f:
+                    self._json({"version": f.read().strip()})
+            except Exception:
+                self._json({"version": "unknown"})
         elif path == "/api/wifi/networks":
             try:
                 self._json(wifi_networks(rescan=params.get("scan") == "1"))

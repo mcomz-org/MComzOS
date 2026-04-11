@@ -107,7 +107,7 @@ jobs:
           sudo -E ansible-playbook \
             --connection=chroot \
             -i "/mnt/rpi," \
-            --extra-vars "deb_arch=arm64 build_mode=true" \
+            --extra-vars "deb_arch=arm64 build_mode=true mcomzos_version=${{ github.ref_name }}" \
             site.yml
 
       - name: Tear down chroot and compress image
@@ -345,7 +345,7 @@ jobs:
             ansible-playbook \
               --connection=local \
               -i localhost, \
-              --extra-vars "deb_arch=amd64 build_mode=true" \
+              --extra-vars "deb_arch=amd64 build_mode=true mcomzos_version=${{ github.ref_name }}" \
               /tmp/mcomzos/site.yml
 
       - name: Tear down chroot and compress image

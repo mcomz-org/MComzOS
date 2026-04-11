@@ -307,6 +307,43 @@
         groups: audio
         append: yes
 
+    - name: Deploy VNC startup wrapper script
+      # Uses Xvnc directly rather than the vncserver Perl wrapper, which is
+      # unreliable as a systemd foreground service (may fork unexpectedly or
+      # fail to find its environment). The wrapper cleans stale X locks,
+      # starts Xvnc in background, then launches the xstartup session.
+      copy:
+        dest: /usr/local/bin/mcomz-vnc-start
+        owner: root
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          set -e
+          export HOME="/home/{{ mcomz_user }}"
+
+          # Clean up stale X locks from previous crash
+          rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true
+
+          # Start Xvnc (the actual server binary, not the Perl wrapper)
+          /usr/bin/Xvnc :1 \
+              -geometry 1280x800 \
+              -depth 24 \
+              -rfbauth "$HOME/.vnc/passwd" \
+              -localhost \
+              -SecurityTypes VncAuth &
+          XVNC_PID=$!
+
+          # Give the X server a moment to initialise
+          sleep 1.5
+
+          # Start the desktop session
+          export DISPLAY=:1
+          export XAUTHORITY="$HOME/.Xauthority"
+          bash "$HOME/.vnc/xstartup" &
+
+          # Block until Xvnc exits (systemd tracks this process)
+          wait $XVNC_PID
+
     - name: Deploy VNC server systemd service
       copy:
         dest: /etc/systemd/system/mcomz-vnc.service
@@ -319,9 +356,7 @@
           [Service]
           Type=simple
           User={{ mcomz_user }}
-          ExecStartPre=-/usr/bin/vncserver -kill :1
-          ExecStart=/usr/bin/vncserver :1 -geometry 1280x800 -depth 24 -localhost yes -fg
-          ExecStop=/usr/bin/vncserver -kill :1
+          ExecStart=/usr/local/bin/mcomz-vnc-start
           Restart=on-failure
           RestartSec=5s
 
@@ -1220,11 +1255,61 @@
       copy:
         dest: /etc/nginx/sites-available/mcomz
         content: |
-          # Redirect HTTP to HTTPS (browsers require HTTPS for microphone access)
+          # HTTP server — serves the full dashboard on port 80.
+          # iOS Safari refuses self-signed certs without manual trust-store installation,
+          # so redirecting HTTP→HTTPS makes MComzOS unreachable on iOS. Serving on plain
+          # HTTP means the dashboard, library, and status API all work on every device
+          # without any certificate interaction. Mumble microphone requires HTTPS (getUserMedia),
+          # so users who want voice chat will still need to accept the cert once on HTTPS.
           server {
               listen 80 default_server;
               server_name mcomz.local mcomz _;
-              return 301 https://$host$request_uri;
+              root /var/www/html;
+              index index.html;
+
+              location / {
+                  try_files $uri $uri/ /index.html;
+              }
+
+              location /api/ {
+                  proxy_pass http://127.0.0.1:9000/api/;
+              }
+
+              location /library/ {
+                  proxy_pass http://127.0.0.1:8888/library/;
+              }
+
+              location /mumble/ws {
+                  proxy_pass http://127.0.0.1:64737/;
+                  proxy_http_version 1.1;
+                  proxy_set_header Upgrade $http_upgrade;
+                  proxy_set_header Connection "upgrade";
+              }
+              location /mumble/ {
+                  alias /usr/local/lib/node_modules/mumble-web/dist/;
+                  index index.html;
+                  try_files $uri $uri/ /mumble/index.html;
+              }
+
+              location /meshtastic/ {
+                  proxy_pass http://127.0.0.1:8080/;
+              }
+
+              location /meshcore/ {
+                  proxy_pass http://127.0.0.1:8000/;
+              }
+
+              location /vnc/ {
+                  alias /usr/share/novnc/;
+                  index vnc.html;
+              }
+              location /vnc/websockify {
+                  proxy_pass http://127.0.0.1:6080/;
+                  proxy_http_version 1.1;
+                  proxy_set_header Upgrade $http_upgrade;
+                  proxy_set_header Connection "upgrade";
+                  proxy_read_timeout 86400;
+              }
           }
 
           server {
@@ -1304,6 +1389,12 @@
                   proxy_set_header Host $host;
               }
           }
+
+    - name: Write MComzOS version file
+      copy:
+        dest: /etc/mcomzos-version
+        content: "{{ mcomzos_version | default('unknown') }}\n"
+        mode: '0644'
 
     - name: Enable MComz nginx site
       file:
