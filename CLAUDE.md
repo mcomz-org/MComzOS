@@ -1,24 +1,157 @@
-# MComzOS
+# MComzOS — Claude / Vibe Briefing
 
-## Project Overview
-Off-grid emergency communications hub. Ansible playbook (`site.yml`) builds a master image targeting Raspberry Pi (ARM64) and x86_64 PCs running Debian Bookworm.
+## What This Project Is
+
+MComzOS is an off-grid emergency communications hub. An Ansible playbook (`site.yml`) builds a bootable image targeting Raspberry Pi 4/5 (ARM64) and 64-bit PCs (x86_64) running Debian 12 Bookworm. Images are built by GitHub Actions on version tag push and released as `.img.xz` files.
+
+Current status: **pre-alpha**. Hardware-tested on RPi 5. All releases use `prerelease: true`.
+
+---
 
 ## Key Files
-- `site.yml` — Main Ansible playbook (all provisioning)
-- `src/dashboard/index.html` — Hub web dashboard (live service status, links to all services)
-- `src/api/status.py` — stdlib-only Python status API (systemctl health polling)
-- `README.md` — Public-facing project spec
+
+| File | Purpose |
+|------|---------|
+| `site.yml` | Entire Ansible provisioning playbook (~1400 lines) |
+| `src/dashboard/index.html` | Single-page dashboard UI (vanilla JS, dark theme) |
+| `src/api/status.py` | stdlib-only Python API on `localhost:9000` — systemctl polling, WiFi management, kiwix book management |
+| `.github/workflows/build-image.yml` | CI: builds RPi + x86 images on version tag push |
+| `TEST-PROCEDURES.md` | Manual hardware test checklist — work through this after every flash |
+| `tests/smoke-test.py` | Automated network checks — run from a laptop on the same LAN |
+| `tests/html-check.py` | Static analysis of `index.html` — run locally before building |
+| `.claude/tasks/todo.md` | Full history of decisions, completed work, and outstanding items |
+| `.claude/feedback/hardware-test-results.md` | Verbatim hardware test feedback per release |
+| `STACK.md` | Reference: every service, its port, and its role |
+
+---
 
 ## Architecture
-- Target OS: Debian 12 (Bookworm) — Raspberry Pi OS or standard Debian
-- Primary arch: ARM64 (aarch64), secondary: x86_64 (amd64)
-- `deb_arch` Ansible variable handles arch-specific download URLs
-- Images built by GitHub Actions on version tag push → released as `mcomzos-rpi.img.xz` / `mcomzos-x86_64.img.xz`
 
-## Current Task Roadmap
-See [.claude/tasks/todo.md](.claude/tasks/todo.md) for full status of outstanding work.
+- **Target OS**: Debian 12 Bookworm — Raspberry Pi OS Lite (ARM64) or standard Debian (amd64)
+- **Provisioning**: Ansible runs in a chroot during CI build — no live system needed
+- **`deb_arch`**: Ansible variable set to `arm64` or `amd64` by CI; handles arch-specific URLs
+- **`build_mode: true`**: Skips tasks that need live hardware (raspi-config, overlayfs on RPi)
+- **`mcomzos_version`**: Passed from CI as `github.ref_name`; written to `/etc/mcomzos-version`
+- **Fake systemctl**: CI stubs out `systemctl` in chroot; all service enables use `file: state=link` directly into `multi-user.target.wants/` — do not use `systemd: enabled: yes`
+- **nginx**: Serves dashboard on HTTP (port 80) and HTTPS (port 443). HTTP is intentional — iOS Safari rejects self-signed certs, so redirecting to HTTPS makes the hub unreachable on iOS.
 
-**Next priorities (P2):**
-1. OverlayFS on non-Pi hardware — `raspi-config` only works on RPi; x86 needs `overlayroot` package
-2. FreeDATA ARM64 AppImage — may 404; needs verification or build-from-source fallback
-3. Mumble HTTPS — browsers require HTTPS for microphone (`getUserMedia`); needs self-signed TLS in nginx
+### Service Port Map
+
+| Service | Port / Path | Notes |
+|---------|-------------|-------|
+| nginx dashboard | :80 and :443 | HTTP intentional for iOS Safari |
+| Status API | localhost:9000 → `/api/` | Python stdlib, runs as root |
+| Kiwix offline library | localhost:8888 → `/library/` | `--urlRootLocation /library` |
+| Mumble voice server | :64738 | Native client port |
+| Mumble websockify | localhost:64737 → `/mumble/ws` | WebSocket bridge for mumble-web |
+| mumble-web static | `/mumble/` | Served by nginx alias |
+| Meshtastic web UI | localhost:8080 → `/meshtastic/` | Built into meshtasticd |
+| MeshCore dashboard | localhost:8000 → `/meshcore/` | pyMC_Repeater |
+| noVNC static | `/vnc/` | nginx alias to /usr/share/novnc/ |
+| noVNC websockify | localhost:6080 → `/vnc/websockify` | Bridges browser to VNC |
+| TigerVNC (Xvnc) | localhost:5901 | Headless; JS8Call runs inside |
+| Pat Winlink | localhost:18081 → :8081 (HTTPS) | Separate nginx server block |
+
+---
+
+## What Is Currently Working (as of v0.0.2-pre-alpha.17)
+
+- **Dashboard**: version display, system status grid with standby notes, reboot/shutdown buttons
+- **WiFi panel**: scan, connect, forget, AP toggle with reconnect polling
+- **Hotspot / AP fallback**: manual toggle works; 5-minute auto-fallback if no LAN
+- **Offline Library (Kiwix)**: ZIMs load with search and full-text index; Manage Books panel for downloading/removing ZIMs post-install
+- **Voice & Text (Mumble)**: browser voice + text via mumble-web; collapsible how-to guide
+- **Licensed Radio card**: Pat, JS8Call, FreeDATA collapsed into single expandable card
+- **Mesh card**: Meshtastic + MeshCore with inline offline guard (no 502 page)
+- **Kiosk mode**: physical monitor auto-boots to full-screen Chromium dashboard
+- **iOS Safari**: dashboard accessible over HTTP without certificate issues
+
+## What Needs Hardware Verification (fixes shipped, not yet confirmed)
+
+- **VNC / noVNC**: switched from `vncserver -fg` to direct `Xvnc` wrapper — auth dialog should now appear; unconfirmed
+- **JS8Call inside VNC**: depends on VNC fix above
+- **Hotspot stop recovery**: polling logic shipped; user previously couldn't reconnect after stopping AP
+
+## Known Limitations (not bugs)
+
+- PDF books can't render inline on iOS Chrome — platform limitation
+- Mumble microphone requires HTTPS (`getUserMedia`) — use HTTPS or accept cert once
+- Mumble microphone on iOS Chrome — Apple restricts WebRTC to Safari only on iOS
+- FreeDATA ARM64 — no upstream AppImage; playbook skips it gracefully
+- WikiMed Mini may fail to download in chroot build (155 MB, timeout risk) — warning printed in build log if so
+
+---
+
+## Outstanding Work
+
+See `.claude/tasks/todo.md` for full detail. Current priorities:
+
+### Needs doing before alpha
+- **Pat/Winlink** — user hasn't fully tested send/receive; needs a real-radio test
+- **VNC + JS8Call** — needs hardware confirmation after Xvnc fix
+- **auto-version.yml deleted** — builds now require manual tagging (see Build Process below)
+
+### Post-alpha
+- Inline how-to guides for JS8Call and Pat (Mumble already has one)
+- Amateur licence gate on Licensed Radio card
+- Admin login protecting reboot/shutdown/WiFi/books
+- Kiwix onboarding screen when library is empty
+- WireGuard VPN for remote access
+- APRS map viewer (Direwolf decodes but no UI)
+
+---
+
+## Build Process
+
+**Auto-version is disabled** — `anothrNick/github-tag-action` can't parse `v0.0.2-pre-alpha.N` as SemVer. All builds require a manual tag:
+
+```bash
+git tag v0.0.2-pre-alpha.N
+git push origin v0.0.2-pre-alpha.N
+```
+
+Check the latest tag first: `git tag --sort=-version:refname | head -3`
+
+RPi ARM64 builds take ~90 minutes. x86_64 takes ~15 minutes.
+
+Check build results: `gh run list --limit 5` then `gh run view <ID> --log`
+
+**Never mark a release as latest** — all releases use `prerelease: true` until past alpha.
+
+---
+
+## Testing
+
+After every flash and boot, run through `TEST-PROCEDURES.md` in order.
+
+For a quick automated sanity check from a laptop on the same network:
+```bash
+python3 tests/smoke-test.py          # against mcomz.local
+python3 tests/smoke-test.py 192.168.4.1  # when connected via hotspot
+```
+
+Before making dashboard changes, run the static checker locally:
+```bash
+python3 tests/html-check.py
+```
+
+---
+
+## Critical Rules
+
+1. **All releases: `prerelease: true`** in both `softprops/action-gh-release` steps in `build-image.yml`
+2. **Never push a tag without explicit user approval**
+3. **Tag format**: always `v0.0.2-pre-alpha.N` — do not start a new version
+4. **Commit to `main` only** — no feature branches
+5. **Service enables**: always `file: state=link` into `multi-user.target.wants/` — never `systemd: enabled: yes` (breaks in chroot)
+6. **HTTP on port 80 is intentional** — do not add a redirect to HTTPS
+
+---
+
+## Vibe Session Guidance
+
+When writing prompts for vibe:
+- Give vibe the **problem to solve**, not pre-written code — let it do the thinking
+- Reference files by path; vibe has its own context window from previous runs
+- Vibe sessions can be kept open across multiple Claude turns to preserve context
+- After vibe completes, check `git log --oneline -3` and `git status --short` to confirm commits landed cleanly before pushing/tagging
