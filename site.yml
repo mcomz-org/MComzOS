@@ -1197,6 +1197,81 @@
       when: not (minimal_build | default(false))
 
     # ---------------------------------------------------------
+    # KIOSK MODE — physical monitor/keyboard/mouse
+    # When a monitor is plugged in, mcomz auto-logs in on tty1 and startx
+    # launches Chromium in full-screen kiosk mode pointing at the dashboard.
+    # Completely independent of VNC — both paths coexist.
+    # ---------------------------------------------------------
+    - name: Install kiosk display packages
+      apt:
+        name:
+          - xorg
+          - xinit
+          - chromium
+          - unclutter
+        state: present
+
+    - name: Install chromium (RPi OS fallback — package may be chromium-browser)
+      shell: apt-get install -y chromium-browser
+      failed_when: false
+
+    - name: Create getty@tty1 override directory
+      file:
+        path: /etc/systemd/system/getty@tty1.service.d
+        state: directory
+
+    - name: Auto-login mcomz user on tty1
+      copy:
+        dest: /etc/systemd/system/getty@tty1.service.d/override.conf
+        content: |
+          [Service]
+          ExecStart=
+          ExecStart=-/sbin/agetty --autologin {{ mcomz_user }} --noclear %I $TERM
+
+    - name: Deploy .bash_profile — auto-start X on tty1
+      copy:
+        dest: /home/{{ mcomz_user }}/.bash_profile
+        owner: "{{ mcomz_user }}"
+        mode: '0644'
+        content: |
+          # Start kiosk X session when on tty1 (physical console)
+          if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
+              exec startx
+          fi
+
+    - name: Deploy .xinitrc — kiosk browser session
+      copy:
+        dest: /home/{{ mcomz_user }}/.xinitrc
+        owner: "{{ mcomz_user }}"
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          # Hide cursor after 5 s of inactivity
+          unclutter -idle 5 -root &
+
+          # Disable screen blanking and power saving
+          xset s off
+          xset -dpms
+          xset s noblank
+
+          # Launch dashboard in kiosk mode
+          # Retry loop: dashboard may not be up immediately on first boot
+          until curl -sf http://localhost/ > /dev/null 2>&1; do
+              sleep 2
+          done
+
+          exec chromium \
+              --kiosk \
+              --no-sandbox \
+              --disable-infobars \
+              --disable-session-crashed-bubble \
+              --disable-restore-session-state \
+              --noerrdialogs \
+              --incognito \
+              --check-for-update-interval=31536000 \
+              "http://localhost"
+
+    # ---------------------------------------------------------
     # PHASE 5: THE MCOMZ DASHBOARD & SYSTEMD SERVICES
     # ---------------------------------------------------------
     - name: Install Nginx for MComz Captive Portal Dashboard
