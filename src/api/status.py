@@ -4,6 +4,7 @@ Proxied by nginx at /api/. Runs as root so nmcli/ip/systemctl work without sudo.
 
 import json
 import os
+import ssl
 import subprocess
 import threading
 import time
@@ -238,7 +239,19 @@ def kiwix_download(url):
         _download_status[filename] = {"status": "downloading"}
         try:
             os.makedirs(ZIMS_DIR, exist_ok=True)
-            urllib.request.urlretrieve(url, dest)
+            # Disable SSL cert verification: the Pi's clock may lag behind the
+            # cert notBefore date on first boot (no GPS/NTP sync yet), causing
+            # standard urlretrieve to raise CERTIFICATE_VERIFY_FAILED.
+            _no_verify = ssl.create_default_context()
+            _no_verify.check_hostname = False
+            _no_verify.verify_mode = ssl.CERT_NONE
+            with urllib.request.urlopen(url, context=_no_verify) as r, \
+                 open(dest, "wb") as f:
+                while True:
+                    chunk = r.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    f.write(chunk)
             # Add to library.xml
             try:
                 tree = ET.parse(LIBRARY_XML)

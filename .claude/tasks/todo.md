@@ -43,7 +43,15 @@
 
 - ✅ **Meshtastic / MeshCore 502 Bad Gateway** — Both links now open in a new tab (`target="_blank"`). If the service is known inactive (from status API), an inline warning is shown: "not connected — attach your LoRa radio and reload." No raw nginx 502 navigation.
 
-- [ ] **hostapd / dnsmasq showing "off" in status** — correct behaviour (AP mode only activates when not connected to WiFi), but confusing to users who don't know the AP is on standby.
+- ✅ **hostapd / dnsmasq showing "off" in status** — fixed: "off" badge now shows "(standby — activates with hotspot)" inline note in renderStatus().
+
+- [ ] **Manage Books: ZIM download fails with SSL CERTIFICATE_VERIFY_FAILED** — Pi clock may lag behind cert notBefore on first boot (no GPS/NTP sync yet). `kiwix_download` used `urlretrieve` which does cert verification. Fixed in code (pre-alpha.18): switched to `urlopen` with `CERT_NONE` context. **Needs hardware verification.**
+
+- [ ] **Manage Books: MComzLibrary ZIMs not in recommended list** — If a user removes a MComzLibrary ZIM (Survival, Literature, Scriptures), there is no way to reinstall it from the Manage Books panel. Recommended ZIMs list only points to kiwix.org. Need to add MComzLibrary GitHub release URLs (or fetch them dynamically from the API) to the recommended list.
+
+- [ ] **meshtasticd shows 'failed' in status** — meshtasticd is failing on boot (no LoRa hardware). The 'failed' state is correct but the dashboard shows it as "off" which is ambiguous. Consider surfacing 'failed' differently from 'inactive' so users can distinguish "not installed" from "crashed".
+
+- [ ] **direwolf/mcomz-meshcore show 'activating'** — these services are stuck in activating state on boot. Likely waiting for hardware that isn't present. May need `ConditionPathExists` guards in the systemd units so they don't start without the required device.
 
 ### P0 — Hub is non-functional without these
 

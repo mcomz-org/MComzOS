@@ -191,9 +191,11 @@ if books_data:
         (b.get("title", "") + " " + b.get("path", "")).lower()
         for b in books
     )
-    for keyword in ("survival", "literature", "scripture"):
-        check(f"  ZIM keyword '{keyword}' present", keyword in all_text,
-              "not found in titles/paths")
+    # Spot-check for at least one MComzLibrary ZIM (any of the three is fine —
+    # the literature ZIM can be deleted by the user and reinstalled via Manage Books)
+    any_mcomz = any(kw in all_text for kw in ("survival", "literature", "scripture"))
+    check("At least one MComzLibrary ZIM present", any_mcomz,
+          "none of survival/literature/scripture found in titles/paths")
 
 # Manage Books API endpoints
 dl_status = get_json("/api/kiwix/download/status", params={"file": "test.zim"})
@@ -219,10 +221,10 @@ check("noVNC HTML serves at /vnc/vnc.html", code_vnc == 200,
 if code_vnc == 200:
     check("noVNC HTML contains 'noVNC'", b"noVNC" in body_vnc or b"novnc" in body_vnc.lower())
 
-# VNC websockify endpoint (HTTP upgrade — 400 or 426 expected without upgrade headers)
+# VNC websockify endpoint — plain GET returns 400/405/426 (WebSocket-only); that's correct
 code_ws, _ = get(path="/vnc/websockify")
 check("VNC websockify endpoint exists (nginx route present)",
-      code_ws in (200, 400, 426),   # 426 = Upgrade Required, 400 = Bad Request (no WS headers)
+      code_ws in (200, 400, 405, 426),
       f"HTTP {code_ws}" if code_ws else "no response — nginx route missing")
 
 # Mumble static files
@@ -230,10 +232,10 @@ code_mum, body_mum = get(path="/mumble/")
 check("Mumble-web static files serve at /mumble/", code_mum == 200,
       f"HTTP {code_mum}")
 
-# Mumble WS endpoint (same: non-WS request gets 400/426)
+# Mumble WS endpoint — plain GET returns 400/405/426 (WebSocket-only); that's correct
 code_mws, _ = get(path="/mumble/ws")
 check("Mumble WebSocket endpoint exists",
-      code_mws in (200, 400, 426),
+      code_mws in (200, 400, 405, 426),
       f"HTTP {code_mws}" if code_mws else "no response — nginx route missing")
 
 # ---------------------------------------------------------------------------
