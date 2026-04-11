@@ -1152,7 +1152,16 @@
       args:
         executable: /bin/bash
       failed_when: false
+      register: wikimed_result
       when: not (minimal_build | default(false))
+
+    - name: Warn if WikiMed Mini download failed
+      debug:
+        msg: "WARNING: WikiMed Mini download failed or timed out — Kiwix will start without it. Re-run manually: kiwix-manage /var/mcomz/library.xml add <zim-path>"
+      when:
+        - not (minimal_build | default(false))
+        - wikimed_result.rc is defined
+        - wikimed_result.rc != 0
 
     - name: Register downloaded ZIMs with Kiwix library
       # Writes library.xml directly from ZIM file paths — avoids running
