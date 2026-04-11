@@ -109,9 +109,11 @@
         .btn-danger { background: #b71c1c; color: #fff; }
         .btn-danger:hover { background: #d32f2f; }
 
-        /* Mesh expand/collapse */
+        /* Mesh / Radio expand/collapse */
         #mesh-detail { display: none; }
         #mesh-detail.open { display: block; }
+        #radio-detail { display: none; }
+        #radio-detail.open { display: block; }
         .mesh-section { border-top: 1px solid #333; padding-top: 12px; margin-top: 10px; }
 
         /* WiFi panel */
@@ -251,26 +253,30 @@
         </details>
     </div>
 
-    <!-- HF: PAT -->
+    <!-- LICENSED RADIO -->
     <div class="card">
-        <h2 style="color:var(--pink)">✉️ Winlink Email <small style="color:var(--muted)">(licensed)</small></h2>
-        <p class="note">Send and receive email over radio without internet, using the global Winlink network.</p>
-        <a href="#" class="btn btn-pink" onclick="window.open(location.protocol+'//'+location.hostname+':8081/');return false;">Open Pat — Winlink Email</a>
-    </div>
+        <h2 style="color:var(--pink)">📻 Licensed Radio</h2>
+        <p class="note">HF digital radio modes — requires an Amateur Radio licence and a compatible transceiver.</p>
+        <button class="btn btn-pink" onclick="toggleRadio(this)">Show Radio Capabilities</button>
 
-    <!-- HF: JS8CALL -->
-    <div class="card">
-        <h2 style="color:var(--pink)">📻 JS8Call <small style="color:var(--muted)">(licensed)</small></h2>
-        <p class="note">Keyboard-to-keyboard HF messaging via weak-signal digital mode. Join the #MCOMZ net Sundays 1500Z on 7.078 MHz.</p>
-        <a href="/vnc/vnc.html?path=vnc/websockify&autoconnect=true" class="btn btn-pink">Open JS8Call (Remote Desktop)</a>
-    </div>
-
-    <!-- HF: FREEDATA -->
-    <div class="card">
-        <h2 style="color:var(--pink)">📡 FreeDATA <small style="color:var(--muted)">(licensed)</small></h2>
-        <p class="note">High-speed HF data modem for file transfer and peer-to-peer data exchange over radio.</p>
-        <a href="/vnc/vnc.html?path=vnc/websockify&autoconnect=true" class="btn btn-pink">Open FreeDATA (Remote Desktop)</a>
-        <p class="note">FreeDATA may not be installed — AppImage availability varies by release.</p>
+        <div id="radio-detail">
+            <div class="mesh-section">
+                <h2 style="color:var(--pink);font-size:0.9rem;margin-bottom:6px;">✉️ Winlink Email (Pat)</h2>
+                <p class="note">Send and receive email over radio without internet, using the global Winlink network.</p>
+                <a href="#" class="btn btn-pink" style="margin-top:8px;" onclick="window.open(location.protocol+'//'+location.hostname+':8081/');return false;">Open Pat — Winlink Email</a>
+            </div>
+            <div class="mesh-section">
+                <h2 style="color:var(--pink);font-size:0.9rem;margin-bottom:6px;">📻 JS8Call</h2>
+                <p class="note">Keyboard-to-keyboard HF messaging via weak-signal digital mode. Join the #MCOMZ net Sundays 1500Z on 7.078 MHz.</p>
+                <a href="/vnc/vnc.html?path=vnc/websockify&autoconnect=true" class="btn btn-pink" style="margin-top:8px;">Open JS8Call (Remote Desktop)</a>
+            </div>
+            <div class="mesh-section">
+                <h2 style="color:var(--pink);font-size:0.9rem;margin-bottom:6px;">📡 FreeDATA</h2>
+                <p class="note">High-speed HF data modem for file transfer and peer-to-peer data exchange over radio.</p>
+                <a href="/vnc/vnc.html?path=vnc/websockify&autoconnect=true" class="btn btn-pink" style="margin-top:8px;">Open FreeDATA (Remote Desktop)</a>
+                <p class="note">FreeDATA may not be installed — AppImage availability varies by release.</p>
+            </div>
+        </div>
     </div>
 
     <!-- MESH COMMUNICATION -->
@@ -371,6 +377,12 @@ function toggleMesh(btn) {
     const detail = document.getElementById('mesh-detail');
     const open = detail.classList.toggle('open');
     btn.textContent = open ? 'Hide Mesh Capabilities' : 'Show Mesh Capabilities';
+}
+
+function toggleRadio(btn) {
+    const detail = document.getElementById('radio-detail');
+    const open = detail.classList.toggle('open');
+    btn.textContent = open ? 'Hide Radio Capabilities' : 'Show Radio Capabilities';
 }
 
 // Guard for Meshtastic / MeshCore links: if the service is known to be inactive,
