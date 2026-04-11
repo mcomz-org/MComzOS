@@ -3,8 +3,13 @@
 Proxied by nginx at /api/. Runs as root so nmcli/ip/systemctl work without sudo."""
 
 import json
+import os
 import subprocess
+import threading
 import time
+import urllib.request
+import uuid
+import xml.etree.ElementTree as ET
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 SERVICES = {
@@ -26,6 +31,9 @@ SERVICES = {
 
 WIFI_IFACE = "wlan0"
 AP_IP = "192.168.4.1"
+ZIMS_DIR = "/var/mcomz/zims"
+LIBRARY_XML = "/var/mcomz/library.xml"
+_download_status = {}  # filename -> {"status": "downloading"|"done"|"error", "error": "..."}
 
 
 def service_status(name):
@@ -202,6 +210,81 @@ def ap_stop():
     }
 
 
+def kiwix_books():
+    try:
+        tree = ET.parse(LIBRARY_XML)
+        books = []
+        for b in tree.getroot().findall("book"):
+            books.append({
+                "id": b.get("id", ""),
+                "title": b.get("title", b.get("path", "").split("/")[-1]),
+                "path": b.get("path", ""),
+                "size": b.get("size", ""),
+            })
+        return {"books": books}
+    except Exception as e:
+        return {"books": [], "error": str(e)}
+
+
+def kiwix_download(url):
+    filename = url.rstrip("/").split("/")[-1].split("?")[0]
+    if not filename.endswith(".zim"):
+        return {"ok": False, "error": "URL must point to a .zim file"}
+    dest = os.path.join(ZIMS_DIR, filename)
+    if _download_status.get(filename, {}).get("status") == "downloading":
+        return {"ok": False, "error": "Already downloading"}
+
+    def _run():
+        _download_status[filename] = {"status": "downloading"}
+        try:
+            os.makedirs(ZIMS_DIR, exist_ok=True)
+            urllib.request.urlretrieve(url, dest)
+            # Add to library.xml
+            try:
+                tree = ET.parse(LIBRARY_XML)
+                root = tree.getroot()
+            except Exception:
+                root = ET.Element("library", version="20110515")
+                tree = ET.ElementTree(root)
+            ET.SubElement(root, "book", id=str(uuid.uuid4()), path=dest)
+            tree.write(LIBRARY_XML, xml_declaration=True, encoding="UTF-8")
+            subprocess.run(["systemctl", "restart", "kiwix-serve"],
+                           capture_output=True, timeout=15)
+            _download_status[filename] = {"status": "done"}
+        except Exception as e:
+            _download_status[filename] = {"status": "error", "error": str(e)}
+            if os.path.exists(dest):
+                os.remove(dest)
+
+    threading.Thread(target=_run, daemon=True).start()
+    return {"ok": True, "filename": filename}
+
+
+def kiwix_download_status(filename):
+    return _download_status.get(filename, {"status": "idle"})
+
+
+def kiwix_remove(path):
+    try:
+        tree = ET.parse(LIBRARY_XML)
+        root = tree.getroot()
+        for b in root.findall("book"):
+            if b.get("path") == path:
+                root.remove(b)
+                break
+        tree.write(LIBRARY_XML, xml_declaration=True, encoding="UTF-8")
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+    try:
+        if os.path.exists(path):
+            os.remove(path)
+    except Exception:
+        pass
+    subprocess.run(["systemctl", "restart", "kiwix-serve"],
+                   capture_output=True, timeout=15)
+    return {"ok": True}
+
+
 class StatusHandler(BaseHTTPRequestHandler):
 
     def _json(self, data, code=200):
@@ -251,6 +334,10 @@ class StatusHandler(BaseHTTPRequestHandler):
                 self._json(wifi_known())
             except Exception as e:
                 self._json({"error": str(e)}, 500)
+        elif path == "/api/kiwix/books":
+            self._json(kiwix_books())
+        elif path == "/api/kiwix/download/status":
+            self._json(kiwix_download_status(params.get("file", "")))
         else:
             self.send_response(404)
             self.end_headers()
@@ -273,6 +360,10 @@ class StatusHandler(BaseHTTPRequestHandler):
             self._json(system_poweroff())
         elif self.path == "/api/system/reboot":
             self._json(system_reboot())
+        elif self.path == "/api/kiwix/download":
+            self._json(kiwix_download(body.get("url", "")))
+        elif self.path == "/api/kiwix/remove":
+            self._json(kiwix_remove(body.get("path", "")))
         else:
             self.send_response(404)
             self.end_headers()

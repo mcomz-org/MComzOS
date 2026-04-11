@@ -231,6 +231,8 @@
         <h2 style="color:var(--green)">📚 Offline Library</h2>
         <p class="note">Guides, manuals, and reference books — no internet needed.</p>
         <a href="/library/" class="btn btn-green">Open Library</a>
+        <button class="btn" style="background:#1a3a1a;color:var(--green);border:1px solid #2a5a2a;"
+                onclick="openBooks()">＋ Manage Books</button>
     </div>
 
     <!-- VOICE & TEXT -->
@@ -647,7 +649,134 @@ function esc(s) {
         .replace(/>/g,'&gt;').replace(/"/g,'&quot;')
         .replace(/'/g,'&#39;');
 }
+
+// ── Books panel ───────────────────────────────────────────────────────────────
+const RECOMMENDED_ZIMS = [
+    { title: "WikiMed Medical Encyclopedia (mini, ~155 MB)",
+      url: "https://download.kiwix.org/zim/wikipedia/wikipedia_en_medicine_mini_YYYY-MM.zim",
+      note: "Replace YYYY-MM with the current date — browse library.kiwix.org for the exact URL" },
+    { title: "Wikipedia English (mini, ~900 MB)",
+      url: "https://download.kiwix.org/zim/wikipedia/",
+      note: "Browse for wikipedia_en_all_mini_YYYY-MM.zim" },
+    { title: "Appropedia (appropriate technology, ~100 MB)",
+      url: "https://download.kiwix.org/zim/appropedia/",
+      note: "Browse for appropedia_en_all_YYYY-MM.zim" },
+    { title: "Wikisource (texts & literature, ~2 GB)",
+      url: "https://download.kiwix.org/zim/wikisource/",
+      note: "Browse for wikisource_en_all_YYYY-MM.zim" },
+];
+
+let _pollTimer = null;
+
+function openBooks() {
+    document.getElementById('books-overlay').style.display = 'block';
+    document.getElementById('books-panel').style.display = 'block';
+    loadBooks();
+    renderRecommended();
+}
+function closeBooks() {
+    document.getElementById('books-overlay').style.display = 'none';
+    document.getElementById('books-panel').style.display = 'none';
+    if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+}
+function loadBooks() {
+    fetch('/api/kiwix/books').then(r => r.json()).then(data => {
+        const el = document.getElementById('books-installed');
+        if (!data.books || !data.books.length) {
+            el.innerHTML = '<div style="color:var(--muted);font-size:0.85rem;">No books installed yet.</div>';
+            return;
+        }
+        el.innerHTML = data.books.map(b => {
+            const name = b.title || b.path.split('/').pop();
+            const size = b.size ? ` <span style="color:var(--muted)">(${(b.size/1024/1024).toFixed(0)} MB)</span>` : '';
+            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:#111;border-radius:4px;margin-bottom:4px;font-size:0.85rem;">
+                <span>${esc(name)}${size}</span>
+                <button onclick="removeBook('${esc(b.path)}')" class="small-btn" style="color:var(--red);border-color:var(--red);">Remove</button>
+            </div>`;
+        }).join('');
+    }).catch(() => {
+        document.getElementById('books-installed').innerHTML =
+            '<div style="color:var(--muted);font-size:0.85rem;">Could not load books.</div>';
+    });
+}
+function renderRecommended() {
+    document.getElementById('books-recommended').innerHTML = RECOMMENDED_ZIMS.map(r =>
+        `<div style="padding:8px;background:#111;border-radius:4px;margin-bottom:6px;font-size:0.85rem;">
+            <div style="font-weight:600;margin-bottom:2px;">${r.title}</div>
+            <div style="color:var(--muted);font-size:0.75rem;margin-bottom:6px;">${r.note}</div>
+            <button onclick="document.getElementById('books-url').value='${r.url}'" class="small-btn">Use this URL</button>
+        </div>`
+    ).join('');
+}
+function startDownload() {
+    const url = document.getElementById('books-url').value.trim();
+    const statusEl = document.getElementById('books-dl-status');
+    if (!url) { statusEl.textContent = 'Enter a URL first.'; return; }
+    const filename = url.split('/').pop().split('?')[0];
+    statusEl.style.color = 'var(--blue)';
+    statusEl.textContent = 'Starting download…';
+    fetch('/api/kiwix/download', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({url})
+    }).then(r => r.json()).then(data => {
+        if (!data.ok) { statusEl.style.color = 'var(--red)'; statusEl.textContent = data.error; return; }
+        statusEl.style.color = 'var(--blue)';
+        statusEl.textContent = `Downloading ${filename}…`;
+        if (_pollTimer) clearInterval(_pollTimer);
+        _pollTimer = setInterval(() => {
+            fetch(`/api/kiwix/download/status?file=${encodeURIComponent(filename)}`)
+                .then(r => r.json()).then(s => {
+                    if (s.status === 'done') {
+                        clearInterval(_pollTimer); _pollTimer = null;
+                        statusEl.style.color = 'var(--green)';
+                        statusEl.textContent = `✅ ${filename} added — reloading library…`;
+                        loadBooks();
+                    } else if (s.status === 'error') {
+                        clearInterval(_pollTimer); _pollTimer = null;
+                        statusEl.style.color = 'var(--red)';
+                        statusEl.textContent = `Error: ${s.error}`;
+                    }
+                });
+        }, 3000);
+    }).catch(() => { statusEl.style.color = 'var(--red)'; statusEl.textContent = 'Request failed.'; });
+}
+function removeBook(path) {
+    if (!confirm(`Remove ${path.split('/').pop()}?\n\nThis deletes the file from the hub.`)) return;
+    fetch('/api/kiwix/remove', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({path})
+    }).then(r => r.json()).then(data => {
+        if (data.ok) loadBooks();
+        else alert('Remove failed: ' + data.error);
+    });
+}
 </script>
+
+<div id="books-overlay" onclick="closeBooks()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100;"></div>
+<div id="books-panel" style="display:none;position:fixed;top:0;right:0;height:100vh;width:400px;max-width:100vw;background:#1a1a1a;z-index:101;overflow-y:auto;padding:20px;box-shadow:-4px 0 24px rgba(0,0,0,0.6);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h2 style="font-size:1.1rem;">Manage Books</h2>
+        <button onclick="closeBooks()" style="background:none;border:none;color:#aaa;cursor:pointer;font-size:1.3rem;">✕</button>
+    </div>
+
+    <div class="wifi-section-head">Installed Books</div>
+    <div id="books-installed" style="margin-bottom:16px;">
+        <div style="color:var(--muted);font-size:0.85rem;">Loading…</div>
+    </div>
+
+    <div class="wifi-section-head">Add a Book</div>
+    <p class="note" style="margin-bottom:8px;">Paste a direct URL to a .zim file. Download requires internet access — do this before going off-grid.</p>
+    <input id="books-url" type="url" placeholder="https://download.kiwix.org/zim/…/foo.zim"
+           class="wifi-input" style="margin-bottom:8px;">
+    <button onclick="startDownload()" class="btn btn-green" style="margin-bottom:4px;">⬇ Download &amp; Add</button>
+    <div id="books-dl-status" style="font-size:0.8rem;min-height:1.4em;margin-top:4px;"></div>
+
+    <div class="wifi-section-head" style="margin-top:16px;">Recommended Books</div>
+    <p class="note" style="margin-bottom:8px;">From <a href="https://library.kiwix.org" target="_blank" style="color:var(--blue);">library.kiwix.org</a> — click to copy the URL into the field above.</p>
+    <div id="books-recommended"></div>
+</div>
 
 </body>
 </html>
