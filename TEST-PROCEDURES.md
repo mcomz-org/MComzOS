@@ -1,6 +1,8 @@
 # MComzOS Test Procedures
 
-Checklist for hardware validation of each release. Flash the image, boot, and work through every section in order. Record pass/fail and any notes against the release version in `hardware-test-results.md`.
+Checklist for hardware validation of each release. Flash the image, boot, and work through every section in order. Record pass/fail and any notes against the release version in `.claude/feedback/hardware-test-results.md`.
+
+Sections 1, 2, 3, 5, and 6 can be partially automated — run `python3 tests/smoke-test.py` from a laptop on the same LAN before working through the manual steps. Everything else (voice, VNC, hotspot, kiosk, iOS) requires hands-on testing.
 
 ---
 
