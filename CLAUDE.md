@@ -16,12 +16,14 @@ Current status: **pre-alpha**. Hardware-tested on RPi 5. All releases use `prere
 | `src/dashboard/index.html` | Single-page dashboard UI (vanilla JS, dark theme) |
 | `src/api/status.py` | stdlib-only Python API on `localhost:9000` — systemctl polling, WiFi management, kiwix book management |
 | `.github/workflows/build-image.yml` | CI: builds RPi + x86 images on version tag push |
+| `README.md` | Public-facing project description |
+| `STACK.md` | Reference: every service, its port, and its role |
 | `TEST-PROCEDURES.md` | Manual hardware test checklist — work through this after every flash |
 | `tests/smoke-test.py` | Automated network checks — run from a laptop on the same LAN |
 | `tests/html-check.py` | Static analysis of `index.html` — run locally before building |
+| `scripts/generate-release-notes.sh` | Called by CI to generate release notes from conventional commits |
 | `.claude/tasks/todo.md` | Full history of decisions, completed work, and outstanding items |
 | `.claude/feedback/hardware-test-results.md` | Verbatim hardware test feedback per release |
-| `STACK.md` | Reference: every service, its port, and its role |
 
 ---
 
