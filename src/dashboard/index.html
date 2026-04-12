@@ -84,8 +84,10 @@
             font-size: 0.7rem; font-weight: 700;
             width: 26px; flex-shrink: 0; text-align: center;
         }
-        .svc-badge.on  { color: var(--green); }
-        .svc-badge.off { color: var(--red); }
+        .svc-badge.on      { color: var(--green); }
+        .svc-badge.off     { color: var(--red); }
+        .svc-badge.standby { color: var(--muted); }
+        .svc-badge.error   { color: var(--orange); }
         .svc-badge.checking { color: var(--orange); animation: pulse 1s infinite; }
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
 
@@ -350,17 +352,31 @@ let lastStatus = null;
 function renderStatus(data) {
     lastStatus = data;
     const grid = document.getElementById('status-grid');
+    // Services that are intentionally off until the hotspot is started
     const STANDBY_SVCS = new Set(['hostapd', 'dnsmasq']);
+    // Services that only run when specific hardware is attached
+    const HW_SVCS = new Set(['meshtasticd', 'mcomz-meshcore', 'direwolf', 'ardopcf']);
     grid.innerHTML = Object.entries(data).map(([name, svc]) => {
-        const active = svc.status === 'active';
-        const badge = `<span class="svc-badge ${active ? 'on' : 'off'}">${active ? 'on' : 'off'}</span>`;
+        const st = svc.status;
+        let badgeClass, badgeText, note = '';
+        if (st === 'active') {
+            badgeClass = 'on';      badgeText = 'on';
+        } else if (st === 'failed') {
+            badgeClass = 'error';   badgeText = 'error';
+        } else if (STANDBY_SVCS.has(name)) {
+            badgeClass = 'standby'; badgeText = 'standby';
+            note = ' <span style="color:var(--muted);font-size:0.75rem;">(activates with hotspot)</span>';
+        } else if (HW_SVCS.has(name)) {
+            badgeClass = 'standby'; badgeText = 'standby';
+            note = ' <span style="color:var(--muted);font-size:0.75rem;">(requires hardware)</span>';
+        } else {
+            badgeClass = 'off';     badgeText = 'off';
+        }
+        const badge = `<span class="svc-badge ${badgeClass}">${badgeText}</span>`;
         let label = svc.path
             ? `<a href="${svc.path}" style="color:inherit;text-decoration:none;">${svc.label}</a>`
             : svc.label;
-        if (!active && STANDBY_SVCS.has(name)) {
-            label += ' <span style="color:var(--muted);font-size:0.75rem;">(standby — activates with hotspot)</span>';
-        }
-        return `<div class="svc">${badge}${label}</div>`;
+        return `<div class="svc">${badge}${label}${note}</div>`;
     }).join('');
 }
 function fetchStatus() {

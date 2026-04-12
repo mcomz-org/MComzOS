@@ -185,9 +185,13 @@ check("AbortController used in toggleAP",
 check("35 s AbortController timeout for AP stop",
       "35000" in src)
 
-# Standby label for hostapd/dnsmasq
-check("Standby note for hostapd/dnsmasq in renderStatus",
-      "standby" in src and "STANDBY_SVCS" in src)
+# Standby / hardware badge logic in renderStatus
+check("STANDBY_SVCS set defined (hostapd/dnsmasq get grey badge)",
+      "STANDBY_SVCS" in src and "standby" in src)
+check("HW_SVCS set defined (hardware services get grey badge)",
+      "HW_SVCS" in src and "requires hardware" in src)
+check("failed state gets error badge (not red off)",
+      "st === 'failed'" in src and "error" in src)
 
 # 15-second status refresh interval
 check("Status polling interval is 15 s",

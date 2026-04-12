@@ -49,7 +49,7 @@
 
 - ✅ **Manage Books: MComzLibrary ZIMs not in recommended list** — Added Survival, Literature, Scriptures entries to RECOMMENDED_ZIMS with "Get Download URL" button that fetches the latest release from the GitHub API (mcomz-org/MComzLibrary) and populates the URL field.
 
-- [ ] **meshtasticd shows 'failed' in status** — meshtasticd is failing on boot (no LoRa hardware). The 'failed' state is correct but the dashboard shows it as "off" which is ambiguous. Consider surfacing 'failed' differently from 'inactive' so users can distinguish "not installed" from "crashed".
+- ✅ **meshtasticd shows 'failed' in status** — renderStatus now distinguishes: `active` → green "on", `failed` → orange "error", standby svcs inactive → grey "standby", hardware svcs inactive → grey "standby (requires hardware)", core svcs inactive → red "off". Red is now reserved for services that should be running but aren't.
 
 - ✅ **direwolf/mcomz-meshcore show 'activating'** — added `ConditionPathExists=/dev/snd` to direwolf unit and `ConditionPathExists=/dev/spidev0.0` to mcomz-meshcore unit. Services stay inactive (not stuck activating/restarting) when required hardware is absent.
 
