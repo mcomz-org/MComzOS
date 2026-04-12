@@ -185,6 +185,18 @@ check("35 s AbortController timeout for AP stop",
 check("Standby note for hostapd/dnsmasq in renderStatus",
       "standby" in src and "STANDBY_SVCS" in src)
 
+# 15-second status refresh interval
+check("Status polling interval is 15 s",
+      bool(re.search(r'setInterval\s*\(\s*fetchStatus\s*,\s*15000\s*\)', src)))
+
+# Mumble section must mention Safari (getUserMedia requires HTTPS on Safari)
+check("Safari usage note present in Mumble section",
+      "Safari" in src)
+
+# FreeDATA note — may not be installed on all builds
+check("FreeDATA 'may not be installed' caveat present",
+      bool(re.search(r'FreeDATA.{0,120}(may not|not.*installed|install)', src, re.IGNORECASE | re.DOTALL)))
+
 # ---------------------------------------------------------------------------
 # API routes referenced in JS
 # ---------------------------------------------------------------------------

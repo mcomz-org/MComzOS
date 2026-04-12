@@ -13,6 +13,7 @@ Exit code 0 = all checks passed.
 
 import json
 import ssl
+import subprocess
 import sys
 import urllib.request
 import urllib.error
@@ -123,6 +124,18 @@ code_s, _ = get(path="/", use_ssl=True)
 check("HTTPS dashboard responds", code_s in (200, 301, 302),
       f"HTTP {code_s}" if code_s else "no response")
 
+# mDNS resolution — only meaningful when HOST is a .local name
+if HOST.endswith(".local"):
+    try:
+        r = subprocess.run(
+            ["ping", "-c", "1", "-W", "3", HOST],
+            capture_output=True, timeout=5
+        )
+        check("mDNS resolves and host is reachable (ping)", r.returncode == 0,
+              "ping failed — avahi-daemon may be down or mDNS blocked on this LAN")
+    except (subprocess.TimeoutExpired, FileNotFoundError) as e:
+        check("mDNS resolves and host is reachable (ping)", False, str(e))
+
 data = get_json("/api/version")
 check("Version API responds", data is not None, "no JSON response")
 if data:
@@ -197,6 +210,11 @@ if books_data:
     check("At least one MComzLibrary ZIM present", any_mcomz,
           "none of survival/literature/scripture found in titles/paths")
 
+    # WikiMed Mini — downloaded during provisioning
+    any_wikimed = any(kw in all_text for kw in ("wikimed", "wikipedia_en_medicine", "medicine"))
+    check("WikiMed Mini ZIM present", any_wikimed,
+          "wikimed/medicine not found in titles/paths — provisioning may have failed")
+
 # Manage Books API endpoints
 dl_status = get_json("/api/kiwix/download/status", params={"file": "test.zim"})
 check("Download status API responds", dl_status is not None)
@@ -257,6 +275,39 @@ if status:
     check("meshtasticd shows inactive in status API",
           mesh_status != "active",
           f"status={mesh_status!r}")
+
+# ---------------------------------------------------------------------------
+# Section 7 — WiFi Management API (read-only endpoints)
+# ---------------------------------------------------------------------------
+section("§7 WiFi Management API")
+
+wifi_net = get_json("/api/wifi/networks")
+check("WiFi networks API responds", wifi_net is not None, "no JSON response")
+if wifi_net:
+    check("WiFi networks response has 'networks' key", "networks" in wifi_net,
+          f"keys: {list(wifi_net.keys())}")
+    check("WiFi ap_active field present", "ap_active" in wifi_net,
+          f"keys: {list(wifi_net.keys())}")
+
+wifi_known = get_json("/api/wifi/known")
+check("WiFi known networks API responds", wifi_known is not None, "no JSON response")
+if wifi_known:
+    check("WiFi known response has 'networks' key", "networks" in wifi_known,
+          f"keys: {list(wifi_known.keys())}")
+
+# ---------------------------------------------------------------------------
+# Section 10 — System control endpoints (existence check, non-destructive)
+# ---------------------------------------------------------------------------
+section("§10 System control endpoints (non-destructive)")
+
+# A GET to a POST-only route returns 404 from the Python handler if nginx
+# successfully proxied the request — proves the route is wired up end-to-end.
+# (A 502 or connection error would mean nginx can't reach the backend.)
+for endpoint in ("/api/system/poweroff", "/api/system/reboot"):
+    code_ep, _ = get(path=endpoint)
+    check(f"{endpoint} route reachable (nginx → backend)", code_ep == 404,
+          f"HTTP {code_ep} — expected 404 (GET on POST-only route); "
+          "502 = nginx can't reach backend; None = no response")
 
 # ---------------------------------------------------------------------------
 # Section 3 (continued) — Manage Books write endpoints (non-destructive checks)
