@@ -6,8 +6,10 @@ Usage:
     python3 tests/smoke-test.py [host]          # default host: mcomz.local
     python3 tests/smoke-test.py 192.168.4.1     # use IP address
 
-Covers TEST-PROCEDURES.md sections 1, 2, 3, 5, 6 and API-level checks.
-WiFi panel, hotspot, kiosk, voice, and shutdown require manual testing.
+Checks: HTTP/HTTPS reachability, mDNS, version and status APIs, all expected
+services, Kiwix library and books API, Pat/VNC/Mumble routes, mesh 502 guards,
+WiFi management API structure, system control route wiring, and Manage Books
+write-endpoint sanity. Does not cover voice, hotspot, kiosk, or destructive ops.
 Exit code 0 = all checks passed.
 """
 
@@ -111,7 +113,7 @@ def post_json(path, payload, use_ssl=False, port=None):
 # ---------------------------------------------------------------------------
 # Section 1 — Basic Connectivity
 # ---------------------------------------------------------------------------
-section("§1 Basic Connectivity")
+section("Basic Connectivity")
 
 code, body = get(path="/")
 check("HTTP dashboard responds", code == 200,
@@ -146,7 +148,7 @@ if data:
 # ---------------------------------------------------------------------------
 # Section 2 — System Status Card
 # ---------------------------------------------------------------------------
-section("§2 System Status")
+section("System Status")
 
 EXPECTED_SERVICES = [
     "hostapd", "dnsmasq", "avahi-daemon", "mumble-server",
@@ -185,7 +187,7 @@ if status:
 # ---------------------------------------------------------------------------
 # Section 3 — Kiwix / Offline Library
 # ---------------------------------------------------------------------------
-section("§3 Offline Library (Kiwix)")
+section("Offline Library (Kiwix)")
 
 code, body = get(path="/library/")
 check("Kiwix /library/ responds", code == 200, f"HTTP {code}")
@@ -225,7 +227,7 @@ if dl_status:
 # ---------------------------------------------------------------------------
 # Section 5 — Licensed Radio
 # ---------------------------------------------------------------------------
-section("§5 Licensed Radio")
+section("Licensed Radio")
 
 # Pat — nginx proxies port 8081 with HTTPS
 code_pat, _ = get(path="/", use_ssl=True, port=8081)
@@ -259,7 +261,7 @@ check("Mumble WebSocket endpoint exists",
 # ---------------------------------------------------------------------------
 # Section 6 — Mesh Communication
 # ---------------------------------------------------------------------------
-section("§6 Mesh Communication")
+section("Mesh Communication")
 
 # Without LoRa hardware these should return 502
 code_mesh, _ = get(path="/meshtastic/")
@@ -279,7 +281,7 @@ if status:
 # ---------------------------------------------------------------------------
 # Section 7 — WiFi Management API (read-only endpoints)
 # ---------------------------------------------------------------------------
-section("§7 WiFi Management API")
+section("WiFi Management API")
 
 wifi_net = get_json("/api/wifi/networks")
 check("WiFi networks API responds", wifi_net is not None, "no JSON response")
@@ -298,7 +300,7 @@ if wifi_known:
 # ---------------------------------------------------------------------------
 # Section 10 — System control endpoints (existence check, non-destructive)
 # ---------------------------------------------------------------------------
-section("§10 System control endpoints (non-destructive)")
+section("System control endpoints (non-destructive)")
 
 # A GET to a POST-only route returns 404 from the Python handler if nginx
 # successfully proxied the request — proves the route is wired up end-to-end.
@@ -312,7 +314,7 @@ for endpoint in ("/api/system/poweroff", "/api/system/reboot"):
 # ---------------------------------------------------------------------------
 # Section 3 (continued) — Manage Books write endpoints (non-destructive checks)
 # ---------------------------------------------------------------------------
-section("§3 Manage Books — write endpoint sanity")
+section("Manage Books — write endpoint sanity")
 
 # POST a bogus URL — should return ok=False, not a 500
 code_b, resp_b = post_json("/api/kiwix/download", {"url": "https://example.com/not-a-zim.txt"})

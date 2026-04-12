@@ -18,9 +18,9 @@ Current status: **pre-alpha**. Hardware-tested on RPi 5. All releases use `prere
 | `.github/workflows/build-image.yml` | CI: builds RPi + x86 images on version tag push |
 | `README.md` | Public-facing project description |
 | `STACK.md` | Reference: every service, its port, and its role |
-| `TEST-PROCEDURES.md` | Manual hardware test checklist — work through this after every flash |
+| `tests/MANUAL-TESTS.md` | Hands-on hardware test checklist — work through this after every flash |
 | `tests/smoke-test.py` | Automated network checks — run from a laptop on the same LAN |
-| `tests/html-check.py` | Static analysis of `index.html` — run locally before building |
+| `tests/html-check.py` | Static analysis of `index.html` — also runs in CI before each build |
 | `scripts/generate-release-notes.sh` | Called by CI to generate release notes from conventional commits |
 | `.claude/tasks/todo.md` | Full history of decisions, completed work, and outstanding items |
 | `.claude/feedback/hardware-test-results.md` | Verbatim hardware test feedback per release |
@@ -124,7 +124,7 @@ Check build results: `gh run list --limit 5` then `gh run view <ID> --log`
 
 ## Testing
 
-After every flash and boot, run through `TEST-PROCEDURES.md` in order.
+After every flash and boot, run through `tests/MANUAL-TESTS.md` in order.
 
 For a quick automated sanity check from a laptop on the same network:
 ```bash
