@@ -104,7 +104,7 @@ for fn in [
     "selectNetwork", "submitConnect", "cancelConnect", "doConnect",
     "loadSavedNetworks", "forgetNetwork", "toggleAP",
     "openBooks", "closeBooks", "loadBooks", "renderRecommended",
-    "startDownload", "removeBook",
+    "fetchMComzUrl", "startDownload", "removeBook",
     "confirmShutdown", "confirmReboot",
     "esc",
 ]:
@@ -122,6 +122,8 @@ check("apActive variable declared", bool(re.search(r'\blet\s+apActive\b', src)))
 check("_pollTimer variable declared", bool(re.search(r'\blet\s+_pollTimer\b', src)))
 check("RECOMMENDED_ZIMS constant declared",
       bool(re.search(r'\bconst\s+RECOMMENDED_ZIMS\b', src)))
+check("MComzLibrary ZIMs in RECOMMENDED_ZIMS",
+      "mcomz-org/MComzLibrary" in src and "zimPattern" in src)
 
 # ---------------------------------------------------------------------------
 # Card content

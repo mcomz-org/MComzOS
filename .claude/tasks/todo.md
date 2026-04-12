@@ -47,11 +47,11 @@
 
 - [ ] **Manage Books: ZIM download fails with SSL CERTIFICATE_VERIFY_FAILED** — Pi clock may lag behind cert notBefore on first boot (no GPS/NTP sync yet). `kiwix_download` used `urlretrieve` which does cert verification. Fixed in code (pre-alpha.18): switched to `urlopen` with `CERT_NONE` context. **Needs hardware verification.**
 
-- [ ] **Manage Books: MComzLibrary ZIMs not in recommended list** — If a user removes a MComzLibrary ZIM (Survival, Literature, Scriptures), there is no way to reinstall it from the Manage Books panel. Recommended ZIMs list only points to kiwix.org. Need to add MComzLibrary GitHub release URLs (or fetch them dynamically from the API) to the recommended list.
+- ✅ **Manage Books: MComzLibrary ZIMs not in recommended list** — Added Survival, Literature, Scriptures entries to RECOMMENDED_ZIMS with "Get Download URL" button that fetches the latest release from the GitHub API (mcomz-org/MComzLibrary) and populates the URL field.
 
 - [ ] **meshtasticd shows 'failed' in status** — meshtasticd is failing on boot (no LoRa hardware). The 'failed' state is correct but the dashboard shows it as "off" which is ambiguous. Consider surfacing 'failed' differently from 'inactive' so users can distinguish "not installed" from "crashed".
 
-- [ ] **direwolf/mcomz-meshcore show 'activating'** — these services are stuck in activating state on boot. Likely waiting for hardware that isn't present. May need `ConditionPathExists` guards in the systemd units so they don't start without the required device.
+- ✅ **direwolf/mcomz-meshcore show 'activating'** — added `ConditionPathExists=/dev/snd` to direwolf unit and `ConditionPathExists=/dev/spidev0.0` to mcomz-meshcore unit. Services stay inactive (not stuck activating/restarting) when required hardware is absent.
 
 ### P0 — Hub is non-functional without these
 

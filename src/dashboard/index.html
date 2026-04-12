@@ -651,10 +651,22 @@ function esc(s) {
 }
 
 // ── Books panel ───────────────────────────────────────────────────────────────
+const MCOMZ_LIB_API = 'https://api.github.com/repos/mcomz-org/MComzLibrary/releases?per_page=1';
 const RECOMMENDED_ZIMS = [
+    // MComzLibrary ZIMs — URLs change each release, so we fetch from GitHub API
+    { title: "MComz Survival Library (~30 MB)",
+      fetchUrl: MCOMZ_LIB_API, zimPattern: "survival",
+      note: "MComzLibrary — click to fetch the latest download URL from GitHub" },
+    { title: "MComz Literature Library (~15 MB)",
+      fetchUrl: MCOMZ_LIB_API, zimPattern: "literature",
+      note: "MComzLibrary — click to fetch the latest download URL from GitHub" },
+    { title: "MComz Scriptures Library (~10 MB)",
+      fetchUrl: MCOMZ_LIB_API, zimPattern: "scripture",
+      note: "MComzLibrary — click to fetch the latest download URL from GitHub" },
+    // Kiwix community ZIMs — browse library.kiwix.org for the exact dated URL
     { title: "WikiMed Medical Encyclopedia (mini, ~155 MB)",
-      url: "https://download.kiwix.org/zim/wikipedia/wikipedia_en_medicine_mini_YYYY-MM.zim",
-      note: "Replace YYYY-MM with the current date — browse library.kiwix.org for the exact URL" },
+      url: "https://download.kiwix.org/zim/wikipedia/",
+      note: "Browse for wikipedia_en_medicine_mini_YYYY-MM.zim" },
     { title: "Wikipedia English (mini, ~900 MB)",
       url: "https://download.kiwix.org/zim/wikipedia/",
       note: "Browse for wikipedia_en_all_mini_YYYY-MM.zim" },
@@ -700,13 +712,42 @@ function loadBooks() {
     });
 }
 function renderRecommended() {
-    document.getElementById('books-recommended').innerHTML = RECOMMENDED_ZIMS.map(r =>
-        `<div style="padding:8px;background:#111;border-radius:4px;margin-bottom:6px;font-size:0.85rem;">
+    document.getElementById('books-recommended').innerHTML = RECOMMENDED_ZIMS.map(r => {
+        const btn = r.fetchUrl
+            ? `<button onclick="fetchMComzUrl('${r.fetchUrl}','${r.zimPattern}')" class="small-btn">Get Download URL</button>`
+            : `<button onclick="document.getElementById('books-url').value='${r.url}'" class="small-btn">Use this URL</button>`;
+        return `<div style="padding:8px;background:#111;border-radius:4px;margin-bottom:6px;font-size:0.85rem;">
             <div style="font-weight:600;margin-bottom:2px;">${r.title}</div>
             <div style="color:var(--muted);font-size:0.75rem;margin-bottom:6px;">${r.note}</div>
-            <button onclick="document.getElementById('books-url').value='${r.url}'" class="small-btn">Use this URL</button>
-        </div>`
-    ).join('');
+            ${btn}
+        </div>`;
+    }).join('');
+}
+function fetchMComzUrl(apiUrl, pattern) {
+    const statusEl = document.getElementById('books-dl-status');
+    statusEl.style.color = 'var(--blue)';
+    statusEl.textContent = 'Fetching latest URL from GitHub…';
+    fetch(apiUrl)
+        .then(r => r.json())
+        .then(data => {
+            const releases = Array.isArray(data) ? data : [data];
+            if (!releases.length) { statusEl.textContent = 'No releases found.'; return; }
+            const asset = releases[0].assets.find(
+                a => a.name.endsWith('.zim') && a.name.toLowerCase().includes(pattern)
+            );
+            if (!asset) {
+                statusEl.style.color = 'var(--red)';
+                statusEl.textContent = `No ${pattern} ZIM found in latest MComzLibrary release.`;
+                return;
+            }
+            document.getElementById('books-url').value = asset.browser_download_url;
+            statusEl.style.color = 'var(--green)';
+            statusEl.textContent = `URL ready: ${asset.name}`;
+        })
+        .catch(() => {
+            statusEl.style.color = 'var(--red)';
+            statusEl.textContent = 'Could not reach GitHub — check internet connection.';
+        });
 }
 function startDownload() {
     const url = document.getElementById('books-url').value.trim();
