@@ -519,6 +519,7 @@
           [Unit]
           Description=Direwolf VHF Software TNC (APRS decoder and KISS modem)
           After=sound.target
+          ConditionPathExists=/dev/snd
 
           [Service]
           Type=simple
@@ -960,6 +961,7 @@
           [Unit]
           Description=MComzOS MeshCore Repeater and Web Dashboard
           After=network.target
+          ConditionPathExists=/dev/spidev0.0
 
           [Service]
           Type=simple
@@ -1095,7 +1097,9 @@
       when: not (minimal_build | default(false))
 
     - name: Download WikiMed Mini (wikipedia_en_medicine_mini, latest from Kiwix)
-      # Queries the Kiwix OPDS catalog for the latest WikiMed Mini URL; ~155 MB.
+      # Queries the Kiwix OPDS catalog by name to get the latest WikiMed Mini URL; ~155 MB.
+      # Uses name= filter (not category=) to avoid pagination — medicine is not in the
+      # wikipedia category, so the previous category=wikipedia query always found nothing.
       # Soft failure: image boots without WikiMed if Kiwix is unreachable.
       # TODO: add to the systemd update-checker timer alongside MComz-Survival.zim.
       shell: |
@@ -1109,9 +1113,10 @@
             print('WikiMed Mini already present')
             sys.exit(0)
 
-        # Find the latest wikipedia_en_medicine_mini URL from the Kiwix OPDS catalog.
+        # Query catalog by name — returns only wikipedia_en_medicine_mini entries,
+        # no pagination needed and immune to category-filter mismatches.
         try:
-            catalog_url = 'https://library.kiwix.org/catalog/v2/entries?lang=eng&category=wikipedia'
+            catalog_url = 'https://library.kiwix.org/catalog/v2/entries?lang=eng&name=wikipedia_en_medicine_mini'
             with urllib.request.urlopen(catalog_url, timeout=30) as r:
                 root = ET.fromstring(r.read())
         except Exception as e:
@@ -1123,7 +1128,7 @@
         for entry in root.findall('atom:entry', ns):
             for link in entry.findall('atom:link', ns):
                 href = link.get('href', '')
-                if 'wikipedia_en_medicine_mini' in href and href.endswith('.meta4'):
+                if href.endswith('.meta4'):
                     zim_url = href[:-6]  # strip .meta4 → direct ZIM URL
                     break
             if zim_url:
@@ -1155,13 +1160,18 @@
       register: wikimed_result
       when: not (minimal_build | default(false))
 
+    - name: Check if WikiMed Mini ZIM landed on disk
+      stat:
+        path: /var/mcomz/library/wikimed-mini.zim
+      register: wikimed_stat
+      when: not (minimal_build | default(false))
+
     - name: Warn if WikiMed Mini download failed
       debug:
-        msg: "WARNING: WikiMed Mini download failed or timed out — Kiwix will start without it. Re-run manually: kiwix-manage /var/mcomz/library.xml add <zim-path>"
+        msg: "WARNING: WikiMed Mini ZIM not present after download attempt — image will boot without it. Check catalog query and network access. Install post-boot via Manage Books."
       when:
         - not (minimal_build | default(false))
-        - wikimed_result.rc is defined
-        - wikimed_result.rc != 0
+        - not wikimed_stat.stat.exists
 
     - name: Register downloaded ZIMs with Kiwix library
       # Writes library.xml directly from ZIM file paths — avoids running
