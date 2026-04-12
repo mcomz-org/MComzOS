@@ -77,6 +77,7 @@ for id_val in [
     "wifi-networks", "wifi-saved", "wifi-connect-form",
     "ap-btn",
     "mesh-detail", "radio-detail",
+    "library-overlay", "library-panel", "library-grid",
     "books-overlay", "books-panel", "books-installed",
     "books-url", "books-dl-status", "books-recommended",
     "https-warn",
@@ -103,6 +104,7 @@ for fn in [
     "openWifi", "closeWifi", "loadWifiStatus", "scanNetworks",
     "selectNetwork", "submitConnect", "cancelConnect", "doConnect",
     "loadSavedNetworks", "forgetNetwork", "toggleAP",
+    "openLibrary", "closeLibrary", "loadLibrary",
     "openBooks", "closeBooks", "loadBooks", "renderRecommended",
     "fetchMComzUrl", "startDownload", "removeBook",
     "confirmShutdown", "confirmReboot",
@@ -131,7 +133,7 @@ check("MComzLibrary ZIMs in RECOMMENDED_ZIMS",
 section("Dashboard card content")
 
 check("Offline Library card present", "Offline Library" in src)
-check("Open Library button present", "/library/" in src)
+check("Open Library button calls openLibrary()", "openLibrary()" in src)
 check("Manage Books button present", "openBooks()" in src)
 
 check("Voice & Text card present", "Voice" in src and "Mumble" in src)

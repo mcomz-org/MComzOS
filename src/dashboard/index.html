@@ -230,7 +230,7 @@
     <div class="card">
         <h2 style="color:var(--green)">📚 Offline Library</h2>
         <p class="note">Guides, manuals, and reference books — no internet needed.</p>
-        <a href="/library/" class="btn btn-green">Open Library</a>
+        <button class="btn btn-green" onclick="openLibrary()">Open Library</button>
         <button class="btn" style="background:#1a3a1a;color:var(--green);border:1px solid #2a5a2a;"
                 onclick="openBooks()">＋ Manage Books</button>
     </div>
@@ -650,6 +650,48 @@ function esc(s) {
         .replace(/'/g,'&#39;');
 }
 
+// ── Library panel ─────────────────────────────────────────────────────────────
+function openLibrary() {
+    document.getElementById('library-overlay').style.display = 'block';
+    document.getElementById('library-panel').style.display = 'block';
+    loadLibrary();
+}
+function closeLibrary() {
+    document.getElementById('library-overlay').style.display = 'none';
+    document.getElementById('library-panel').style.display = 'none';
+}
+function loadLibrary() {
+    const el = document.getElementById('library-grid');
+    el.innerHTML = '<div style="color:var(--muted);font-size:0.85rem;padding:8px 0;">Loading…</div>';
+    fetch('/api/kiwix/books').then(r => r.json()).then(data => {
+        const books = data.books || [];
+        if (!books.length) {
+            el.innerHTML = `<div style="color:var(--muted);font-size:0.9rem;padding:24px 0;text-align:center;">
+                <div style="font-size:2rem;margin-bottom:12px;">📭</div>
+                <div>Library is empty.</div>
+                <div style="margin-top:8px;font-size:0.8rem;">Add books via <button onclick="closeLibrary();openBooks()" style="background:none;border:none;color:var(--green);cursor:pointer;padding:0;font-size:0.8rem;text-decoration:underline;">Manage Books</button>.</div>
+            </div>`;
+            return;
+        }
+        el.innerHTML = books.map(b => {
+            // Derive kiwix reader URL: /library/A/<zimid>/ where zimid = filename without .zim
+            const filename = b.path.split('/').pop();
+            const zimid = filename.replace(/\.zim$/, '');
+            const title = b.title || filename;
+            const readerUrl = `/library/A/${encodeURIComponent(zimid)}/`;
+            return `<a href="${readerUrl}" target="_blank" rel="noopener"
+                style="display:block;background:#111;border-radius:8px;padding:16px;margin-bottom:10px;
+                       text-decoration:none;color:var(--text);border:1px solid #2a2a2a;">
+                <div style="font-weight:600;font-size:0.95rem;margin-bottom:4px;">${esc(title)}</div>
+                <div style="font-size:0.75rem;color:var(--muted);">${esc(filename)}</div>
+                <div style="margin-top:10px;font-size:0.78rem;color:var(--green);">Open →</div>
+            </a>`;
+        }).join('');
+    }).catch(() => {
+        el.innerHTML = '<div style="color:var(--muted);font-size:0.85rem;">Could not load library.</div>';
+    });
+}
+
 // ── Books panel ───────────────────────────────────────────────────────────────
 const MCOMZ_LIB_API = 'https://api.github.com/repos/mcomz-org/MComzLibrary/releases?per_page=1';
 const RECOMMENDED_ZIMS = [
@@ -794,6 +836,16 @@ function removeBook(path) {
     });
 }
 </script>
+
+<!-- Library slide-in panel -->
+<div id="library-overlay" onclick="closeLibrary()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100;"></div>
+<div id="library-panel" style="display:none;position:fixed;top:0;right:0;height:100vh;width:480px;max-width:100vw;background:#1a1a1a;z-index:101;overflow-y:auto;padding:20px;box-shadow:-4px 0 24px rgba(0,0,0,0.6);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h2 style="font-size:1.1rem;">📚 Library</h2>
+        <button onclick="closeLibrary()" style="background:none;border:none;color:#aaa;cursor:pointer;font-size:1.3rem;">✕</button>
+    </div>
+    <div id="library-grid"></div>
+</div>
 
 <div id="books-overlay" onclick="closeBooks()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100;"></div>
 <div id="books-panel" style="display:none;position:fixed;top:0;right:0;height:100vh;width:400px;max-width:100vw;background:#1a1a1a;z-index:101;overflow-y:auto;padding:20px;box-shadow:-4px 0 24px rgba(0,0,0,0.6);">
