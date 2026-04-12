@@ -107,6 +107,7 @@ for fn in [
     "openLibrary", "closeLibrary", "loadLibrary",
     "openBooks", "closeBooks", "loadBooks", "renderRecommended",
     "fetchMComzUrl", "startDownload", "removeBook",
+    "togglePowerMenu", "closePowerMenu",
     "confirmShutdown", "confirmReboot",
     "esc",
 ]:
@@ -181,6 +182,13 @@ check("HTTPS protocol check present",
 check("AbortController used in toggleAP",
       "AbortController" in src)
 
+# Header controls
+check("WiFi button uses SVG icon (no button text)",
+      "wifi-btn" in src and "<svg" in src and "WiFi" not in src.split("wifi-btn")[1].split(">")[1])
+check("Power menu dropdown present", "power-menu" in src and "power-btn" in src)
+check("System Status heading has 15-second tooltip",
+      "Refreshes every 15 seconds" in src and 'title=' in src)
+
 # AP stop uses longer timeout (35 s) for Python poll
 check("35 s AbortController timeout for AP stop",
       "35000" in src)
@@ -189,9 +197,10 @@ check("35 s AbortController timeout for AP stop",
 check("STANDBY_SVCS set defined (hostapd/dnsmasq get grey badge)",
       "STANDBY_SVCS" in src and "standby" in src)
 check("HW_SVCS set defined (hardware services get grey badge)",
-      "HW_SVCS" in src and "requires hardware" in src)
-check("failed state gets error badge (not red off)",
-      "st === 'failed'" in src and "error" in src)
+      "HW_SVCS" in src and "attach hardware" in src)
+check("failed state gets err badge", "'err'" in src and "st === 'failed'" in src)
+check("activating state gets act badge", "'act'" in src and "st === 'activating'" in src)
+check("unknown/disconnected state gets dis badge", "'dis'" in src)
 
 # 15-second status refresh interval
 check("Status polling interval is 15 s",
