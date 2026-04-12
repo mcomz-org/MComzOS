@@ -184,7 +184,7 @@ check("AbortController used in toggleAP",
 
 # Header controls
 check("WiFi button uses SVG icon (no button text)",
-      "wifi-btn" in src and "<svg" in src and "WiFi" not in src.split("wifi-btn")[1].split(">")[1])
+      bool(re.search(r'id=["\']wifi-btn["\'][^>]*>\s*<svg', src)))
 check("Power menu dropdown present", "power-menu" in src and "power-btn" in src)
 check("System Status heading has 15-second tooltip",
       "Refreshes every 15 seconds" in src and 'title=' in src)
