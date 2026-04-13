@@ -220,7 +220,7 @@ def kiwix_books():
                 "id": b.get("id", ""),
                 "title": b.get("title", b.get("path", "").split("/")[-1]),
                 "path": b.get("path", ""),
-                "size": b.get("size", ""),
+                "size": os.path.getsize(b.get("path", "")) if b.get("path") and os.path.exists(b.get("path", "")) else 0,
             })
         return {"books": books}
     except Exception as e:
