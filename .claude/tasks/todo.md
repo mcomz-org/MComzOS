@@ -14,6 +14,57 @@
 
 ## Outstanding
 
+> **Key:** `[vibe]` = code changes to index.html / status.py / site.yml — use a vibe session.
+> `[claude]` = test infrastructure, research, git ops, curl/diagnostic work — do directly in Claude Code.
+
+---
+
+### Bugs confirmed in v0.0.2-pre-alpha.19 (RPi 5, 2026-04-12)
+
+#### Vibe tasks
+
+- [ ] **iOS Safari broken (regression)** `[vibe]` — "Visit Website" after cert warning loops back to the same warning. iOS Chrome (same WebKit engine) works. nginx config has no HTTPS redirect or HSTS header. Likely cause: iOS Safari cached an HSTS directive from a previous session, or iOS Safari's automatic HTTPS-upgrade feature (iOS 18+) is blocking the self-signed cert before the user can bypass it. Investigate: check nginx HTTPS block for any `Strict-Transport-Security` header that may have been added by vibe; check index.html for any JS or meta tag that causes HTTPS navigation; if HSTS is ruled out, document the iOS version and explore `http://` deep-link forcing.
+
+- [ ] **VNC / JS8Call and FreeDATA — Connect button loops** `[vibe]` — noVNC connect button loops without ever showing the VNC auth dialog. Regression from .16 where it at least opened (even if auth didn't work). The Xvnc direct-launch fix shipped in .17 but clearly hasn't landed correctly. The mcomz-vnc service shows `active` in status, which means Xvnc started. Root cause is likely that websockify (mcomz-novnc) isn't reaching the VNC port, or the VNC server is listening on the wrong interface/port. Debug: check `mcomz-vnc.service` ExecStart, confirm Xvnc is binding to `localhost:5901`, confirm mcomz-novnc is proxying `localhost:5901 → :6080`, and confirm the nginx websocket route is correct.
+
+- [ ] **Kiwix ZIM reader URLs wrong** `[vibe]` — Library panel generates `/library/A/<filename-without-zim>/` but kiwix-serve assigns its own UUID to each ZIM. The correct approach is to query `/library/catalog/v2/entries` (OPDS feed, already served at that path) which returns each book's actual reader URL. Update the library panel to fetch from the OPDS catalog instead of (or in addition to) `/api/kiwix/books`, and use the href from the catalog entry as the reader link.
+
+- [ ] **Kiwix.org recommended URLs are directory listings, not .zim files** `[vibe]` — Recommended entries for WikiMed, Wikipedia, etc. link to e.g. `https://download.kiwix.org/zim/wikipedia/` which is a directory. The download endpoint rejects these with "URL must point to a .zim file". Fix: use the kiwix OPDS catalog (`https://library.kiwix.org/catalog/v2/entries?lang=eng&name=<bookname>`) to dynamically resolve the latest dated .zim URL — the same approach already used for WikiMed Mini during provisioning (see site.yml ~line 1119). Each recommended entry needs a `name` field (e.g. `wikipedia_en_medicine_mini`) and a "Get Download URL" button that queries the catalog and populates the URL field.
+
+- [ ] **Installed books appear in recommended list** `[vibe]` — Filter RECOMMENDED_ZIMS against the installed books list when rendering the recommended panel. Match by filename pattern (e.g. if a book path contains "survival", hide the Survival entry). Do this in `renderRecommended()` after `loadBooks()` has run.
+
+- [ ] **Licensed Radio card before Mesh card (wrong order)** `[vibe]` — Move the Licensed Radio collapsible card to appear after the Mesh Communication card in index.html.
+
+- [ ] **Tooltip delay** `[vibe]` — Status badge tooltips (`title=` attributes) have a very long browser-default hover delay (~1s). Replace with a CSS/JS custom tooltip that appears immediately on hover. The status grid already has a `title=` on each badge — change to `data-tooltip=` and add a small CSS tooltip that shows on `:hover` with no delay.
+
+- [ ] **WiFi icon clipped at top** `[vibe]` — The SVG WiFi icon in the header button is clipped. Increase the button's padding-top or the SVG's viewBox/height to give the top arc room.
+
+- [ ] **Offline MeshCore flasher for Heltec v4** `[vibe]` — In hotspot/offline mode the "Flash MeshCore" link fails. Bundle the Heltec v4 repeater and node ESPTool web-flasher assets locally during provisioning (site.yml), serve them via nginx, and update the dashboard to: (a) detect whether internet is available via the status API or a probe, (b) if online, link to flasher.meshcore.co.uk as now, (c) if offline, link to the locally-served flasher.
+
+- [ ] **Installed ZIM sizes** `[vibe]` — Show the file size of each installed ZIM in both the Library panel and the Manage Books panel. The `/api/kiwix/books` endpoint in status.py should return a `size` field (bytes, from `os.path.getsize(path)`). The Manage Books panel already has `b.size` in the UI code (line ~787 of index.html) — check if status.py is actually returning it.
+
+- [ ] **WikiMed Mini provisioning (recurring)** `[vibe]` — WikiMed Mini download fails during CI chroot build again. The OPDS catalog query approach (site.yml ~line 1119) is correct but the download itself times out in qemu emulation. Options: (a) increase timeout / add retry logic, (b) pre-stage the URL in the playbook and skip the catalog query, (c) move the download to first-boot rather than build time using a systemd oneshot unit.
+
+#### Claude tasks
+
+- [ ] **Fix smoke-test.py: misleading detail + ZIM reader accessibility check** `[claude]` — Two issues: (1) `check("At least one MComzLibrary ZIM present", any_mcomz, "none of survival/literature/scripture found in titles/paths")` shows the failure message even when the check passes — fix by only passing the detail string on failure. (2) The test confirms ZIMs are registered but not that their reader URLs work. Add a check that fetches the OPDS catalog (`/library/catalog/v2/entries`) and verifies at least one entry has a working reader link (HTTP 200).
+
+- [ ] **Add VNC/noVNC connection check to smoke-test.py** `[claude]` — The smoke-test verifies noVNC HTML and websockify endpoint exist, but not that the VNC server is actually accepting connections behind websockify. Add a raw TCP connect check to `localhost:5901` (or via the API status for `mcomz-vnc`) to at least flag when Xvnc is not running.
+
+---
+
+### Unverified fixes (shipped in code, awaiting hardware confirmation)
+
+- [ ] **VNC Connect button does nothing** `[vibe]` — `Requires=mcomz-vnc` removed from mcomz-novnc; `StartLimitIntervalSec=0` added. Superseded by the .19 looping regression — treat as one item. **Needs fresh hardware test after the looping fix.**
+
+- [ ] **Mumble controls greyed on macOS Chrome** `[vibe]` — `mcomz-mumble-ws` added to status dict; `server_hostname='localhost'` added to websockify SSL patch. **Needs hardware verification.**
+
+- [ ] **Mumble microphone on iOS** `[vibe]` — "Use Safari on iPhone/iPad" note added to dashboard. **Tied to iOS Safari regression above — verify once Safari access is restored.**
+
+- [ ] **SSL cert verify on ZIM download** `[vibe]` — Switched from `urlretrieve` to `urlopen` with `CERT_NONE` context. **Needs hardware verification.**
+
+---
+
 ### P0 — Bugs found during first hardware test (v0.0.2-pre-alpha.11, RPi 5, 2026-04-09)
 
 - ✅ **Kiwix CSS/images broken** — `--urlRootLocation /library` added to kiwix-serve ExecStart so all internal URL paths are prefixed correctly.

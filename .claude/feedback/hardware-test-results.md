@@ -33,6 +33,42 @@ Verbatim user feedback per release, followed by issue interpretation.
 
 ---
 
+## v0.0.2-pre-alpha.19 — RPi 5, 2026-04-12
+
+**Verbatim feedback:**
+
+> "the smoke-test.py needs to be fixed as it is not detecting that all three MComz ZIMs are unaccessible. System Status (v0.0.2-pre-alpha.19) — std WiFi Access Point / std DHCP/DNS / on mDNS (.local) / on Voice & Text (Mumble) / on Mumble WebSocket Bridge / err Meshtastic / std MeshCore / on Offline Library / on Winlink Email (Pat) / act APRS (Direwolf) / std HF Modem (ardopcf) / on Remote Desktop / on VNC WebSocket Bridge / on Web Server — this is a big improvement but while the cursor changes to ? over the traffic light text it takes a very long time for the tooltip to appear, to the extent that I thought it wasn't appearing for most.
+>
+> Books that are already installed should not appear in the recommended list until you uninstall them. It would be useful to include the installed size of all installed ZIMs. All recommended ZIMs now give 'URL must point to a .zim file' errors bar the MComz ZIMs which apparently can be installed — compare https://download.kiwix.org/zim/wikipedia/ with https://github.com/mcomz-org/MComzLibrary/releases/download/v2026.04.11/MComz-Survival.zim
+>
+> I am unable to connect to MComzOS using Safari again, the Visit Website button after the warning, just takes you back to the 'This Connection Is Not Private' screen. iOS Chrome seems to work. Can we have the Licensed radio capabilities after the mesh capabilities? JS8Call used to at least open with this, but it is now consistently just looping from connect button to connect button without ever showing the log in modal. Same with FreeDATA. Can we include these in the smoke-test.py? Pat seems to work as usual. The WiFi icon is clipped at the top.
+>
+> Hotspot selection now works, well done, but in hotspot mode Flash MeshCore takes us to https://flasher.meshcore.co.uk/ which fails without internet. It is good to go there when internet is available but can we at least have the Heltec v4 repeater and node flashers available offline when there is no internet access?"
+
+### Issues found
+
+| # | Area | Symptom | Diagnosis | Fix target |
+|---|------|---------|-----------|------------|
+| 1 | smoke-test | "At least one MComzLibrary ZIM present" shows ✅ but detail says "none found" | Detail string always shown regardless of pass/fail; also smoke-test doesn't verify ZIM reader URLs are accessible, only that ZIMs are registered | Claude fix |
+| 2 | System Status | Tooltip delay — cursor shows ? but tooltip takes very long to appear | CSS/JS tooltip timing (likely `title` attribute with long hover delay) | Vibe |
+| 3 | Library panel | All 3 MComz ZIMs inaccessible from new library panel | Panel generates `/library/A/<filename>/` but kiwix-serve uses UUIDs, not filenames | Vibe |
+| 4 | Library — Manage Books | Installed books appear in recommended list | No filter comparing installed paths/titles against RECOMMENDED_ZIMS | Vibe |
+| 5 | Library — Manage Books | All kiwix.org recommended ZIMs give "URL must point to a .zim file" | Recommended entries use directory URLs (e.g. `.../zim/wikipedia/`), not direct dated `.zim` file URLs | Vibe |
+| 6 | Library — Manage Books | No installed ZIM sizes shown | API may not return size field, or UI not rendering it | Vibe |
+| 7 | iOS Safari | "Visit Website" after cert warning loops back to same warning | Possible HSTS cached from previous session, or iOS Safari HTTPS-upgrade feature; iOS Chrome (same WebKit) works fine; nginx has no redirect or HSTS header in config | Vibe/investigate |
+| 8 | Dashboard layout | Licensed Radio card appears before Mesh card | Wrong order in HTML | Vibe |
+| 9 | VNC / JS8Call | Connect button loops without ever showing VNC auth modal | Regression — used to at least show auth dialog; Xvnc fix in .17 may not have landed correctly | Vibe |
+| 10 | VNC / FreeDATA | Same looping behaviour as JS8Call | Same root cause | Vibe (same fix) |
+| 11 | WiFi icon | Icon clipped at top of button | CSS overflow/padding issue | Vibe |
+| 12 | Hotspot mode | "Flash MeshCore" links to flasher.meshcore.co.uk — fails without internet | URL is always the live flasher; needs offline fallback | Vibe + site.yml |
+| 13 | WikiMed Mini | Still not provisioned (smoke-test ❌) | Download during chroot build still timing out or failing | Vibe (site.yml) |
+| 14 | Hotspot stop | Hub didn't reconnect to router WiFi after AP stop | Existing known bug — reconnect logic needs improvement | Vibe (carried from .16) |
+| 15 | Pat | Works as usual ✅ | — | — |
+| 16 | Hotspot start | Works ✅ | — | — |
+| 17 | Mumble | Not explicitly tested this session | — | — |
+
+---
+
 ## v0.0.2-pre-alpha.16 — RPi 5, 2026-04-11
 
 **Verbatim feedback:**
