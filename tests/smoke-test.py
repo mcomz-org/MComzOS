@@ -198,7 +198,7 @@ check("Kiwix books API responds", books_data is not None)
 if books_data:
     books = books_data.get("books", [])
     check("At least one ZIM registered", len(books) >= 1,
-          f"found {len(books)} book(s)")
+          "" if len(books) >= 1 else f"found {len(books)} book(s)")
     check("ZIM paths are strings", all(isinstance(b.get("path"), str) for b in books))
 
     # Check for expected content keywords in titles/paths
@@ -210,19 +210,30 @@ if books_data:
     # the literature ZIM can be deleted by the user and reinstalled via Manage Books)
     any_mcomz = any(kw in all_text for kw in ("survival", "literature", "scripture"))
     check("At least one MComzLibrary ZIM present", any_mcomz,
-          "none of survival/literature/scripture found in titles/paths")
+          "" if any_mcomz else "none of survival/literature/scripture found in titles/paths")
 
-    # WikiMed Mini — downloaded during provisioning
+    # WikiMed Mini — downloaded on first boot via mcomz-wikimed-download.service
     any_wikimed = any(kw in all_text for kw in ("wikimed", "wikipedia_en_medicine", "medicine"))
     check("WikiMed Mini ZIM present", any_wikimed,
-          "wikimed/medicine not found in titles/paths — provisioning may have failed")
+          "" if any_wikimed else "wikimed/medicine not found — mcomz-wikimed-download.service may not have run yet")
+
+# OPDS catalog — verifies kiwix-serve is exposing its library
+code_opds, body_opds = get(path="/library/catalog/v2/entries")
+check("Kiwix OPDS catalog responds", code_opds == 200,
+      f"HTTP {code_opds}" if code_opds else "no response")
+if code_opds == 200:
+    check("OPDS catalog is Atom XML", b"<feed" in body_opds or b"<?xml" in body_opds,
+          "unexpected response body")
+    check("OPDS catalog has at least one entry", b"<entry" in body_opds,
+          "no <entry> elements — library may be empty or kiwix-serve not yet indexed ZIMs")
 
 # Manage Books API endpoints
 dl_status = get_json("/api/kiwix/download/status", params={"file": "test.zim"})
 check("Download status API responds", dl_status is not None)
 if dl_status:
     check("Download status returns idle for unknown file",
-          dl_status.get("status") == "idle", f"got {dl_status.get('status')!r}")
+          dl_status.get("status") == "idle",
+          "" if dl_status.get("status") == "idle" else f"got {dl_status.get('status')!r}")
 
 # ---------------------------------------------------------------------------
 # Section 5 — Licensed Radio
