@@ -329,6 +329,7 @@
               -geometry 1280x800 \
               -depth 24 \
               -rfbauth "$HOME/.vnc/passwd" \
+              -rfbport 5901 \
               -localhost \
               -SecurityTypes VncAuth &
           XVNC_PID=$!
@@ -374,7 +375,7 @@
 
           [Service]
           Type=simple
-          ExecStart=/usr/bin/websockify 6080 localhost:5901
+          ExecStart=/usr/bin/websockify 6080 127.0.0.1:5901
           Restart=on-failure
           RestartSec=5
 
@@ -1035,6 +1036,97 @@
         force: yes
       when: not (minimal_build | default(false))
 
+    - name: Deploy WikiMed Mini first-boot download script
+      # WikiMed Mini (~155 MB) is downloaded on first boot rather than during the
+      # chroot build. Build-time downloads time out under qemu emulation and the
+      # OPDS catalog query is unreliable without a real network stack.
+      # The systemd oneshot (below) runs after network-online.target on first boot
+      # and is a no-op if the file already exists (ConditionPathExists=!).
+      copy:
+        dest: /usr/local/bin/mcomz-wikimed-download
+        owner: root
+        mode: '0755'
+        content: |
+          #!/usr/bin/env python3
+          """Download WikiMed Mini ZIM on first boot via the Kiwix OPDS catalog."""
+          import urllib.request, xml.etree.ElementTree as ET, os, sys
+
+          ZIM_DIR = '/var/mcomz/library'
+          DEST    = os.path.join(ZIM_DIR, 'wikimed-mini.zim')
+
+          os.makedirs(ZIM_DIR, exist_ok=True)
+
+          catalog_url = 'https://library.kiwix.org/catalog/v2/entries?lang=eng&name=wikipedia_en_medicine_mini'
+          try:
+              with urllib.request.urlopen(catalog_url, timeout=60) as r:
+                  root = ET.fromstring(r.read())
+          except Exception as e:
+              print(f'ERROR: Could not query Kiwix catalog: {e}', file=sys.stderr)
+              sys.exit(1)
+
+          ns = {'atom': 'http://www.w3.org/2005/Atom'}
+          zim_url = None
+          for entry in root.findall('atom:entry', ns):
+              for link in entry.findall('atom:link', ns):
+                  href = link.get('href', '')
+                  if href.endswith('.meta4'):
+                      zim_url = href[:-6]
+                      break
+              if zim_url:
+                  break
+
+          if not zim_url:
+              print('ERROR: WikiMed Mini not found in Kiwix catalog', file=sys.stderr)
+              sys.exit(1)
+
+          print(f'Downloading WikiMed Mini from {zim_url} …', flush=True)
+          tmp = DEST + '.tmp'
+          try:
+              with urllib.request.urlopen(zim_url, timeout=600) as r, open(tmp, 'wb') as f:
+                  while True:
+                      chunk = r.read(1024 * 1024)
+                      if not chunk:
+                          break
+                      f.write(chunk)
+              os.rename(tmp, DEST)
+              print(f'Done: {DEST}', flush=True)
+          except Exception as e:
+              if os.path.exists(tmp):
+                  os.unlink(tmp)
+              print(f'ERROR: Download failed: {e}', file=sys.stderr)
+              sys.exit(1)
+      when: not (minimal_build | default(false))
+
+    - name: Deploy WikiMed Mini first-boot systemd service
+      copy:
+        dest: /etc/systemd/system/mcomz-wikimed-download.service
+        content: |
+          [Unit]
+          Description=Download WikiMed Mini ZIM on first boot
+          After=network-online.target kiwix-serve.service
+          Requires=network-online.target
+          ConditionPathExists=!/var/mcomz/library/wikimed-mini.zim
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/local/bin/mcomz-wikimed-download
+          ExecStartPost=/bin/systemctl restart kiwix-serve
+          RemainAfterExit=yes
+          StandardOutput=journal
+          StandardError=journal
+
+          [Install]
+          WantedBy=multi-user.target
+      when: not (minimal_build | default(false))
+
+    - name: Enable WikiMed Mini first-boot download service
+      file:
+        src: /etc/systemd/system/mcomz-wikimed-download.service
+        dest: /etc/systemd/system/multi-user.target.wants/mcomz-wikimed-download.service
+        state: link
+        force: yes
+      when: not (minimal_build | default(false))
+
     - name: Download MComzLibrary ZIMs (Scriptures, Literature, Survival)
       # Fetches the most recent MComzLibrary GitHub release (prerelease-aware —
       # /releases/latest returns 404 for repos that only publish prereleases).
@@ -1095,83 +1187,6 @@
         GITHUB_TOKEN: "{{ lookup('env', 'GITHUB_TOKEN') }}"
       failed_when: false
       when: not (minimal_build | default(false))
-
-    - name: Download WikiMed Mini (wikipedia_en_medicine_mini, latest from Kiwix)
-      # Queries the Kiwix OPDS catalog by name to get the latest WikiMed Mini URL; ~155 MB.
-      # Uses name= filter (not category=) to avoid pagination — medicine is not in the
-      # wikipedia category, so the previous category=wikipedia query always found nothing.
-      # Soft failure: image boots without WikiMed if Kiwix is unreachable.
-      # TODO: add to the systemd update-checker timer alongside MComz-Survival.zim.
-      shell: |
-        python3 - <<'PYEOF'
-        import urllib.request, xml.etree.ElementTree as ET, os, sys
-
-        ZIM_DIR = '/var/mcomz/library'
-        DEST = os.path.join(ZIM_DIR, 'wikimed-mini.zim')
-
-        if os.path.exists(DEST):
-            print('WikiMed Mini already present')
-            sys.exit(0)
-
-        # Query catalog by name — returns only wikipedia_en_medicine_mini entries,
-        # no pagination needed and immune to category-filter mismatches.
-        try:
-            catalog_url = 'https://library.kiwix.org/catalog/v2/entries?lang=eng&name=wikipedia_en_medicine_mini'
-            with urllib.request.urlopen(catalog_url, timeout=30) as r:
-                root = ET.fromstring(r.read())
-        except Exception as e:
-            print(f'WARN: Could not query Kiwix catalog: {e}', file=sys.stderr)
-            sys.exit(0)
-
-        ns = {'atom': 'http://www.w3.org/2005/Atom'}
-        zim_url = None
-        for entry in root.findall('atom:entry', ns):
-            for link in entry.findall('atom:link', ns):
-                href = link.get('href', '')
-                if href.endswith('.meta4'):
-                    zim_url = href[:-6]  # strip .meta4 → direct ZIM URL
-                    break
-            if zim_url:
-                break
-
-        if not zim_url:
-            print('WARN: WikiMed Mini not found in Kiwix catalog', file=sys.stderr)
-            sys.exit(0)
-
-        print(f'Downloading WikiMed Mini from {zim_url} ...')
-        tmp = DEST + '.tmp'
-        try:
-            with urllib.request.urlopen(zim_url) as r, open(tmp, 'wb') as f:
-                while True:
-                    chunk = r.read(1024 * 1024)
-                    if not chunk:
-                        break
-                    f.write(chunk)
-            os.rename(tmp, DEST)
-            print('Done: wikimed-mini.zim')
-        except Exception as e:
-            if os.path.exists(tmp):
-                os.unlink(tmp)
-            print(f'WARN: Failed to download WikiMed Mini: {e}', file=sys.stderr)
-        PYEOF
-      args:
-        executable: /bin/bash
-      failed_when: false
-      register: wikimed_result
-      when: not (minimal_build | default(false))
-
-    - name: Check if WikiMed Mini ZIM landed on disk
-      stat:
-        path: /var/mcomz/library/wikimed-mini.zim
-      register: wikimed_stat
-      when: not (minimal_build | default(false))
-
-    - name: Warn if WikiMed Mini download failed
-      debug:
-        msg: "WARNING: WikiMed Mini ZIM not present after download attempt — image will boot without it. Check catalog query and network access. Install post-boot via Manage Books."
-      when:
-        - not (minimal_build | default(false))
-        - not wikimed_stat.stat.exists
 
     - name: Register downloaded ZIMs with Kiwix library
       # Writes library.xml directly from ZIM file paths — avoids running
