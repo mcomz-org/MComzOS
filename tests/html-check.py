@@ -106,7 +106,7 @@ for fn in [
     "loadSavedNetworks", "forgetNetwork", "toggleAP",
     "openLibrary", "closeLibrary", "loadLibrary",
     "openBooks", "closeBooks", "loadBooks", "renderRecommended",
-    "fetchMComzUrl", "startDownload", "removeBook",
+    "fetchMComzUrl", "fetchKiwixUrl", "startDownload", "removeBook",
     "togglePowerMenu", "closePowerMenu",
     "confirmShutdown", "confirmReboot",
     "esc",

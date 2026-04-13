@@ -264,6 +264,30 @@
         </details>
     </div>
 
+    <!-- MESH COMMUNICATION -->
+    <div class="card">
+        <h2 style="color:var(--orange)">🔗 Mesh Communication</h2>
+        <p class="note">Do you have a Meshtastic/MeshCore/LoRa radio?</p>
+        <button class="btn btn-orange" onclick="toggleMesh(this)">Show Mesh Capabilities</button>
+
+        <div id="mesh-detail">
+            <div class="mesh-section" id="meshtastic-section">
+                <h2 style="color:var(--orange);font-size:0.9rem;margin-bottom:6px;">📡 Meshtastic</h2>
+                <p class="note">Public LoRa mesh network — any Meshtastic device can join and exchange text messages. Ideal for neighbourhood-wide comms without infrastructure.</p>
+                <a href="/meshtastic/" target="_blank" rel="noopener" class="btn btn-orange" style="margin-top:8px;"
+                   onclick="return guardMeshService('meshtasticd','Meshtastic',document.getElementById('meshtastic-section'))">Open Meshtastic</a>
+            </div>
+            <div class="mesh-section" id="meshcore-section">
+                <h2 style="color:var(--orange);font-size:0.9rem;margin-bottom:6px;">🔐 MeshCore</h2>
+                <p class="note">Private tactical mesh — this hub acts as a node and repeater. You control the network: flash your own LoRa radios with MeshCore firmware to join.</p>
+                <a href="/meshcore/" target="_blank" rel="noopener" class="btn btn-orange" style="margin-top:8px;"
+                   onclick="return guardMeshService('mcomz-meshcore','MeshCore',document.getElementById('meshcore-section'))">MeshCore Dashboard</a>
+                <a href="https://flasher.meshcore.co.uk" target="_blank" rel="noopener"
+                   class="btn" style="background:#333;color:#fff;">Flash Radio to MeshCore ↗</a>
+            </div>
+        </div>
+    </div>
+
     <!-- LICENSED RADIO -->
     <div class="card">
         <h2 style="color:var(--pink)">📻 Licensed Radio</h2>
@@ -286,30 +310,6 @@
                 <p class="note">High-speed HF data modem for file transfer and peer-to-peer data exchange over radio.</p>
                 <a href="/vnc/vnc.html?path=vnc/websockify&autoconnect=true" class="btn btn-pink" style="margin-top:8px;">Open FreeDATA (Remote Desktop)</a>
                 <p class="note">FreeDATA may not be installed — AppImage availability varies by release.</p>
-            </div>
-        </div>
-    </div>
-
-    <!-- MESH COMMUNICATION -->
-    <div class="card">
-        <h2 style="color:var(--orange)">🔗 Mesh Communication</h2>
-        <p class="note">Do you have a Meshtastic/MeshCore/LoRa radio?</p>
-        <button class="btn btn-orange" onclick="toggleMesh(this)">Show Mesh Capabilities</button>
-
-        <div id="mesh-detail">
-            <div class="mesh-section" id="meshtastic-section">
-                <h2 style="color:var(--orange);font-size:0.9rem;margin-bottom:6px;">📡 Meshtastic</h2>
-                <p class="note">Public LoRa mesh network — any Meshtastic device can join and exchange text messages. Ideal for neighbourhood-wide comms without infrastructure.</p>
-                <a href="/meshtastic/" target="_blank" rel="noopener" class="btn btn-orange" style="margin-top:8px;"
-                   onclick="return guardMeshService('meshtasticd','Meshtastic',document.getElementById('meshtastic-section'))">Open Meshtastic</a>
-            </div>
-            <div class="mesh-section" id="meshcore-section">
-                <h2 style="color:var(--orange);font-size:0.9rem;margin-bottom:6px;">🔐 MeshCore</h2>
-                <p class="note">Private tactical mesh — this hub acts as a node and repeater. You control the network: flash your own LoRa radios with MeshCore firmware to join.</p>
-                <a href="/meshcore/" target="_blank" rel="noopener" class="btn btn-orange" style="margin-top:8px;"
-                   onclick="return guardMeshService('mcomz-meshcore','MeshCore',document.getElementById('meshcore-section'))">MeshCore Dashboard</a>
-                <a href="https://flasher.meshcore.co.uk" target="_blank" rel="noopener"
-                   class="btn" style="background:#333;color:#fff;">Flash Radio to MeshCore ↗</a>
             </div>
         </div>
     </div>
@@ -715,11 +715,10 @@ function loadLibrary() {
             return;
         }
         el.innerHTML = books.map(b => {
-            // Derive kiwix reader URL: /library/A/<zimid>/ where zimid = filename without .zim
+            // kiwix-serve reader URL uses the book UUID from library.xml
             const filename = b.path.split('/').pop();
-            const zimid = filename.replace(/\.zim$/, '');
             const title = b.title || filename;
-            const readerUrl = `/library/A/${encodeURIComponent(zimid)}/`;
+            const readerUrl = `/library/A/${encodeURIComponent(b.id)}/`;
             return `<a href="${readerUrl}" target="_blank" rel="noopener"
                 style="display:block;background:#111;border-radius:8px;padding:16px;margin-bottom:10px;
                        text-decoration:none;color:var(--text);border:1px solid #2a2a2a;">
@@ -746,19 +745,19 @@ const RECOMMENDED_ZIMS = [
     { title: "MComz Scriptures Library (~10 MB)",
       fetchUrl: MCOMZ_LIB_API, zimPattern: "scripture",
       note: "MComzLibrary — click to fetch the latest download URL from GitHub" },
-    // Kiwix community ZIMs — browse library.kiwix.org for the exact dated URL
+    // Kiwix community ZIMs — fetched by name from the Kiwix OPDS catalog
     { title: "WikiMed Medical Encyclopedia (mini, ~155 MB)",
-      url: "https://download.kiwix.org/zim/wikipedia/",
-      note: "Browse for wikipedia_en_medicine_mini_YYYY-MM.zim" },
+      kiwixName: "wikipedia_en_medicine_mini",
+      note: "Kiwix community — click to fetch the latest download URL" },
     { title: "Wikipedia English (mini, ~900 MB)",
-      url: "https://download.kiwix.org/zim/wikipedia/",
-      note: "Browse for wikipedia_en_all_mini_YYYY-MM.zim" },
+      kiwixName: "wikipedia_en_all_mini",
+      note: "Kiwix community — click to fetch the latest download URL" },
     { title: "Appropedia (appropriate technology, ~100 MB)",
-      url: "https://download.kiwix.org/zim/appropedia/",
-      note: "Browse for appropedia_en_all_YYYY-MM.zim" },
-    { title: "Wikisource (texts & literature, ~2 GB)",
-      url: "https://download.kiwix.org/zim/wikisource/",
-      note: "Browse for wikisource_en_all_YYYY-MM.zim" },
+      kiwixName: "appropedia_en_all",
+      note: "Kiwix community — click to fetch the latest download URL" },
+    { title: "Wikisource (texts &amp; literature, ~2 GB)",
+      kiwixName: "wikisource_en_all",
+      note: "Kiwix community — click to fetch the latest download URL" },
 ];
 
 let _pollTimer = null;
@@ -766,8 +765,14 @@ let _pollTimer = null;
 function openBooks() {
     document.getElementById('books-overlay').style.display = 'block';
     document.getElementById('books-panel').style.display = 'block';
-    loadBooks();
-    renderRecommended();
+    fetch('/api/kiwix/books').then(r => r.json()).then(data => {
+        const books = data.books || [];
+        _renderInstalled(books);
+        renderRecommended(books);
+    }).catch(() => {
+        _renderInstalled([]);
+        renderRecommended([]);
+    });
 }
 function closeBooks() {
     document.getElementById('books-overlay').style.display = 'none';
@@ -776,35 +781,46 @@ function closeBooks() {
 }
 function loadBooks() {
     fetch('/api/kiwix/books').then(r => r.json()).then(data => {
-        const el = document.getElementById('books-installed');
-        if (!data.books || !data.books.length) {
-            el.innerHTML = '<div style="color:var(--muted);font-size:0.85rem;">No books installed yet.</div>';
-            return;
-        }
-        el.innerHTML = data.books.map(b => {
-            const name = b.title || b.path.split('/').pop();
-            const size = b.size ? ` <span style="color:var(--muted)">(${(b.size/1024/1024).toFixed(0)} MB)</span>` : '';
-            return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:#111;border-radius:4px;margin-bottom:4px;font-size:0.85rem;">
-                <span>${esc(name)}${size}</span>
-                <button onclick="removeBook('${esc(b.path)}')" class="small-btn" style="color:var(--red);border-color:var(--red);">Remove</button>
-            </div>`;
-        }).join('');
-    }).catch(() => {
-        document.getElementById('books-installed').innerHTML =
-            '<div style="color:var(--muted);font-size:0.85rem;">Could not load books.</div>';
-    });
+        _renderInstalled(data.books || []);
+    }).catch(() => _renderInstalled([]));
 }
-function renderRecommended() {
-    document.getElementById('books-recommended').innerHTML = RECOMMENDED_ZIMS.map(r => {
-        const btn = r.fetchUrl
-            ? `<button onclick="fetchMComzUrl('${r.fetchUrl}','${r.zimPattern}')" class="small-btn">Get Download URL</button>`
-            : `<button onclick="document.getElementById('books-url').value='${r.url}'" class="small-btn">Use this URL</button>`;
-        return `<div style="padding:8px;background:#111;border-radius:4px;margin-bottom:6px;font-size:0.85rem;">
-            <div style="font-weight:600;margin-bottom:2px;">${r.title}</div>
-            <div style="color:var(--muted);font-size:0.75rem;margin-bottom:6px;">${r.note}</div>
-            ${btn}
+function _renderInstalled(books) {
+    const el = document.getElementById('books-installed');
+    if (!books.length) {
+        el.innerHTML = '<div style="color:var(--muted);font-size:0.85rem;">No books installed yet.</div>';
+        return;
+    }
+    el.innerHTML = books.map(b => {
+        const name = b.title || b.path.split('/').pop();
+        const size = b.size ? ` <span style="color:var(--muted)">(${(b.size/1024/1024).toFixed(0)} MB)</span>` : '';
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:#111;border-radius:4px;margin-bottom:4px;font-size:0.85rem;">
+            <span>${esc(name)}${size}</span>
+            <button onclick="removeBook('${esc(b.path)}')" class="small-btn" style="color:var(--red);border-color:var(--red);">Remove</button>
         </div>`;
     }).join('');
+}
+function renderRecommended(installedBooks) {
+    const installedFiles = (installedBooks || []).map(b => b.path.split('/').pop().toLowerCase());
+    const isInstalled = pat => installedFiles.some(f => f.includes(pat));
+    const items = RECOMMENDED_ZIMS.filter(r => {
+        const pat = r.zimPattern || r.kiwixName;
+        return !pat || !isInstalled(pat);
+    });
+    document.getElementById('books-recommended').innerHTML = items.length
+        ? items.map(r => {
+            let btn;
+            if (r.fetchUrl) {
+                btn = `<button onclick="fetchMComzUrl('${r.fetchUrl}','${r.zimPattern}')" class="small-btn">Get Download URL</button>`;
+            } else {
+                btn = `<button onclick="fetchKiwixUrl('${r.kiwixName}')" class="small-btn">Get Download URL</button>`;
+            }
+            return `<div style="padding:8px;background:#111;border-radius:4px;margin-bottom:6px;font-size:0.85rem;">
+                <div style="font-weight:600;margin-bottom:2px;">${r.title}</div>
+                <div style="color:var(--muted);font-size:0.75rem;margin-bottom:6px;">${r.note}</div>
+                ${btn}
+            </div>`;
+        }).join('')
+        : '<div style="color:var(--muted);font-size:0.85rem;padding:4px 0;">All recommended books are already installed.</div>';
 }
 function fetchMComzUrl(apiUrl, pattern) {
     const statusEl = document.getElementById('books-dl-status');
@@ -830,6 +846,41 @@ function fetchMComzUrl(apiUrl, pattern) {
         .catch(() => {
             statusEl.style.color = 'var(--red)';
             statusEl.textContent = 'Could not reach GitHub — check internet connection.';
+        });
+}
+function fetchKiwixUrl(kiwixName) {
+    const statusEl = document.getElementById('books-dl-status');
+    statusEl.style.color = 'var(--blue)';
+    statusEl.textContent = 'Fetching latest URL from Kiwix catalog…';
+    fetch(`https://library.kiwix.org/catalog/v2/entries?lang=eng&name=${encodeURIComponent(kiwixName)}`)
+        .then(r => r.text())
+        .then(xml => {
+            const doc = new DOMParser().parseFromString(xml, 'text/xml');
+            const ns = 'http://www.w3.org/2005/Atom';
+            const entries = doc.getElementsByTagNameNS(ns, 'entry');
+            if (!entries.length) {
+                statusEl.style.color = 'var(--red)';
+                statusEl.textContent = `Not found in Kiwix catalog: ${kiwixName}`;
+                return;
+            }
+            const links = entries[0].getElementsByTagNameNS(ns, 'link');
+            let zimUrl = null;
+            for (const link of links) {
+                const href = link.getAttribute('href') || '';
+                if (href.endsWith('.meta4')) { zimUrl = href.slice(0, -6); break; }
+            }
+            if (!zimUrl) {
+                statusEl.style.color = 'var(--red)';
+                statusEl.textContent = `No download link found for ${kiwixName}.`;
+                return;
+            }
+            document.getElementById('books-url').value = zimUrl;
+            statusEl.style.color = 'var(--green)';
+            statusEl.textContent = `URL ready: ${zimUrl.split('/').pop()}`;
+        })
+        .catch(() => {
+            statusEl.style.color = 'var(--red)';
+            statusEl.textContent = 'Could not reach library.kiwix.org — check internet connection.';
         });
 }
 function startDownload() {
