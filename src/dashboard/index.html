@@ -83,6 +83,7 @@
         .svc-badge {
             font-size: 0.7rem; font-weight: 700; font-variant-numeric: tabular-nums;
             width: 24px; flex-shrink: 0; text-align: center; cursor: help;
+            position: relative;
         }
         .svc-badge.on      { color: var(--green); }
         .svc-badge.off     { color: var(--red); }
@@ -90,6 +91,18 @@
         .svc-badge.error   { color: var(--orange); }
         .svc-badge.checking { color: var(--orange); animation: pulse 1s infinite; }
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+        /* Instant CSS tooltip — replaces slow native title= behaviour */
+        .svc-badge[data-tip]::after {
+            content: attr(data-tip);
+            position: absolute; bottom: calc(100% + 6px); left: 50%;
+            transform: translateX(-50%);
+            background: #333; color: var(--text);
+            font-size: 0.72rem; font-weight: 400; white-space: nowrap;
+            padding: 4px 8px; border-radius: 4px;
+            pointer-events: none; opacity: 0; transition: opacity 0.08s;
+            z-index: 200;
+        }
+        .svc-badge[data-tip]:hover::after { opacity: 1; }
 
         .note { color: var(--muted); font-size: 0.8rem; margin-top: 8px; }
 
@@ -169,7 +182,7 @@
     <h1>MComz</h1>
     <div style="display:flex;align-items:center;gap:12px;">
         <button id="wifi-btn" onclick="openWifi()" title="WiFi settings">
-            <svg width="22" height="16" viewBox="0 0 22 16" fill="none" aria-hidden="true">
+            <svg width="22" height="18" viewBox="0 -2 22 18" fill="none" aria-hidden="true">
                 <circle cx="11" cy="15" r="1.6" fill="currentColor"/>
                 <path d="M6.8 10.8a6 6 0 0 1 8.4 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
                 <path d="M3 7a11 11 0 0 1 16 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
@@ -386,7 +399,7 @@ function renderStatus(data) {
             // unknown, deactivating, or any other state
             badgeClass = 'standby';  badgeText = 'dis'; badgeTip = `Disconnected (${st})`;
         }
-        const badge = `<span class="svc-badge ${badgeClass}" title="${badgeTip}">${badgeText}</span>`;
+        const badge = `<span class="svc-badge ${badgeClass}" data-tip="${badgeTip}">${badgeText}</span>`;
         const label = svc.path
             ? `<a href="${svc.path}" style="color:inherit;text-decoration:none;">${svc.label}</a>`
             : svc.label;

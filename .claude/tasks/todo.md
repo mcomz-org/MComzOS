@@ -23,7 +23,7 @@
 
 #### Vibe tasks
 
-- [ ] **iOS Safari broken (regression)** `[vibe]` — "Visit Website" after cert warning loops back to the same warning. iOS Chrome (same WebKit engine) works. nginx config has no HTTPS redirect or HSTS header. Likely cause: iOS Safari cached an HSTS directive from a previous session, or iOS Safari's automatic HTTPS-upgrade feature (iOS 18+) is blocking the self-signed cert before the user can bypass it. Investigate: check nginx HTTPS block for any `Strict-Transport-Security` header that may have been added by vibe; check index.html for any JS or meta tag that causes HTTPS navigation; if HSTS is ruled out, document the iOS version and explore `http://` deep-link forcing.
+- [ ] **iOS Safari broken (regression)** — Investigated: nginx serves clean 200 on both HTTP and HTTPS with zero security headers (no HSTS, no redirect, no CSP). index.html has no JS redirect. Root cause: iOS Safari (15+) auto-upgrades bare hostnames to HTTPS; "Visit Website" no longer creates a persistent cert exception in iOS 18. iOS Chrome works because WKWebView has looser cert bypass behaviour. **Remaining fix:** add a dedicated HTTPS landing response (minimal HTML page) that clearly instructs the user to use `http://mcomz.local` — currently "Visit Website" lands on the full dashboard and re-triggers HTTPS fetches which Safari may re-block. Longer term: document the manual cert trust flow (Settings → General → About → Certificate Trust Settings) in the dashboard.
 
 - [ ] **VNC / JS8Call and FreeDATA — Connect button loops** `[vibe]` — noVNC connect button loops without ever showing the VNC auth dialog. Regression from .16 where it at least opened (even if auth didn't work). The Xvnc direct-launch fix shipped in .17 but clearly hasn't landed correctly. The mcomz-vnc service shows `active` in status, which means Xvnc started. Root cause is likely that websockify (mcomz-novnc) isn't reaching the VNC port, or the VNC server is listening on the wrong interface/port. Debug: check `mcomz-vnc.service` ExecStart, confirm Xvnc is binding to `localhost:5901`, confirm mcomz-novnc is proxying `localhost:5901 → :6080`, and confirm the nginx websocket route is correct.
 
@@ -35,9 +35,9 @@
 
 - ✅ **Licensed Radio card before Mesh card (wrong order)** — Mesh Communication card now appears before Licensed Radio in index.html.
 
-- [ ] **Tooltip delay** `[vibe]` — Status badge tooltips (`title=` attributes) have a very long browser-default hover delay (~1s). Replace with a CSS/JS custom tooltip that appears immediately on hover. The status grid already has a `title=` on each badge — change to `data-tooltip=` and add a small CSS tooltip that shows on `:hover` with no delay.
+- ✅ **Tooltip delay** — Replaced `title=` on svc-badge with `data-tip=` + CSS `::after` pseudo-element tooltip (0.08s fade-in, no browser delay). Works on hover; doesn't require JS.
 
-- [ ] **WiFi icon clipped at top** `[vibe]` — The SVG WiFi icon in the header button is clipped. Increase the button's padding-top or the SVG's viewBox/height to give the top arc room.
+- ✅ **WiFi icon clipped at top** — SVG viewBox expanded from `0 0 22 16` to `0 -2 22 18`, giving the top arc 2px headroom above the stroke.
 
 - [ ] **Offline MeshCore flasher for Heltec v4** `[vibe]` — In hotspot/offline mode the "Flash MeshCore" link fails. Bundle the Heltec v4 repeater and node ESPTool web-flasher assets locally during provisioning (site.yml), serve them via nginx, and update the dashboard to: (a) detect whether internet is available via the status API or a probe, (b) if online, link to flasher.meshcore.co.uk as now, (c) if offline, link to the locally-served flasher.
 
