@@ -324,18 +324,27 @@
           # Clean up stale X locks from previous crash
           rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true
 
-          # Start Xvnc (the actual server binary, not the Perl wrapper)
+          # Start Xvnc (the actual server binary, not the Perl wrapper).
+          # Do NOT use -localhost: on some systems it binds only to ::1 (IPv6
+          # loopback), which makes websockify's 127.0.0.1 target unreachable.
+          # Port 5901 is not exposed externally (nginx only proxies it via
+          # websockify) so -localhost provides no security benefit here.
           /usr/bin/Xvnc :1 \
               -geometry 1280x800 \
               -depth 24 \
               -rfbauth "$HOME/.vnc/passwd" \
               -rfbport 5901 \
-              -localhost \
               -SecurityTypes VncAuth &
           XVNC_PID=$!
 
-          # Give the X server a moment to initialise
-          sleep 1.5
+          # Wait for Xvnc to actually be listening on 5901 (up to 15 seconds)
+          # before starting the desktop session. Fixed sleep is brittle under
+          # qemu emulation and on slower Pi hardware.
+          for _i in $(seq 1 30); do
+              (exec 3<>/dev/tcp/127.0.0.1/5901) 2>/dev/null && break
+              sleep 0.5
+          done
+          exec 3>&- 2>/dev/null || true
 
           # Start the desktop session
           export DISPLAY=:1
@@ -371,6 +380,7 @@
           [Unit]
           Description=MComzOS noVNC Browser Gateway
           After=mcomz-vnc.service
+          Wants=mcomz-vnc.service
           StartLimitIntervalSec=0
 
           [Service]
