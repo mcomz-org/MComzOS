@@ -25,7 +25,7 @@
 
 - [ ] **iOS Safari broken (regression)** — Investigated: nginx serves clean 200 on both HTTP and HTTPS with zero security headers (no HSTS, no redirect, no CSP). index.html has no JS redirect. Root cause: iOS Safari (15+) auto-upgrades bare hostnames to HTTPS; "Visit Website" no longer creates a persistent cert exception in iOS 18. iOS Chrome works because WKWebView has looser cert bypass behaviour. **Remaining fix:** add a dedicated HTTPS landing response (minimal HTML page) that clearly instructs the user to use `http://mcomz.local` — currently "Visit Website" lands on the full dashboard and re-triggers HTTPS fetches which Safari may re-block. Longer term: document the manual cert trust flow (Settings → General → About → Certificate Trust Settings) in the dashboard.
 
-- [ ] **VNC / JS8Call and FreeDATA — Connect button loops** `[vibe]` — noVNC connect button loops without ever showing the VNC auth dialog. Regression from .16 where it at least opened (even if auth didn't work). The Xvnc direct-launch fix shipped in .17 but clearly hasn't landed correctly. The mcomz-vnc service shows `active` in status, which means Xvnc started. Root cause is likely that websockify (mcomz-novnc) isn't reaching the VNC port, or the VNC server is listening on the wrong interface/port. Debug: check `mcomz-vnc.service` ExecStart, confirm Xvnc is binding to `localhost:5901`, confirm mcomz-novnc is proxying `localhost:5901 → :6080`, and confirm the nginx websocket route is correct.
+- [ ] **VNC / JS8Call and FreeDATA — Connect button loops** — Fix shipped. Three causes fixed: (1) removed `-localhost` from Xvnc which can bind to `::1` only on Bookworm, making `127.0.0.1:5901` unreachable; (2) replaced `sleep 1.5` with a `/dev/tcp` port-ready loop (waits up to 15s); (3) added `Wants=mcomz-vnc.service` to novnc unit. **Needs hardware verification.**
 
 - ✅ **Kiwix ZIM reader URLs wrong** — Library panel now uses `b.id` (UUID from library.xml) as the kiwix-serve reader path: `/library/A/<uuid>/`. The UUID stored by the playbook is the one kiwix-serve assigns, so reader links are correct.
 
@@ -55,7 +55,7 @@
 
 ### Unverified fixes (shipped in code, awaiting hardware confirmation)
 
-- [ ] **VNC Connect button does nothing** `[vibe]` — `Requires=mcomz-vnc` removed from mcomz-novnc; `StartLimitIntervalSec=0` added. Superseded by the .19 looping regression — treat as one item. **Needs fresh hardware test after the looping fix.**
+- [ ] **VNC Connect button** — All fixes applied (removed Requires=, StartLimitIntervalSec=0, removed -localhost, port-ready loop, Wants=). **Needs hardware verification in next flash.**
 
 - [ ] **Mumble controls greyed on macOS Chrome** `[vibe]` — `mcomz-mumble-ws` added to status dict; `server_hostname='localhost'` added to websockify SSL patch. **Needs hardware verification.**
 
