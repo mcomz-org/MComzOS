@@ -14,6 +14,7 @@ Exit code 0 = all checks passed.
 """
 
 import json
+import socket
 import ssl
 import subprocess
 import sys
@@ -257,6 +258,17 @@ code_ws, _ = get(path="/vnc/websockify")
 check("VNC websockify endpoint exists (nginx route present)",
       code_ws in (200, 400, 405, 426),
       f"HTTP {code_ws}" if code_ws else "no response — nginx route missing")
+
+# Xvnc TCP port — websockify proxies to localhost:5901; confirm Xvnc is actually up
+try:
+    with socket.create_connection((HOST, 5901), timeout=3) as s:
+        banner = s.recv(32)
+    vnc_up = banner.startswith(b"RFB")
+    check("Xvnc is accepting connections on port 5901",
+          vnc_up, "" if vnc_up else f"unexpected banner: {banner!r}")
+except Exception as e:
+    check("Xvnc is accepting connections on port 5901", False,
+          f"TCP connect failed: {e} — mcomz-vnc may not be running")
 
 # Mumble static files
 code_mum, body_mum = get(path="/mumble/")
