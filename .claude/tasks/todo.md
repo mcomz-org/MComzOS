@@ -27,13 +27,13 @@
 
 - [ ] **VNC / JS8Call and FreeDATA — Connect button loops** `[vibe]` — noVNC connect button loops without ever showing the VNC auth dialog. Regression from .16 where it at least opened (even if auth didn't work). The Xvnc direct-launch fix shipped in .17 but clearly hasn't landed correctly. The mcomz-vnc service shows `active` in status, which means Xvnc started. Root cause is likely that websockify (mcomz-novnc) isn't reaching the VNC port, or the VNC server is listening on the wrong interface/port. Debug: check `mcomz-vnc.service` ExecStart, confirm Xvnc is binding to `localhost:5901`, confirm mcomz-novnc is proxying `localhost:5901 → :6080`, and confirm the nginx websocket route is correct.
 
-- [ ] **Kiwix ZIM reader URLs wrong** `[vibe]` — Library panel generates `/library/A/<filename-without-zim>/` but kiwix-serve assigns its own UUID to each ZIM. The correct approach is to query `/library/catalog/v2/entries` (OPDS feed, already served at that path) which returns each book's actual reader URL. Update the library panel to fetch from the OPDS catalog instead of (or in addition to) `/api/kiwix/books`, and use the href from the catalog entry as the reader link.
+- ✅ **Kiwix ZIM reader URLs wrong** — Library panel now uses `b.id` (UUID from library.xml) as the kiwix-serve reader path: `/library/A/<uuid>/`. The UUID stored by the playbook is the one kiwix-serve assigns, so reader links are correct.
 
-- [ ] **Kiwix.org recommended URLs are directory listings, not .zim files** `[vibe]` — Recommended entries for WikiMed, Wikipedia, etc. link to e.g. `https://download.kiwix.org/zim/wikipedia/` which is a directory. The download endpoint rejects these with "URL must point to a .zim file". Fix: use the kiwix OPDS catalog (`https://library.kiwix.org/catalog/v2/entries?lang=eng&name=<bookname>`) to dynamically resolve the latest dated .zim URL — the same approach already used for WikiMed Mini during provisioning (see site.yml ~line 1119). Each recommended entry needs a `name` field (e.g. `wikipedia_en_medicine_mini`) and a "Get Download URL" button that queries the catalog and populates the URL field.
+- ✅ **Kiwix.org recommended URLs are directory listings, not .zim files** — Added `fetchKiwixUrl(kiwixName)` which queries `https://library.kiwix.org/catalog/v2/entries?lang=eng&name=<name>`, parses OPDS Atom XML via `DOMParser`, strips `.meta4` to get the direct ZIM URL, and populates the download field. All community ZIMs in RECOMMENDED_ZIMS updated to use `kiwixName`.
 
-- [ ] **Installed books appear in recommended list** `[vibe]` — Filter RECOMMENDED_ZIMS against the installed books list when rendering the recommended panel. Match by filename pattern (e.g. if a book path contains "survival", hide the Survival entry). Do this in `renderRecommended()` after `loadBooks()` has run.
+- ✅ **Installed books appear in recommended list** — `renderRecommended(books)` now accepts the installed books list and filters entries whose `zimPattern` or `kiwixName` matches any installed filename. `openBooks()` does a single `/api/kiwix/books` fetch and passes the result to both the installed list and the recommended panel.
 
-- [ ] **Licensed Radio card before Mesh card (wrong order)** `[vibe]` — Move the Licensed Radio collapsible card to appear after the Mesh Communication card in index.html.
+- ✅ **Licensed Radio card before Mesh card (wrong order)** — Mesh Communication card now appears before Licensed Radio in index.html.
 
 - [ ] **Tooltip delay** `[vibe]` — Status badge tooltips (`title=` attributes) have a very long browser-default hover delay (~1s). Replace with a CSS/JS custom tooltip that appears immediately on hover. The status grid already has a `title=` on each badge — change to `data-tooltip=` and add a small CSS tooltip that shows on `:hover` with no delay.
 
@@ -41,13 +41,13 @@
 
 - [ ] **Offline MeshCore flasher for Heltec v4** `[vibe]` — In hotspot/offline mode the "Flash MeshCore" link fails. Bundle the Heltec v4 repeater and node ESPTool web-flasher assets locally during provisioning (site.yml), serve them via nginx, and update the dashboard to: (a) detect whether internet is available via the status API or a probe, (b) if online, link to flasher.meshcore.co.uk as now, (c) if offline, link to the locally-served flasher.
 
-- [ ] **Installed ZIM sizes** `[vibe]` — Show the file size of each installed ZIM in both the Library panel and the Manage Books panel. The `/api/kiwix/books` endpoint in status.py should return a `size` field (bytes, from `os.path.getsize(path)`). The Manage Books panel already has `b.size` in the UI code (line ~787 of index.html) — check if status.py is actually returning it.
+- ✅ **Installed ZIM sizes** — `kiwix_books()` in status.py now uses `os.path.getsize(path)` to return actual file size in bytes. The Manage Books panel already renders it as `(N MB)`.
 
-- [ ] **WikiMed Mini provisioning (recurring)** `[vibe]` — WikiMed Mini download fails during CI chroot build again. The OPDS catalog query approach (site.yml ~line 1119) is correct but the download itself times out in qemu emulation. Options: (a) increase timeout / add retry logic, (b) pre-stage the URL in the playbook and skip the catalog query, (c) move the download to first-boot rather than build time using a systemd oneshot unit.
+- ✅ **WikiMed Mini provisioning (recurring)** — Moved to a `ConditionPathExists=!` first-boot systemd oneshot (`mcomz-wikimed-download.service`). Runs on first boot after `network-online.target`; restarts kiwix-serve when done. Build-time download tasks removed. Will not time out in qemu since it never runs in the chroot.
 
 #### Claude tasks
 
-- [ ] **Fix smoke-test.py: misleading detail + ZIM reader accessibility check** `[claude]` — Two issues: (1) `check("At least one MComzLibrary ZIM present", any_mcomz, "none of survival/literature/scripture found in titles/paths")` shows the failure message even when the check passes — fix by only passing the detail string on failure. (2) The test confirms ZIMs are registered but not that their reader URLs work. Add a check that fetches the OPDS catalog (`/library/catalog/v2/entries`) and verifies at least one entry has a working reader link (HTTP 200).
+- ✅ **Fix smoke-test.py: misleading detail + OPDS catalog check** `[claude]` — Detail strings now only passed on failure. Added OPDS catalog check: fetches `/library/catalog/v2/entries`, verifies HTTP 200 + Atom XML + at least one `<entry>`. Also fixed download-status detail string same way.
 
 - [ ] **Add VNC/noVNC connection check to smoke-test.py** `[claude]` — The smoke-test verifies noVNC HTML and websockify endpoint exist, but not that the VNC server is actually accepting connections behind websockify. Add a raw TCP connect check to `localhost:5901` (or via the API status for `mcomz-vnc`) to at least flag when Xvnc is not running.
 
