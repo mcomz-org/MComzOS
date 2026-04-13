@@ -49,7 +49,7 @@
 
 - ✅ **Fix smoke-test.py: misleading detail + OPDS catalog check** `[claude]` — Detail strings now only passed on failure. Added OPDS catalog check: fetches `/library/catalog/v2/entries`, verifies HTTP 200 + Atom XML + at least one `<entry>`. Also fixed download-status detail string same way.
 
-- [ ] **Add VNC/noVNC connection check to smoke-test.py** `[claude]` — The smoke-test verifies noVNC HTML and websockify endpoint exist, but not that the VNC server is actually accepting connections behind websockify. Add a raw TCP connect check to `localhost:5901` (or via the API status for `mcomz-vnc`) to at least flag when Xvnc is not running.
+- ✅ **Add VNC/noVNC connection check to smoke-test.py** `[claude]` — TCP connect to `HOST:5901`, verify `RFB` banner. Directly detects the noVNC connect-loop class of failure.
 
 ---
 
