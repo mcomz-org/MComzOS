@@ -1044,37 +1044,25 @@
       copy:
         dest: /etc/nginx/sites-available/mcomz
         content: |
-          # Redirect HTTP to HTTPS (browsers require HTTPS for microphone access)
+          # HTTP — primary dashboard access (no cert hassle for phones/tablets)
           server {
               listen 80 default_server;
               server_name mcomz.local mcomz _;
-              return 301 https://$host$request_uri;
-          }
-
-          server {
-              listen 443 ssl default_server;
-              server_name mcomz.local mcomz _;
-              ssl_certificate /etc/ssl/mcomz/mcomz.crt;
-              ssl_certificate_key /etc/ssl/mcomz/mcomz.key;
               root /var/www/html;
               index index.html;
 
-              # Dashboard
               location / {
                   try_files $uri $uri/ /index.html;
               }
 
-              # Status API (Python service on localhost:9000)
               location /api/ {
                   proxy_pass http://127.0.0.1:9000/api/;
               }
 
-              # Offline Library (kiwix-serve on port 8888)
               location /library/ {
                   proxy_pass http://127.0.0.1:8888/;
               }
 
-              # Mumble browser voice client (websockify on port 64737 — needs WS upgrade)
               location /mumble/ {
                   proxy_pass http://127.0.0.1:64737/;
                   proxy_http_version 1.1;
@@ -1082,23 +1070,74 @@
                   proxy_set_header Connection "upgrade";
               }
 
-              # Meshtastic web UI (meshtasticd on port 8080)
               location /meshtastic/ {
                   proxy_pass http://127.0.0.1:8080/;
               }
 
-              # MeshCore web dashboard (pyMC_Repeater on port 8000)
               location /meshcore/ {
                   proxy_pass http://127.0.0.1:8000/;
               }
 
-              # Pat Winlink HTTP gateway (port 8081)
               location /pat/ {
                   proxy_pass http://127.0.0.1:8081/;
               }
 
-              # noVNC browser remote desktop — static files served by nginx,
-              # WebSocket tunnel proxied to websockify (VNC-tunnel-only on port 6080)
+              location /vnc/ {
+                  alias /usr/share/novnc/;
+                  index vnc.html;
+              }
+              location /vnc/websockify {
+                  proxy_pass http://127.0.0.1:6080/;
+                  proxy_http_version 1.1;
+                  proxy_set_header Upgrade $http_upgrade;
+                  proxy_set_header Connection "upgrade";
+                  proxy_read_timeout 86400;
+              }
+          }
+
+          # HTTPS — needed for Mumble microphone (getUserMedia requires secure context).
+          # Root path redirects to HTTP to avoid iOS Safari self-signed cert loops.
+          # All service proxies remain functional for direct HTTPS access.
+          server {
+              listen 443 ssl default_server;
+              server_name mcomz.local mcomz _;
+              ssl_certificate /etc/ssl/mcomz/mcomz.crt;
+              ssl_certificate_key /etc/ssl/mcomz/mcomz.key;
+
+              # Dashboard: redirect to HTTP (iOS Safari loops on self-signed certs)
+              location / {
+                  default_type text/html;
+                  return 200 '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MComzOS</title><style>body{background:#121212;color:#e0e0e0;font-family:system-ui,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;text-align:center}a{color:#29b6f6;font-size:1.2rem}</style></head><body><div><h1>MComzOS</h1><p>The dashboard runs over HTTP to avoid certificate warnings.</p><p style="margin-top:24px"><a href="http://mcomz.local/">Open Dashboard (HTTP)</a></p><p style="margin-top:12px;color:#888;font-size:0.85rem">HTTPS is used for Mumble voice chat (microphone access requires a secure connection).</p></div></body></html>';
+              }
+
+              location /api/ {
+                  proxy_pass http://127.0.0.1:9000/api/;
+              }
+
+              location /library/ {
+                  proxy_pass http://127.0.0.1:8888/;
+              }
+
+              # Mumble — the primary reason HTTPS exists (getUserMedia needs secure context)
+              location /mumble/ {
+                  proxy_pass http://127.0.0.1:64737/;
+                  proxy_http_version 1.1;
+                  proxy_set_header Upgrade $http_upgrade;
+                  proxy_set_header Connection "upgrade";
+              }
+
+              location /meshtastic/ {
+                  proxy_pass http://127.0.0.1:8080/;
+              }
+
+              location /meshcore/ {
+                  proxy_pass http://127.0.0.1:8000/;
+              }
+
+              location /pat/ {
+                  proxy_pass http://127.0.0.1:8081/;
+              }
+
               location /vnc/ {
                   alias /usr/share/novnc/;
                   index vnc.html;

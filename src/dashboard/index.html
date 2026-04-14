@@ -153,9 +153,9 @@
     </div>
 </header>
 
-<div id="https-warn" style="display:none;background:#1a1200;border:1px solid #ff9800;border-radius:6px;padding:12px 16px;margin-bottom:16px;font-size:0.85rem;color:#ff9800;">
-    <strong>Not using HTTPS.</strong> Microphone access for voice chat requires HTTPS.
-    <a href="javascript:void(0)" onclick="document.getElementById('https-warn').style.display='none'" style="float:right;color:#ff9800;">dismiss</a>
+<div id="https-warn" style="display:none;background:#0a1a2a;border:1px solid #29b6f6;border-radius:6px;padding:12px 16px;margin-bottom:16px;font-size:0.85rem;color:#29b6f6;">
+    <strong>Voice chat uses HTTPS.</strong> When you open Mumble, your browser will ask you to accept a security certificate — this is normal for a local device.
+    <a href="javascript:void(0)" onclick="document.getElementById('https-warn').style.display='none'" style="float:right;color:#29b6f6;">dismiss</a>
 </div>
 <script>if(location.protocol!=='https:')document.getElementById('https-warn').style.display='block';</script>
 
@@ -219,7 +219,7 @@
     <div class="card">
         <h2 style="color:var(--blue)">🎙 Voice &amp; Text Chat</h2>
         <p class="note">Browser-based voice and text channels. Works on any phone.</p>
-        <a href="/mumble/" class="btn btn-blue">Join Voice Channel (Mumble)</a>
+        <a href="javascript:void(0)" onclick="location.href='https://'+location.hostname+'/mumble/'" class="btn btn-blue">Join Voice Channel (Mumble)</a>
     </div>
 
     <!-- HF: PAT -->
@@ -233,14 +233,14 @@
     <div class="card">
         <h2 style="color:var(--pink)">📻 JS8Call <small style="color:var(--muted)">(licensed)</small></h2>
         <p class="note">Keyboard-to-keyboard HF messaging via weak-signal digital mode. Join the #MCOMZ net Sundays 1500Z on 7.078 MHz.</p>
-        <a href="/vnc/vnc.html?path=websockify&autoconnect=true" class="btn btn-pink">Open JS8Call (Remote Desktop)</a>
+        <a href="/vnc/vnc.html?path=vnc/websockify&autoconnect=true" class="btn btn-pink">Open JS8Call (Remote Desktop)</a>
     </div>
 
     <!-- HF: FREEDATA -->
     <div class="card">
         <h2 style="color:var(--pink)">📡 FreeDATA <small style="color:var(--muted)">(licensed)</small></h2>
         <p class="note">High-speed HF data modem for file transfer and peer-to-peer data exchange over radio.</p>
-        <a href="/vnc/vnc.html?path=websockify&autoconnect=true" class="btn btn-pink">Open FreeDATA (Remote Desktop)</a>
+        <a href="/vnc/vnc.html?path=vnc/websockify&autoconnect=true" class="btn btn-pink">Open FreeDATA (Remote Desktop)</a>
         <p class="note">FreeDATA may not be installed — AppImage availability varies by release.</p>
     </div>
 
