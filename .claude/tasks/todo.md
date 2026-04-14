@@ -141,7 +141,7 @@
 
 - ✅ **FreeDATA AppImage availability**: GitHub API probe replaces hardcoded URL; download task skipped gracefully if no AppImage published for arch
 
-- ✅ **Mumble HTTPS for microphone access**: Self-signed cert generated via openssl (`/etc/ssl/mcomz/`); nginx now serves HTTPS on 443 and redirects HTTP→HTTPS; dashboard shows warning banner if loaded over HTTP
+- ✅ **Mumble HTTPS for microphone access**: Self-signed cert generated via openssl (`/etc/ssl/mcomz/`); nginx serves HTTPS on 443 for Mumble mic access; HTTP on 80 serves the dashboard directly (no redirect — avoids iOS Safari cert loop); HTTPS root shows redirect-to-HTTP page
 
 ### P1 — Chroot build reliability (v0.0.2-pre-alpha series)
 
@@ -198,12 +198,57 @@ Once the build is green and tested, systematically remove every `ignore_errors`:
 - [ ] **meshtasticd enable**: Same symlink pattern as above; remove `ignore_errors`.
 - [ ] **Audit**: Confirm zero `ignore_errors` remain in site.yml. Every task either succeeds or fails the build intentionally.
 
+### P1 — Runtime/UX bugs (dashboard and nginx)
+
+#### Bug 1: VNC "Connect" button loops without showing password dialog
+
+**Status:** ✅ Fixed (2026-04-14)
+
+**Root cause:** Dashboard links (`index.html:236,243`) used `path=websockify` but the nginx WebSocket proxy lives at `/vnc/websockify`. noVNC's `path` parameter is a full URL path (no leading slash), so it tried `ws://host/websockify` — no matching nginx location — and retried in a loop with `autoconnect=true`.
+
+**What was NOT wrong:** Xvnc binding (localhost:5901 ✓), websockify target (localhost:5901 ✓), service ordering (`After=`/`Requires=` mcomz-vnc.service ✓), rfbport (default 5901 for display :1 ✓).
+
+**Fix:** Changed `path=websockify` → `path=vnc/websockify` in both VNC links.
+
+#### Bug 2: iOS Safari HTTPS loop with self-signed cert
+
+**Status:** ✅ Fixed (2026-04-14)
+
+**Root cause:** nginx port 80 returned `301 https://`. iOS Safari auto-upgrades bare hostnames to HTTPS. With a self-signed cert, Safari shows "This Connection Is Not Private" — and even after tapping "Visit Website", subsequent fetch() calls to `/api/status` etc. can re-trigger the block, causing a loop.
+
+**Tension:** Mumble needs HTTPS for `getUserMedia()` (microphone), but the dashboard should be accessible without cert hassle.
+
+**Fix:**
+- Port 80: serves the full dashboard and all service proxies directly (no redirect)
+- Port 443: root `/` returns a minimal HTML page redirecting to HTTP; all other locations (`/api/`, `/mumble/`, `/library/`, etc.) remain functional for HTTPS-dependent features
+- Dashboard Mumble link changed to explicit `https://` for microphone access
+- HTTPS warning banner updated to explain the HTTP/HTTPS split and link to HTTPS Mumble
+
+#### Bug 3: MeshCore flasher requires internet (offline unusable)
+
+**Status:** Open — deferred to Sonnet 4.6
+
+**Problem:** "Flash MeshCore" button links to `flasher.meshcore.co.uk` which requires internet. In hotspot/offline mode (the primary use case), this fails.
+
+**Proposed fix (two parts):**
+1. **Provisioning (site.yml):** During build, download esptool-js web flasher static assets + MeshCore firmware binaries (Heltec V3/V4 repeater + node `.bin` files from GitHub releases). Serve from nginx at `/meshcore-flash/`.
+2. **Dashboard (index.html):** Replace the Flash button with online/offline detection: if online → open `flasher.meshcore.co.uk`; if offline → open local `/meshcore-flash/`.
+
+**Why deferred:** Requires research into esptool-js asset structure, MeshCore firmware release URLs, and manifest format. Well-suited for Sonnet 4.6 implementation.
+
+**Research needed:**
+- [ ] Identify esptool-js static assets required for web-based ESP32 flashing
+- [ ] Find MeshCore firmware binary URLs on GitHub releases (Heltec V3 repeater + node)
+- [ ] Determine manifest format for esptool-js web flasher
+- [ ] Size estimate for bundled firmware (image size impact)
+
 #### Phase C: First flash and hardware validation
 
-- [ ] Flash RPi image, boot, verify `https://mcomz.local` loads
+- [ ] Flash RPi image, boot, verify `http://mcomz.local` loads (HTTP, not HTTPS)
 - [ ] Dashboard: all service status dots showing correct state
 - [ ] WiFi panel: scan, connect, forget, AP mode toggle
-- [ ] Each service link: Kiwix, Pat, VNC (JS8Call), Mumble voice
+- [ ] Each service link: Kiwix, Pat, VNC (JS8Call), Mumble voice (via HTTPS)
+- [ ] iOS Safari: verify no HTTPS redirect loop, Mumble mic works after cert accept
 - [ ] AP fallback: unplug router, wait 5 min, verify `MComzOS` hotspot appears
 - [ ] x86: flash to USB, boot on a PC, same checks
 
