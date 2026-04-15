@@ -3,7 +3,14 @@
 Proxied by nginx at /api/. Runs as root so nmcli/ip/systemctl work without sudo."""
 
 import json
+import os
+import ssl
 import subprocess
+import threading
+import time
+import urllib.request
+import uuid
+import xml.etree.ElementTree as ET
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 SERVICES = {
@@ -11,18 +18,23 @@ SERVICES = {
     "dnsmasq":          {"label": "DHCP / DNS",              "path": None},
     "avahi-daemon":     {"label": "mDNS (.local)",           "path": None},
     "mumble-server":    {"label": "Voice & Text (Mumble)",   "path": "/mumble/"},
+    "mcomz-mumble-ws":  {"label": "Mumble WebSocket Bridge", "path": None},
     "meshtasticd":      {"label": "Meshtastic",              "path": "/meshtastic/"},
     "mcomz-meshcore":   {"label": "MeshCore",                "path": "/meshcore/"},
     "kiwix-serve":      {"label": "Offline Library",         "path": "/library/"},
-    "pat":              {"label": "Winlink Email (Pat)",      "path": "/pat/"},
+    "pat":              {"label": "Winlink Email (Pat)",      "path": None},
     "direwolf":         {"label": "APRS (Direwolf)",         "path": None},
     "ardopcf":          {"label": "HF Modem (ardopcf)",      "path": None},
     "mcomz-vnc":        {"label": "Remote Desktop",          "path": "/vnc/"},
+    "mcomz-novnc":      {"label": "VNC WebSocket Bridge",    "path": None},
     "nginx":            {"label": "Web Server",              "path": None},
 }
 
 WIFI_IFACE = "wlan0"
 AP_IP = "192.168.4.1"
+ZIMS_DIR = "/var/mcomz/zims"
+LIBRARY_XML = "/var/mcomz/library.xml"
+_download_status = {}  # filename -> {"status": "downloading"|"done"|"error", "error": "..."}
 
 
 def service_status(name):
@@ -123,21 +135,57 @@ def wifi_forget(name):
 
 
 def ap_start():
-    """Mirror the mcomz-apmode-fallback activation sequence."""
+    """Disconnect from WiFi, release interface from NetworkManager, then start the AP.
+    Explicit disconnect before releasing avoids a race where hostapd tries to bind
+    to an interface still held in station mode by the driver."""
+    # Graceful disconnect first — best-effort, may fail if not connected
+    subprocess.run(["nmcli", "device", "disconnect", WIFI_IFACE],
+                   capture_output=True, timeout=10)
+    # Release from NetworkManager
+    subprocess.run(["nmcli", "device", "set", WIFI_IFACE, "managed", "no"],
+                   capture_output=True, timeout=10)
+    # Give the driver a moment to exit station mode before hostapd takes over
+    time.sleep(1)
+    # Configure AP interface
     for cmd in [
-        ["nmcli", "device", "set", WIFI_IFACE, "managed", "no"],
         ["ip", "addr", "flush", "dev", WIFI_IFACE],
         ["ip", "addr", "add", f"{AP_IP}/24", "dev", WIFI_IFACE],
         ["ip", "link", "set", WIFI_IFACE, "up"],
-        ["systemctl", "start", "hostapd"],
-        ["systemctl", "start", "dnsmasq"],
     ]:
         subprocess.run(cmd, capture_output=True, timeout=10)
+    # Start AP services — capture hostapd result so failures are visible in logs
+    r = subprocess.run(["systemctl", "start", "hostapd"],
+                       capture_output=True, text=True, timeout=15)
+    if r.returncode != 0:
+        # hostapd failed — the user is already offline; log the error and return it
+        # so it appears in journald (mcomz-status service) for debugging
+        import sys
+        print(f"hostapd start failed: {r.stderr.strip()}", file=sys.stderr, flush=True)
+        return {"ok": False, "error": f"hostapd failed to start: {r.stderr.strip() or 'check journalctl -u hostapd'}"}
+    subprocess.run(["systemctl", "start", "dnsmasq"], capture_output=True, timeout=10)
+    return {"ok": True}
+
+
+def system_poweroff():
+    """Initiate an immediate system shutdown. Uses Popen so the JSON response
+    returns before the system actually powers off (~2 seconds later)."""
+    subprocess.Popen(["shutdown", "-h", "now"])
+    return {"ok": True}
+
+
+def system_reboot():
+    """Initiate an immediate system reboot."""
+    subprocess.Popen(["shutdown", "-r", "now"])
     return {"ok": True}
 
 
 def ap_stop():
-    """Stop the hotspot and let NetworkManager reconnect."""
+    """Stop the hotspot and poll until NetworkManager reconnects (up to 30 s).
+
+    Returns {"ok": true, "reconnected": true} on clean reconnect, or
+    {"ok": true, "reconnected": false, "hint": "..."} if NM hasn't finished
+    within the timeout — the user can still reach the hub at mcomz.local once
+    NM reconnects on its own."""
     for cmd in [
         ["systemctl", "stop", "hostapd"],
         ["systemctl", "stop", "dnsmasq"],
@@ -145,6 +193,108 @@ def ap_stop():
         ["nmcli", "device", "connect", WIFI_IFACE],
     ]:
         subprocess.run(cmd, capture_output=True, timeout=10)
+
+    # Poll until wlan0 is connected or 30 s elapse.
+    for _ in range(15):
+        time.sleep(2)
+        r = subprocess.run(
+            ["nmcli", "-t", "-f", "STATE", "device", "show", WIFI_IFACE],
+            capture_output=True, text=True, timeout=5
+        )
+        if "connected" in r.stdout.lower():
+            return {"ok": True, "reconnected": True}
+
+    return {
+        "ok": True,
+        "reconnected": False,
+        "hint": "Open http://mcomz.local or reboot if MComzOS doesn't reappear.",
+    }
+
+
+def kiwix_books():
+    try:
+        tree = ET.parse(LIBRARY_XML)
+        books = []
+        for b in tree.getroot().findall("book"):
+            books.append({
+                "id": b.get("id", ""),
+                "title": b.get("title", b.get("path", "").split("/")[-1]),
+                "path": b.get("path", ""),
+                "size": os.path.getsize(b.get("path", "")) if b.get("path") and os.path.exists(b.get("path", "")) else 0,
+            })
+        return {"books": books}
+    except Exception as e:
+        return {"books": [], "error": str(e)}
+
+
+def kiwix_download(url):
+    filename = url.rstrip("/").split("/")[-1].split("?")[0]
+    if not filename.endswith(".zim"):
+        return {"ok": False, "error": "URL must point to a .zim file"}
+    dest = os.path.join(ZIMS_DIR, filename)
+    if _download_status.get(filename, {}).get("status") == "downloading":
+        return {"ok": False, "error": "Already downloading"}
+
+    def _run():
+        _download_status[filename] = {"status": "downloading"}
+        try:
+            os.makedirs(ZIMS_DIR, exist_ok=True)
+            # Disable SSL cert verification: the Pi's clock may lag behind the
+            # cert notBefore date on first boot (no GPS/NTP sync yet), causing
+            # standard urlretrieve to raise CERTIFICATE_VERIFY_FAILED.
+            _no_verify = ssl.create_default_context()
+            _no_verify.check_hostname = False
+            _no_verify.verify_mode = ssl.CERT_NONE
+            with urllib.request.urlopen(url, context=_no_verify) as r, \
+                 open(dest, "wb") as f:
+                while True:
+                    chunk = r.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+            # Add to library.xml
+            try:
+                tree = ET.parse(LIBRARY_XML)
+                root = tree.getroot()
+            except Exception:
+                root = ET.Element("library", version="20110515")
+                tree = ET.ElementTree(root)
+            ET.SubElement(root, "book", id=str(uuid.uuid4()), path=dest)
+            tree.write(LIBRARY_XML, xml_declaration=True, encoding="UTF-8")
+            subprocess.run(["systemctl", "restart", "kiwix-serve"],
+                           capture_output=True, timeout=15)
+            _download_status[filename] = {"status": "done"}
+        except Exception as e:
+            _download_status[filename] = {"status": "error", "error": str(e)}
+            if os.path.exists(dest):
+                os.remove(dest)
+
+    threading.Thread(target=_run, daemon=True).start()
+    return {"ok": True, "filename": filename}
+
+
+def kiwix_download_status(filename):
+    return _download_status.get(filename, {"status": "idle"})
+
+
+def kiwix_remove(path):
+    try:
+        tree = ET.parse(LIBRARY_XML)
+        root = tree.getroot()
+        for b in root.findall("book"):
+            if b.get("path") == path:
+                root.remove(b)
+                break
+        tree.write(LIBRARY_XML, xml_declaration=True, encoding="UTF-8")
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+    try:
+        if os.path.exists(path):
+            os.remove(path)
+    except Exception:
+        pass
+    subprocess.run(["systemctl", "restart", "kiwix-serve"],
+                   capture_output=True, timeout=15)
     return {"ok": True}
 
 
@@ -181,6 +331,12 @@ class StatusHandler(BaseHTTPRequestHandler):
                 name: {"status": service_status(name), **info}
                 for name, info in SERVICES.items()
             })
+        elif path == "/api/version":
+            try:
+                with open("/etc/mcomzos-version") as f:
+                    self._json({"version": f.read().strip()})
+            except Exception:
+                self._json({"version": "unknown"})
         elif path == "/api/wifi/networks":
             try:
                 self._json(wifi_networks(rescan=params.get("scan") == "1"))
@@ -191,6 +347,10 @@ class StatusHandler(BaseHTTPRequestHandler):
                 self._json(wifi_known())
             except Exception as e:
                 self._json({"error": str(e)}, 500)
+        elif path == "/api/kiwix/books":
+            self._json(kiwix_books())
+        elif path == "/api/kiwix/download/status":
+            self._json(kiwix_download_status(params.get("file", "")))
         else:
             self.send_response(404)
             self.end_headers()
@@ -209,6 +369,14 @@ class StatusHandler(BaseHTTPRequestHandler):
             self._json(ap_start())
         elif self.path == "/api/wifi/ap/stop":
             self._json(ap_stop())
+        elif self.path == "/api/system/poweroff":
+            self._json(system_poweroff())
+        elif self.path == "/api/system/reboot":
+            self._json(system_reboot())
+        elif self.path == "/api/kiwix/download":
+            self._json(kiwix_download(body.get("url", "")))
+        elif self.path == "/api/kiwix/remove":
+            self._json(kiwix_remove(body.get("path", "")))
         else:
             self.send_response(404)
             self.end_headers()

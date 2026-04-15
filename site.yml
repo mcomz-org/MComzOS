@@ -73,7 +73,6 @@
           wpa=2
           wpa_passphrase={{ ap_password }}
           wpa_key_mgmt=WPA-PSK
-          wpa_pairwise=TKIP
           rsn_pairwise=CCMP
 
     - name: Point hostapd defaults at config file
@@ -308,6 +307,53 @@
         groups: audio
         append: yes
 
+    - name: Deploy VNC startup wrapper script
+      # Uses Xvnc directly rather than the vncserver Perl wrapper, which is
+      # unreliable as a systemd foreground service (may fork unexpectedly or
+      # fail to find its environment). The wrapper cleans stale X locks,
+      # starts Xvnc in background, then launches the xstartup session.
+      copy:
+        dest: /usr/local/bin/mcomz-vnc-start
+        owner: root
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          set -e
+          export HOME="/home/{{ mcomz_user }}"
+
+          # Clean up stale X locks from previous crash
+          rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true
+
+          # Start Xvnc (the actual server binary, not the Perl wrapper).
+          # Do NOT use -localhost: on some systems it binds only to ::1 (IPv6
+          # loopback), which makes websockify's 127.0.0.1 target unreachable.
+          # Port 5901 is not exposed externally (nginx only proxies it via
+          # websockify) so -localhost provides no security benefit here.
+          /usr/bin/Xvnc :1 \
+              -geometry 1280x800 \
+              -depth 24 \
+              -rfbauth "$HOME/.vnc/passwd" \
+              -rfbport 5901 \
+              -SecurityTypes VncAuth &
+          XVNC_PID=$!
+
+          # Wait for Xvnc to actually be listening on 5901 (up to 15 seconds)
+          # before starting the desktop session. Fixed sleep is brittle under
+          # qemu emulation and on slower Pi hardware.
+          for _i in $(seq 1 30); do
+              (exec 3<>/dev/tcp/127.0.0.1/5901) 2>/dev/null && break
+              sleep 0.5
+          done
+          exec 3>&- 2>/dev/null || true
+
+          # Start the desktop session
+          export DISPLAY=:1
+          export XAUTHORITY="$HOME/.Xauthority"
+          bash "$HOME/.vnc/xstartup" &
+
+          # Block until Xvnc exits (systemd tracks this process)
+          wait $XVNC_PID
+
     - name: Deploy VNC server systemd service
       copy:
         dest: /etc/systemd/system/mcomz-vnc.service
@@ -315,16 +361,14 @@
           [Unit]
           Description=MComzOS Headless VNC Server
           After=network.target
+          StartLimitIntervalSec=0
 
           [Service]
           Type=simple
           User={{ mcomz_user }}
-          ExecStartPre=-/usr/bin/vncserver -kill :1
-          ExecStart=/usr/bin/vncserver :1 -geometry 1280x800 -depth 24 -localhost yes -fg
-          ExecStop=/usr/bin/vncserver -kill :1
+          ExecStart=/usr/local/bin/mcomz-vnc-start
           Restart=on-failure
           RestartSec=5s
-          StartLimitIntervalSec=0
 
           [Install]
           WantedBy=multi-user.target
@@ -336,12 +380,14 @@
           [Unit]
           Description=MComzOS noVNC Browser Gateway
           After=mcomz-vnc.service
-          Requires=mcomz-vnc.service
+          Wants=mcomz-vnc.service
+          StartLimitIntervalSec=0
 
           [Service]
           Type=simple
-          ExecStart=/usr/bin/websockify 6080 localhost:5901
+          ExecStart=/usr/bin/websockify 6080 127.0.0.1:5901
           Restart=on-failure
+          RestartSec=5
 
           [Install]
           WantedBy=multi-user.target
@@ -484,6 +530,7 @@
           [Unit]
           Description=Direwolf VHF Software TNC (APRS decoder and KISS modem)
           After=sound.target
+          ConditionPathExists=/dev/snd
 
           [Service]
           Type=simple
@@ -562,7 +609,7 @@
             "auxiliary_addresses": [],
             "locator": "",
             "service_codes": ["PUBLIC"],
-            "http_addr": "0.0.0.0:8081",
+            "http_addr": "127.0.0.1:18081",
             "motd": ["MComzOS Winlink Gateway"],
             "connect_aliases": {},
             "listen": [],
@@ -623,7 +670,7 @@
         - name: Install mumble-web via npm (with timeout)
           shell: timeout 600 npm install -g mumble-web
           args:
-            creates: /usr/lib/node_modules/mumble-web/package.json
+            creates: /usr/local/lib/node_modules/mumble-web/package.json
       rescue:
         - name: Warn mumble-web install failed
           debug:
@@ -644,11 +691,32 @@
 
           [Service]
           Type=simple
-          ExecStart=/usr/bin/websockify --web /usr/lib/node_modules/mumble-web/dist 64737 localhost:64738
+          ExecStart=/usr/bin/websockify --ssl-target 64737 localhost:64738
           Restart=on-failure
 
           [Install]
           WantedBy=multi-user.target
+      when: not (minimal_build | default(false))
+
+    - name: Patch websockify ssl_target to use SSLContext (ssl.wrap_socket removed in Python 3.12)
+      # websockify 0.12 on Debian Bookworm calls ssl.wrap_socket() in the --ssl-target
+      # code path, which was removed in Python 3.12/3.13. Replace inline with SSLContext.
+      # ssl.PROTOCOL_TLS_CLIENT requires server_hostname for SNI even with cert
+      # verification disabled (check_hostname=False, verify_mode=CERT_NONE) — omitting
+      # server_hostname raises AttributeError on Python 3.12 during the SSL handshake.
+      shell: |
+        python3 - <<'PYEOF'
+        path = '/usr/lib/python3/dist-packages/websockify/websockifyserver.py'
+        old = '                    sock = ssl.wrap_socket(sock)'
+        new = ('                    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)\n'
+               '                    ctx.check_hostname = False\n'
+               '                    ctx.verify_mode = ssl.CERT_NONE\n'
+               '                    sock = ctx.wrap_socket(sock, server_hostname=\'localhost\')')
+        src = open(path).read()
+        if old in src:
+            open(path, 'w').write(src.replace(old, new, 1))
+        PYEOF
+      changed_when: true
       when: not (minimal_build | default(false))
 
     - name: Enable Mumble WebSocket bridge service
@@ -904,6 +972,7 @@
           [Unit]
           Description=MComzOS MeshCore Repeater and Web Dashboard
           After=network.target
+          ConditionPathExists=/dev/spidev0.0
 
           [Service]
           Type=simple
@@ -962,7 +1031,7 @@
 
           [Service]
           Type=simple
-          ExecStart=/usr/bin/kiwix-serve --port 8888 --library /var/mcomz/library.xml
+          ExecStart=/usr/bin/kiwix-serve --port 8888 --library /var/mcomz/library.xml --urlRootLocation /library
           Restart=on-failure
 
           [Install]
@@ -977,6 +1046,266 @@
         force: yes
       when: not (minimal_build | default(false))
 
+    - name: Deploy WikiMed Mini first-boot download script
+      # WikiMed Mini (~155 MB) is downloaded on first boot rather than during the
+      # chroot build. Build-time downloads time out under qemu emulation and the
+      # OPDS catalog query is unreliable without a real network stack.
+      # The systemd oneshot (below) runs after network-online.target on first boot
+      # and is a no-op if the file already exists (ConditionPathExists=!).
+      copy:
+        dest: /usr/local/bin/mcomz-wikimed-download
+        owner: root
+        mode: '0755'
+        content: |
+          #!/usr/bin/env python3
+          """Download WikiMed Mini ZIM on first boot via the Kiwix OPDS catalog."""
+          import urllib.request, xml.etree.ElementTree as ET, os, sys
+
+          ZIM_DIR = '/var/mcomz/library'
+          DEST    = os.path.join(ZIM_DIR, 'wikimed-mini.zim')
+
+          os.makedirs(ZIM_DIR, exist_ok=True)
+
+          catalog_url = 'https://library.kiwix.org/catalog/v2/entries?lang=eng&name=wikipedia_en_medicine_mini'
+          try:
+              with urllib.request.urlopen(catalog_url, timeout=60) as r:
+                  root = ET.fromstring(r.read())
+          except Exception as e:
+              print(f'ERROR: Could not query Kiwix catalog: {e}', file=sys.stderr)
+              sys.exit(1)
+
+          ns = {'atom': 'http://www.w3.org/2005/Atom'}
+          zim_url = None
+          for entry in root.findall('atom:entry', ns):
+              for link in entry.findall('atom:link', ns):
+                  href = link.get('href', '')
+                  if href.endswith('.meta4'):
+                      zim_url = href[:-6]
+                      break
+              if zim_url:
+                  break
+
+          if not zim_url:
+              print('ERROR: WikiMed Mini not found in Kiwix catalog', file=sys.stderr)
+              sys.exit(1)
+
+          print(f'Downloading WikiMed Mini from {zim_url} …', flush=True)
+          tmp = DEST + '.tmp'
+          try:
+              with urllib.request.urlopen(zim_url, timeout=600) as r, open(tmp, 'wb') as f:
+                  while True:
+                      chunk = r.read(1024 * 1024)
+                      if not chunk:
+                          break
+                      f.write(chunk)
+              os.rename(tmp, DEST)
+              print(f'Done: {DEST}', flush=True)
+          except Exception as e:
+              if os.path.exists(tmp):
+                  os.unlink(tmp)
+              print(f'ERROR: Download failed: {e}', file=sys.stderr)
+              sys.exit(1)
+      when: not (minimal_build | default(false))
+
+    - name: Deploy WikiMed Mini first-boot systemd service
+      copy:
+        dest: /etc/systemd/system/mcomz-wikimed-download.service
+        content: |
+          [Unit]
+          Description=Download WikiMed Mini ZIM on first boot
+          After=network-online.target kiwix-serve.service
+          Requires=network-online.target
+          ConditionPathExists=!/var/mcomz/library/wikimed-mini.zim
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/local/bin/mcomz-wikimed-download
+          ExecStartPost=/bin/systemctl restart kiwix-serve
+          RemainAfterExit=yes
+          StandardOutput=journal
+          StandardError=journal
+
+          [Install]
+          WantedBy=multi-user.target
+      when: not (minimal_build | default(false))
+
+    - name: Enable WikiMed Mini first-boot download service
+      file:
+        src: /etc/systemd/system/mcomz-wikimed-download.service
+        dest: /etc/systemd/system/multi-user.target.wants/mcomz-wikimed-download.service
+        state: link
+        force: yes
+      when: not (minimal_build | default(false))
+
+    - name: Download MComzLibrary ZIMs (Scriptures, Literature, Survival)
+      # Fetches the most recent MComzLibrary GitHub release (prerelease-aware —
+      # /releases/latest returns 404 for repos that only publish prereleases).
+      # Soft failure: if GitHub is unreachable the image boots without these ZIMs.
+      # TODO: add a systemd timer to re-check for updated ZIMs on a running system.
+      shell: |
+        python3 - <<'PYEOF'
+        import urllib.request, json, os, sys
+
+        ZIM_DIR = '/var/mcomz/library'
+        TOKEN = os.environ.get('GITHUB_TOKEN', '')
+
+        req = urllib.request.Request(
+            'https://api.github.com/repos/mcomz-org/MComzLibrary/releases?per_page=1'
+        )
+        if TOKEN:
+            req.add_header('Authorization', f'Bearer {TOKEN}')
+
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                data = json.load(r)
+        except Exception as e:
+            print(f'WARN: Could not fetch MComzLibrary release: {e}', file=sys.stderr)
+            sys.exit(0)
+
+        if not data or isinstance(data, dict):
+            print(f'WARN: GitHub API error: {data}', file=sys.stderr)
+            sys.exit(0)
+
+        zims = [(a['name'], a['browser_download_url'])
+                for a in data[0].get('assets', [])
+                if a['name'].endswith('.zim')]
+
+        for name, url in zims:
+            dest = os.path.join(ZIM_DIR, name)
+            if os.path.exists(dest):
+                print(f'Already present: {name}')
+                continue
+            print(f'Downloading {name} ...')
+            tmp = dest + '.tmp'
+            try:
+                with urllib.request.urlopen(url) as r, open(tmp, 'wb') as f:
+                    while True:
+                        chunk = r.read(1024 * 1024)
+                        if not chunk:
+                            break
+                        f.write(chunk)
+                os.rename(tmp, dest)
+                print(f'Done: {name}')
+            except Exception as e:
+                if os.path.exists(tmp):
+                    os.unlink(tmp)
+                print(f'WARN: Failed to download {name}: {e}', file=sys.stderr)
+        PYEOF
+      args:
+        executable: /bin/bash
+      environment:
+        GITHUB_TOKEN: "{{ lookup('env', 'GITHUB_TOKEN') }}"
+      failed_when: false
+      when: not (minimal_build | default(false))
+
+    - name: Register downloaded ZIMs with Kiwix library
+      # Writes library.xml directly from ZIM file paths — avoids running
+      # kiwix-manage inside the chroot build, where it may fail.
+      # kiwix-serve reads all metadata (title, language, description) directly
+      # from ZIM file headers at startup; only path + a unique id are needed here.
+      shell: |
+        python3 - <<'PYEOF'
+        import os, uuid
+
+        ZIM_DIR = '/var/mcomz/library'
+        LIB_XML = '/var/mcomz/library.xml'
+
+        zims = sorted(f for f in os.listdir(ZIM_DIR) if f.endswith('.zim'))
+        if not zims:
+            print('No ZIM files found — library.xml left as empty placeholder')
+            raise SystemExit(0)
+
+        books = '\n'.join(
+            f'  <book id="{uuid.uuid4()}" path="{ZIM_DIR}/{z}"/>'
+            for z in zims
+        )
+        xml = ('<?xml version="1.0" encoding="UTF-8"?>\n'
+               '<library version="20110515">\n'
+               + books +
+               '\n</library>\n')
+        with open(LIB_XML, 'w') as f:
+            f.write(xml)
+        print(f'Registered {len(zims)} ZIM(s) in {LIB_XML}')
+        PYEOF
+      args:
+        executable: /bin/bash
+      when: not (minimal_build | default(false))
+
+    # ---------------------------------------------------------
+    # KIOSK MODE — physical monitor/keyboard/mouse
+    # When a monitor is plugged in, mcomz auto-logs in on tty1 and startx
+    # launches Chromium in full-screen kiosk mode pointing at the dashboard.
+    # Completely independent of VNC — both paths coexist.
+    # ---------------------------------------------------------
+    - name: Install kiosk display packages
+      apt:
+        name:
+          - xorg
+          - xinit
+          - chromium
+          - unclutter
+        state: present
+
+    - name: Install chromium (RPi OS fallback — package may be chromium-browser)
+      shell: apt-get install -y chromium-browser
+      failed_when: false
+
+    - name: Create getty@tty1 override directory
+      file:
+        path: /etc/systemd/system/getty@tty1.service.d
+        state: directory
+
+    - name: Auto-login mcomz user on tty1
+      copy:
+        dest: /etc/systemd/system/getty@tty1.service.d/override.conf
+        content: |
+          [Service]
+          ExecStart=
+          ExecStart=-/sbin/agetty --autologin {{ mcomz_user }} --noclear %I $TERM
+
+    - name: Deploy .bash_profile — auto-start X on tty1
+      copy:
+        dest: /home/{{ mcomz_user }}/.bash_profile
+        owner: "{{ mcomz_user }}"
+        mode: '0644'
+        content: |
+          # Start kiosk X session when on tty1 (physical console)
+          if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
+              exec startx
+          fi
+
+    - name: Deploy .xinitrc — kiosk browser session
+      copy:
+        dest: /home/{{ mcomz_user }}/.xinitrc
+        owner: "{{ mcomz_user }}"
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          # Hide cursor after 5 s of inactivity
+          unclutter -idle 5 -root &
+
+          # Disable screen blanking and power saving
+          xset s off
+          xset -dpms
+          xset s noblank
+
+          # Launch dashboard in kiosk mode
+          # Retry loop: dashboard may not be up immediately on first boot
+          until curl -sf http://localhost/ > /dev/null 2>&1; do
+              sleep 2
+          done
+
+          exec chromium \
+              --kiosk \
+              --no-sandbox \
+              --disable-infobars \
+              --disable-session-crashed-bubble \
+              --disable-restore-session-state \
+              --noerrdialogs \
+              --incognito \
+              --check-for-update-interval=31536000 \
+              "http://localhost"
+
     # ---------------------------------------------------------
     # PHASE 5: THE MCOMZ DASHBOARD & SYSTEMD SERVICES
     # ---------------------------------------------------------
@@ -990,102 +1319,6 @@
         src: ./src/dashboard/
         dest: /var/www/html/
         owner: www-data
-
-    - name: Provision MeshCore offline firmware flasher
-      # Downloads the MeshCore web flasher app and Heltec V3/V4 firmware binaries
-      # and bundles them at /var/www/html/meshcore-flash/ so the dashboard can offer
-      # offline flashing when flasher.meshcore.co.uk is unreachable (hotspot/no-internet mode).
-      block:
-        - name: Create MeshCore flasher directories
-          file:
-            path: "{{ item }}"
-            state: directory
-            owner: www-data
-            mode: '0755'
-          loop:
-            - /var/www/html/meshcore-flash
-            - /var/www/html/meshcore-flash/firmware
-
-        - name: Clone MeshCore web flasher (shallow)
-          # flasher.meshcore.io is a self-contained static Vue.js site; cloning is
-          # simpler than downloading individual files and stays current automatically.
-          shell: |
-            git clone --depth=1 https://github.com/meshcore-dev/flasher.meshcore.io.git \
-              /var/www/html/meshcore-flash
-          args:
-            creates: /var/www/html/meshcore-flash/index.html
-
-        - name: Patch flasher for /meshcore-flash/ subpath serving
-          # The flasher uses absolute paths (/lib/, /css/, /config.json) — it was designed
-          # to serve from the domain root. Rewrite to /meshcore-flash/-prefixed paths so
-          # nginx alias at /meshcore-flash/ resolves them correctly. Also set staticPath
-          # in config.json so firmware is fetched from the local /meshcore-flash/firmware/ dir.
-          shell: |
-            python3 << 'PYEOF'
-            import re, json, os
-
-            # Patch index.html: rewrite absolute src/href attributes to subpath-prefixed
-            with open('/var/www/html/meshcore-flash/index.html') as f:
-                html = f.read()
-            html = re.sub(
-                r'(<(?:script|link|img)[^>]+ (?:src|href))="/((?!meshcore-flash/))',
-                r'\1="/meshcore-flash/\2', html)
-            html = html.replace("'/config.json'", "'/meshcore-flash/config.json'")
-            html = html.replace('"/config.json"', '"/meshcore-flash/config.json"')
-            with open('/var/www/html/meshcore-flash/index.html', 'w') as f:
-                f.write(html)
-
-            # Patch flasher.js: fix config.json fetch path
-            js_path = '/var/www/html/meshcore-flash/flasher.js'
-            if os.path.exists(js_path):
-                with open(js_path) as f:
-                    js = f.read()
-                js = js.replace("'/config.json'", "'/meshcore-flash/config.json'")
-                js = js.replace('"/config.json"', '"/meshcore-flash/config.json"')
-                with open(js_path, 'w') as f:
-                    f.write(js)
-
-            # Patch config.json: point firmware downloads to local path
-            with open('/var/www/html/meshcore-flash/config.json') as f:
-                cfg = json.load(f)
-            cfg['staticPath'] = '/meshcore-flash/firmware'
-            with open('/var/www/html/meshcore-flash/config.json', 'w') as f:
-                json.dump(cfg, f)
-
-            print('Flasher patched for /meshcore-flash/ subpath')
-            PYEOF
-
-        - name: Resolve MeshCore latest Heltec firmware URLs
-          shell: |
-            curl -sf ${GITHUB_TOKEN:+-H "Authorization: Bearer $GITHUB_TOKEN"} \
-              "https://api.github.com/repos/meshcore-dev/MeshCore/releases/latest" \
-              | python3 -c "
-            import sys, json
-            data = json.load(sys.stdin)
-            urls = [a['browser_download_url'] for a in data.get('assets', [])
-                    if 'heltec' in a['name'].lower()]
-            print('\n'.join(urls))
-            "
-          register: meshcore_fw_urls
-          changed_when: false
-          failed_when: meshcore_fw_urls.rc != 0
-          environment:
-            GITHUB_TOKEN: "{{ lookup('env', 'GITHUB_TOKEN') }}"
-
-        - name: Download Heltec V3/V4 MeshCore firmware binaries
-          get_url:
-            url: "{{ item }}"
-            dest: "/var/www/html/meshcore-flash/firmware/{{ item | basename }}"
-            owner: www-data
-            mode: '0644'
-          loop: "{{ meshcore_fw_urls.stdout_lines | select('match', '.+') | list }}"
-          when: meshcore_fw_urls.stdout_lines | length > 0
-
-      rescue:
-        - name: Warn MeshCore offline flasher provisioning failed
-          debug:
-            msg: "MeshCore offline flasher could not be provisioned (GitHub unavailable or clone failed). Dashboard Flash button will always open flasher.meshcore.co.uk regardless of connectivity."
-      when: not (minimal_build | default(false))
 
     - name: Deploy MComzOS status API script
       copy:
@@ -1127,12 +1360,13 @@
       # Self-signed cert is acceptable for a closed LAN emergency hub — users
       # accept it once in the browser, then microphone and VNC audio both work.
       command: >
-        openssl req -x509 -nodes -days 3650
+        openssl req -x509 -nodes -days 397
         -newkey rsa:2048
         -keyout /etc/ssl/mcomz/mcomz.key
         -out /etc/ssl/mcomz/mcomz.crt
         -subj "/CN=mcomz.local/O=MComzOS/C=XX"
         -addext "subjectAltName=DNS:mcomz.local,DNS:mcomz,IP:192.168.4.1"
+      # 397 days: iOS Safari hard-blocks self-signed certs with validity > 398 days (since iOS 14)
       args:
         creates: /etc/ssl/mcomz/mcomz.crt
 
@@ -1140,7 +1374,12 @@
       copy:
         dest: /etc/nginx/sites-available/mcomz
         content: |
-          # HTTP — primary dashboard access (no cert hassle for phones/tablets)
+          # HTTP server — serves the full dashboard on port 80.
+          # iOS Safari refuses self-signed certs without manual trust-store installation,
+          # so redirecting HTTP→HTTPS makes MComzOS unreachable on iOS. Serving on plain
+          # HTTP means the dashboard, library, and status API all work on every device
+          # without any certificate interaction. Mumble microphone requires HTTPS (getUserMedia),
+          # so users who want voice chat will still need to accept the cert once on HTTPS.
           server {
               listen 80 default_server;
               server_name mcomz.local mcomz _;
@@ -1156,14 +1395,19 @@
               }
 
               location /library/ {
-                  proxy_pass http://127.0.0.1:8888/;
+                  proxy_pass http://127.0.0.1:8888/library/;
               }
 
-              location /mumble/ {
+              location /mumble/ws {
                   proxy_pass http://127.0.0.1:64737/;
                   proxy_http_version 1.1;
                   proxy_set_header Upgrade $http_upgrade;
                   proxy_set_header Connection "upgrade";
+              }
+              location /mumble/ {
+                  alias /usr/local/lib/node_modules/mumble-web/dist/;
+                  index index.html;
+                  try_files $uri $uri/ /mumble/index.html;
               }
 
               location /meshtastic/ {
@@ -1172,10 +1416,6 @@
 
               location /meshcore/ {
                   proxy_pass http://127.0.0.1:8000/;
-              }
-
-              location /pat/ {
-                  proxy_pass http://127.0.0.1:8081/;
               }
 
               location /vnc/ {
@@ -1189,57 +1429,59 @@
                   proxy_set_header Connection "upgrade";
                   proxy_read_timeout 86400;
               }
-
-              # MeshCore offline firmware flasher (served when internet is unavailable)
-              location /meshcore-flash/ {
-                  alias /var/www/html/meshcore-flash/;
-                  index index.html;
-              }
           }
 
-          # HTTPS — needed for Mumble microphone (getUserMedia requires secure context).
-          # Root path redirects to HTTP to avoid iOS Safari self-signed cert loops.
-          # All service proxies remain functional for direct HTTPS access.
           server {
               listen 443 ssl default_server;
               server_name mcomz.local mcomz _;
               ssl_certificate /etc/ssl/mcomz/mcomz.crt;
               ssl_certificate_key /etc/ssl/mcomz/mcomz.key;
+              root /var/www/html;
+              index index.html;
 
-              # Dashboard: redirect to HTTP (iOS Safari loops on self-signed certs)
+              # Dashboard
               location / {
-                  default_type text/html;
-                  return 200 '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MComzOS</title><style>body{background:#121212;color:#e0e0e0;font-family:system-ui,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;text-align:center}a{color:#29b6f6;font-size:1.2rem}</style></head><body><div><h1>MComzOS</h1><p>The dashboard runs over HTTP to avoid certificate warnings.</p><p style="margin-top:24px"><a href="http://mcomz.local/">Open Dashboard (HTTP)</a></p><p style="margin-top:12px;color:#888;font-size:0.85rem">HTTPS is used for Mumble voice chat (microphone access requires a secure connection).</p></div></body></html>';
+                  try_files $uri $uri/ /index.html;
               }
 
+              # Status API (Python service on localhost:9000)
               location /api/ {
                   proxy_pass http://127.0.0.1:9000/api/;
               }
 
+              # Offline Library (kiwix-serve on port 8888)
+              # kiwix uses --urlRootLocation /library so it expects the full /library/...
+              # path — do NOT strip the prefix (proxy_pass must include /library/)
               location /library/ {
-                  proxy_pass http://127.0.0.1:8888/;
+                  proxy_pass http://127.0.0.1:8888/library/;
               }
 
-              # Mumble — the primary reason HTTPS exists (getUserMedia needs secure context)
-              location /mumble/ {
+              # Mumble browser voice client — static files served by nginx,
+              # WebSocket tunnel proxied to websockify (TCP-only on port 64737)
+              location /mumble/ws {
                   proxy_pass http://127.0.0.1:64737/;
                   proxy_http_version 1.1;
                   proxy_set_header Upgrade $http_upgrade;
                   proxy_set_header Connection "upgrade";
               }
+              location /mumble/ {
+                  alias /usr/local/lib/node_modules/mumble-web/dist/;
+                  index index.html;
+                  try_files $uri $uri/ /mumble/index.html;
+              }
 
+              # Meshtastic web UI (meshtasticd on port 8080)
               location /meshtastic/ {
                   proxy_pass http://127.0.0.1:8080/;
               }
 
+              # MeshCore web dashboard (pyMC_Repeater on port 8000)
               location /meshcore/ {
                   proxy_pass http://127.0.0.1:8000/;
               }
 
-              location /pat/ {
-                  proxy_pass http://127.0.0.1:8081/;
-              }
-
+              # noVNC browser remote desktop — static files served by nginx,
+              # WebSocket tunnel proxied to websockify (VNC-tunnel-only on port 6080)
               location /vnc/ {
                   alias /usr/share/novnc/;
                   index vnc.html;
@@ -1251,13 +1493,27 @@
                   proxy_set_header Connection "upgrade";
                   proxy_read_timeout 86400;
               }
+          }
 
-              # MeshCore offline firmware flasher
-              location /meshcore-flash/ {
-                  alias /var/www/html/meshcore-flash/;
-                  index index.html;
+          # Pat Winlink — served on its own HTTPS port so its absolute-path
+          # Vue.js frontend works without subpath rewriting.
+          server {
+              listen 8081 ssl default_server;
+              server_name mcomz.local mcomz _;
+              ssl_certificate /etc/ssl/mcomz/mcomz.crt;
+              ssl_certificate_key /etc/ssl/mcomz/mcomz.key;
+
+              location / {
+                  proxy_pass http://127.0.0.1:18081/;
+                  proxy_set_header Host $host;
               }
           }
+
+    - name: Write MComzOS version file
+      copy:
+        dest: /etc/mcomzos-version
+        content: "{{ mcomzos_version | default('unknown') }}\n"
+        mode: '0644'
 
     - name: Enable MComz nginx site
       file:
@@ -1270,6 +1526,31 @@
         path: /etc/nginx/sites-enabled/default
         state: absent
       notify: Reload nginx
+
+    - name: Enable nginx service at boot (chroot-safe symlink — deb-systemd-helper defers enables in chroot)
+      file:
+        src: /lib/systemd/system/nginx.service
+        dest: /etc/systemd/system/multi-user.target.wants/nginx.service
+        state: link
+        force: yes
+
+    - name: Create nginx systemd drop-in directory
+      file:
+        path: /etc/systemd/system/nginx.service.d
+        state: directory
+        mode: '0755'
+
+    - name: Add nginx restart-on-failure drop-in
+      # nginx ships without Restart= in its unit file; a drop-in ensures it retries
+      # on first-boot if a transient condition (e.g. systemd settling) caused it to fail.
+      copy:
+        dest: /etc/systemd/system/nginx.service.d/restart.conf
+        content: |
+          [Service]
+          Restart=on-failure
+          RestartSec=5
+        owner: root
+        mode: '0644'
 
     - name: Configure OverlayFS (Read-Only Root) for power-pull safety — RPi
       command: raspi-config nonint enable_overlayfs

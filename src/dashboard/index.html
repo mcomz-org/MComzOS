@@ -32,7 +32,7 @@
             margin-bottom: 24px;
         }
         h1 { font-size: 1.6rem; }
-        #clock { color: var(--muted); font-size: 0.9rem; }
+        #clock { color: var(--muted); font-size: 0.9rem; font-variant-numeric: tabular-nums; }
         h2 { font-size: 1rem; margin-bottom: 12px; }
         .grid {
             display: grid;
@@ -80,22 +80,55 @@
             background: #111;
             border-radius: 4px;
         }
-        .dot {
-            width: 10px; height: 10px;
-            border-radius: 50%;
-            flex-shrink: 0;
-            background: #444;
+        .svc-badge {
+            font-size: 0.7rem; font-weight: 700; font-variant-numeric: tabular-nums;
+            width: 24px; flex-shrink: 0; text-align: center; cursor: help;
+            position: relative;
         }
-        .dot.active   { background: var(--green); }
-        .dot.inactive { background: var(--red); }
-        .dot.checking { background: var(--orange); animation: pulse 1s infinite; }
+        .svc-badge.on      { color: var(--green); }
+        .svc-badge.off     { color: var(--red); }
+        .svc-badge.standby { color: var(--muted); }
+        .svc-badge.error   { color: var(--orange); }
+        .svc-badge.checking { color: var(--orange); animation: pulse 1s infinite; }
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+        /* Instant CSS tooltip — replaces slow native title= behaviour */
+        .svc-badge[data-tip]::after {
+            content: attr(data-tip);
+            position: absolute; bottom: calc(100% + 6px); left: 50%;
+            transform: translateX(-50%);
+            background: #333; color: var(--text);
+            font-size: 0.72rem; font-weight: 400; white-space: nowrap;
+            padding: 4px 8px; border-radius: 4px;
+            pointer-events: none; opacity: 0; transition: opacity 0.08s;
+            z-index: 200;
+        }
+        .svc-badge[data-tip]:hover::after { opacity: 1; }
 
         .note { color: var(--muted); font-size: 0.8rem; margin-top: 8px; }
 
-        /* Mesh expand/collapse */
+        /* Collapsible how-to */
+        details.howto { margin-top: 8px; }
+        details.howto summary {
+            cursor: pointer; font-size: 0.8rem; color: var(--blue);
+            user-select: none; list-style: none;
+        }
+        details.howto summary::-webkit-details-marker { display: none; }
+        details.howto summary::before { content: "▸ "; }
+        details.howto[open] summary::before { content: "▾ "; }
+        details.howto .howto-body {
+            margin-top: 6px; font-size: 0.8rem; color: var(--muted); line-height: 1.6;
+        }
+        details.howto .howto-body ul { margin: 4px 0 4px 16px; }
+
+        /* Power buttons */
+        .btn-danger { background: #b71c1c; color: #fff; }
+        .btn-danger:hover { background: #d32f2f; }
+
+        /* Mesh / Radio expand/collapse */
         #mesh-detail { display: none; }
         #mesh-detail.open { display: block; }
+        #radio-detail { display: none; }
+        #radio-detail.open { display: block; }
         .mesh-section { border-top: 1px solid #333; padding-top: 12px; margin-top: 10px; }
 
         /* WiFi panel */
@@ -127,10 +160,10 @@
             text-transform: uppercase; margin-bottom: 8px; margin-top: 16px;
         }
         #wifi-btn {
-            background: #1e1e1e; border: 1px solid #444; color: var(--text);
-            padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem;
+            background: none; border: none; color: var(--text);
+            cursor: pointer; padding: 4px 6px; line-height: 1; opacity: 0.7;
         }
-        #wifi-btn:hover { border-color: #666; }
+        #wifi-btn:hover { opacity: 1; }
         .wifi-input {
             width: 100%; background: #222; border: 1px solid #444; color: var(--text);
             padding: 9px; border-radius: 4px; font-size: 0.9rem; margin-bottom: 8px;
@@ -148,14 +181,21 @@
 <header>
     <h1>MComz</h1>
     <div style="display:flex;align-items:center;gap:12px;">
-        <button id="wifi-btn" onclick="openWifi()">📶 WiFi</button>
+        <button id="wifi-btn" onclick="openWifi()" title="WiFi settings">
+            <svg width="22" height="18" viewBox="0 -2 22 18" fill="none" aria-hidden="true">
+                <circle cx="11" cy="15" r="1.6" fill="currentColor"/>
+                <path d="M6.8 10.8a6 6 0 0 1 8.4 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                <path d="M3 7a11 11 0 0 1 16 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                <path d="M0 3.5a16 16 0 0 1 22 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+        </button>
         <span id="clock">Loading…</span>
     </div>
 </header>
 
-<div id="https-warn" style="display:none;background:#0a1a2a;border:1px solid #29b6f6;border-radius:6px;padding:12px 16px;margin-bottom:16px;font-size:0.85rem;color:#29b6f6;">
-    <strong>Voice chat uses HTTPS.</strong> When you open Mumble, your browser will ask you to accept a security certificate — this is normal for a local device.
-    <a href="javascript:void(0)" onclick="document.getElementById('https-warn').style.display='none'" style="float:right;color:#29b6f6;">dismiss</a>
+<div id="https-warn" style="display:none;background:#1a1200;border:1px solid #ff9800;border-radius:6px;padding:12px 16px;margin-bottom:16px;font-size:0.85rem;color:#ff9800;">
+    <strong>Not using HTTPS.</strong> Microphone access for voice chat requires HTTPS.
+    <a href="javascript:void(0)" onclick="document.getElementById('https-warn').style.display='none'" style="float:right;color:#ff9800;">dismiss</a>
 </div>
 <script>if(location.protocol!=='https:')document.getElementById('https-warn').style.display='block';</script>
 
@@ -212,36 +252,29 @@
     <div class="card">
         <h2 style="color:var(--green)">📚 Offline Library</h2>
         <p class="note">Guides, manuals, and reference books — no internet needed.</p>
-        <a href="/library/" class="btn btn-green">Open Library</a>
+        <button class="btn btn-green" onclick="openLibrary()">Open Library</button>
+        <button class="btn" style="background:#1a3a1a;color:var(--green);border:1px solid #2a5a2a;"
+                onclick="openBooks()">＋ Manage Books</button>
     </div>
 
     <!-- VOICE & TEXT -->
     <div class="card">
         <h2 style="color:var(--blue)">🎙 Voice &amp; Text Chat</h2>
-        <p class="note">Browser-based voice and text channels. Works on any phone.</p>
-        <a href="javascript:void(0)" onclick="location.href='https://'+location.hostname+'/mumble/'" class="btn btn-blue">Join Voice Channel (Mumble)</a>
-    </div>
-
-    <!-- HF: PAT -->
-    <div class="card">
-        <h2 style="color:var(--pink)">✉️ Winlink Email <small style="color:var(--muted)">(licensed)</small></h2>
-        <p class="note">Send and receive email over radio without internet, using the global Winlink network.</p>
-        <a href="/pat/" class="btn btn-pink">Open Pat — Winlink Email</a>
-    </div>
-
-    <!-- HF: JS8CALL -->
-    <div class="card">
-        <h2 style="color:var(--pink)">📻 JS8Call <small style="color:var(--muted)">(licensed)</small></h2>
-        <p class="note">Keyboard-to-keyboard HF messaging via weak-signal digital mode. Join the #MCOMZ net Sundays 1500Z on 7.078 MHz.</p>
-        <a href="/vnc/vnc.html?path=vnc/websockify&autoconnect=true" class="btn btn-pink">Open JS8Call (Remote Desktop)</a>
-    </div>
-
-    <!-- HF: FREEDATA -->
-    <div class="card">
-        <h2 style="color:var(--pink)">📡 FreeDATA <small style="color:var(--muted)">(licensed)</small></h2>
-        <p class="note">High-speed HF data modem for file transfer and peer-to-peer data exchange over radio.</p>
-        <a href="/vnc/vnc.html?path=vnc/websockify&autoconnect=true" class="btn btn-pink">Open FreeDATA (Remote Desktop)</a>
-        <p class="note">FreeDATA may not be installed — AppImage availability varies by release.</p>
+        <p class="note">Browser-based voice and text — works on any phone, no app needed.</p>
+        <a href="#" class="btn btn-blue" onclick="location.href='/mumble/?address='+location.hostname+'&port=443/mumble/ws';return false;">Join Channel (Mumble)</a>
+        <details class="howto">
+            <summary>How to use</summary>
+            <div class="howto-body">
+                <ul>
+                    <li>Enter any name, leave password blank, press Connect</li>
+                    <li>Type in the box at the bottom — press Enter to send</li>
+                    <li>Voice is <em>voice-activated</em> — just speak, no button to hold</li>
+                    <li>To private message someone: click their name in the user list</li>
+                    <li>The mic button mutes/unmutes you</li>
+                </ul>
+                <strong style="color:var(--orange);">Use Safari</strong> on Mac or iPhone — Chrome blocks microphone access for self-signed certificates.
+            </div>
+        </details>
     </div>
 
     <!-- MESH COMMUNICATION -->
@@ -251,28 +284,71 @@
         <button class="btn btn-orange" onclick="toggleMesh(this)">Show Mesh Capabilities</button>
 
         <div id="mesh-detail">
-            <div class="mesh-section">
+            <div class="mesh-section" id="meshtastic-section">
                 <h2 style="color:var(--orange);font-size:0.9rem;margin-bottom:6px;">📡 Meshtastic</h2>
                 <p class="note">Public LoRa mesh network — any Meshtastic device can join and exchange text messages. Ideal for neighbourhood-wide comms without infrastructure.</p>
-                <a href="/meshtastic/" class="btn btn-orange" style="margin-top:8px;">Open Meshtastic</a>
+                <a href="/meshtastic/" target="_blank" rel="noopener" class="btn btn-orange" style="margin-top:8px;"
+                   onclick="return guardMeshService('meshtasticd','Meshtastic',document.getElementById('meshtastic-section'))">Open Meshtastic</a>
             </div>
-            <div class="mesh-section">
+            <div class="mesh-section" id="meshcore-section">
                 <h2 style="color:var(--orange);font-size:0.9rem;margin-bottom:6px;">🔐 MeshCore</h2>
                 <p class="note">Private tactical mesh — this hub acts as a node and repeater. You control the network: flash your own LoRa radios with MeshCore firmware to join.</p>
-                <a href="/meshcore/" class="btn btn-orange" style="margin-top:8px;">MeshCore Dashboard</a>
-                <button onclick="openMeshFlasher(this)"
-                   class="btn" style="background:#333;color:#fff;">Flash Radio to MeshCore ↗</button>
+                <a href="/meshcore/" target="_blank" rel="noopener" class="btn btn-orange" style="margin-top:8px;"
+                   onclick="return guardMeshService('mcomz-meshcore','MeshCore',document.getElementById('meshcore-section'))">MeshCore Dashboard</a>
+                <a href="https://flasher.meshcore.co.uk" target="_blank" rel="noopener"
+                   class="btn" style="background:#333;color:#fff;">Flash Radio to MeshCore ↗</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- LICENSED RADIO -->
+    <div class="card">
+        <h2 style="color:var(--pink)">📻 Licensed Radio</h2>
+        <p class="note">HF digital radio modes — requires an Amateur Radio licence and a compatible transceiver.</p>
+        <button class="btn btn-pink" onclick="toggleRadio(this)">Show Radio Capabilities</button>
+
+        <div id="radio-detail">
+            <div class="mesh-section">
+                <h2 style="color:var(--pink);font-size:0.9rem;margin-bottom:6px;">✉️ Winlink Email (Pat)</h2>
+                <p class="note">Send and receive email over radio without internet, using the global Winlink network.</p>
+                <a href="#" class="btn btn-pink" style="margin-top:8px;" onclick="window.open(location.protocol+'//'+location.hostname+':8081/');return false;">Open Pat — Winlink Email</a>
+            </div>
+            <div class="mesh-section">
+                <h2 style="color:var(--pink);font-size:0.9rem;margin-bottom:6px;">📻 JS8Call</h2>
+                <p class="note">Keyboard-to-keyboard HF messaging via weak-signal digital mode. Join the #MCOMZ net Sundays 1500Z on 7.078 MHz.</p>
+                <a href="/vnc/vnc.html?path=vnc/websockify&autoconnect=true" class="btn btn-pink" style="margin-top:8px;">Open JS8Call (Remote Desktop)</a>
+            </div>
+            <div class="mesh-section">
+                <h2 style="color:var(--pink);font-size:0.9rem;margin-bottom:6px;">📡 FreeDATA</h2>
+                <p class="note">High-speed HF data modem for file transfer and peer-to-peer data exchange over radio.</p>
+                <a href="/vnc/vnc.html?path=vnc/websockify&autoconnect=true" class="btn btn-pink" style="margin-top:8px;">Open FreeDATA (Remote Desktop)</a>
+                <p class="note">FreeDATA may not be installed — AppImage availability varies by release.</p>
             </div>
         </div>
     </div>
 
     <!-- SERVICE STATUS -->
     <div class="card full">
-        <h2>System Status</h2>
-        <div id="status-grid" class="status-grid">
-            <div class="svc"><div class="dot checking"></div>Loading…</div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;">
+            <div>
+                <h2 style="margin-bottom:0;display:inline;cursor:default;"
+                    title="Refreshes every 15 seconds">System Status</h2>
+                <span id="mcomz-version" style="font-size:0.8rem;color:#888;margin-left:10px;font-weight:normal;"></span>
+            </div>
+            <div style="position:relative;">
+                <button id="power-btn" onclick="togglePowerMenu()" title="Reboot / Shut down"
+                        style="background:none;border:none;color:var(--red);cursor:pointer;font-size:1.25rem;padding:4px 6px;line-height:1;opacity:0.75;">⏻</button>
+                <div id="power-menu" style="display:none;position:absolute;right:0;top:calc(100% + 4px);background:#1a1a1a;border:1px solid #444;border-radius:6px;min-width:130px;z-index:50;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.5);">
+                    <button onclick="closePowerMenu();confirmReboot()"
+                            style="display:block;width:100%;background:none;border:none;color:var(--text);padding:10px 14px;text-align:left;cursor:pointer;font-size:0.85rem;">↺ Reboot</button>
+                    <button onclick="closePowerMenu();confirmShutdown()"
+                            style="display:block;width:100%;background:none;border:none;color:var(--red);padding:10px 14px;text-align:left;cursor:pointer;font-size:0.85rem;border-top:1px solid #333;">⏻ Shut Down</button>
+                </div>
+            </div>
         </div>
-        <p class="note" style="margin-top:12px;">Refreshes every 15 seconds.</p>
+        <div id="status-grid" class="status-grid">
+            <div class="svc"><span class="svc-badge checking">…</span>Loading…</div>
+        </div>
     </div>
 
 </div>
@@ -286,15 +362,48 @@ function tick() {
 tick();
 setInterval(tick, 1000);
 
+// ── Version display ──────────────────────────────────────────────────────────
+fetch('/api/version').then(r => r.json()).then(d => {
+    const el = document.getElementById('mcomz-version');
+    if (el && d.version && d.version !== 'unknown') {
+        el.innerHTML = `(<a href="https://github.com/mcomz-org/MComzOS/releases" style="color:#888;">${d.version}</a>)`;
+    }
+}).catch(() => {});
+
 // ── Service status ───────────────────────────────────────────────────────────
+let lastStatus = null;
+
 function renderStatus(data) {
+    lastStatus = data;
     const grid = document.getElementById('status-grid');
-    grid.innerHTML = Object.entries(data).map(([, svc]) => {
-        const cls = svc.status === 'active' ? 'active' : 'inactive';
-        const inner = svc.path
+    // Services intentionally off until the hotspot is started
+    const STANDBY_SVCS = new Set(['hostapd', 'dnsmasq']);
+    // Services that only run when specific hardware is attached
+    const HW_SVCS = new Set(['meshtasticd', 'mcomz-meshcore', 'direwolf', 'ardopcf']);
+    grid.innerHTML = Object.entries(data).map(([name, svc]) => {
+        const st = svc.status;
+        let badgeClass, badgeText, badgeTip;
+        if (st === 'active') {
+            badgeClass = 'on';       badgeText = 'on';  badgeTip = 'Running';
+        } else if (st === 'failed') {
+            badgeClass = 'error';    badgeText = 'err'; badgeTip = 'Service crashed — check journalctl';
+        } else if (st === 'activating') {
+            badgeClass = 'checking'; badgeText = 'act'; badgeTip = 'Starting up…';
+        } else if (STANDBY_SVCS.has(name)) {
+            badgeClass = 'standby';  badgeText = 'std'; badgeTip = 'Standby — activates with hotspot';
+        } else if (HW_SVCS.has(name)) {
+            badgeClass = 'standby';  badgeText = 'std'; badgeTip = 'Standby — attach hardware to activate';
+        } else if (st === 'inactive') {
+            badgeClass = 'off';      badgeText = 'off'; badgeTip = 'Not running';
+        } else {
+            // unknown, deactivating, or any other state
+            badgeClass = 'standby';  badgeText = 'dis'; badgeTip = `Disconnected (${st})`;
+        }
+        const badge = `<span class="svc-badge ${badgeClass}" data-tip="${badgeTip}">${badgeText}</span>`;
+        const label = svc.path
             ? `<a href="${svc.path}" style="color:inherit;text-decoration:none;">${svc.label}</a>`
             : svc.label;
-        return `<div class="svc"><div class="dot ${cls}"></div>${inner}</div>`;
+        return `<div class="svc">${badge}${label}</div>`;
     }).join('');
 }
 function fetchStatus() {
@@ -313,6 +422,31 @@ function toggleMesh(btn) {
     const detail = document.getElementById('mesh-detail');
     const open = detail.classList.toggle('open');
     btn.textContent = open ? 'Hide Mesh Capabilities' : 'Show Mesh Capabilities';
+}
+
+function toggleRadio(btn) {
+    const detail = document.getElementById('radio-detail');
+    const open = detail.classList.toggle('open');
+    btn.textContent = open ? 'Hide Radio Capabilities' : 'Show Radio Capabilities';
+}
+
+// Guard for Meshtastic / MeshCore links: if the service is known to be inactive,
+// show an inline warning instead of opening a dead 502 page. If status is not
+// yet loaded the link opens normally (best-effort). Always opens in a new tab.
+function guardMeshService(serviceKey, label, container) {
+    if (lastStatus && lastStatus[serviceKey] && lastStatus[serviceKey].status !== 'active') {
+        let warn = container.querySelector('.mesh-offline-warn');
+        if (!warn) {
+            warn = document.createElement('p');
+            warn.className = 'note mesh-offline-warn';
+            warn.style.color = 'var(--orange)';
+            warn.style.marginTop = '6px';
+            container.appendChild(warn);
+        }
+        warn.textContent = label + ' is not connected — attach your LoRa radio and reload.';
+        return false; // prevent link navigation
+    }
+    return true; // service active (or status unknown) — open in new tab
 }
 
 // ── WiFi panel ───────────────────────────────────────────────────────────────
@@ -478,29 +612,89 @@ function forgetNetwork(name) {
 function toggleAP() {
     const btn = document.getElementById('ap-btn');
     btn.disabled = true;
-    btn.textContent = apActive ? 'Stopping…' : 'Starting…';
-    fetch(apActive ? '/api/wifi/ap/stop' : '/api/wifi/ap/start', {method: 'POST'})
-        .then(() => { loadWifiStatus(); btn.disabled = false; })
-        .catch(() => { btn.disabled = false; loadWifiStatus(); });
+    const starting = !apActive;
+    btn.textContent = starting ? 'Starting…' : 'Stopping…';
+
+    // AP start: connection drops before the response arrives, so abort after 4 s.
+    // AP stop: Python polls for reconnect for up to 30 s before responding — allow
+    // 35 s so we get the real reconnected/hint result rather than always timing out.
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), starting ? 4000 : 35000);
+
+    fetch(starting ? '/api/wifi/ap/start' : '/api/wifi/ap/stop', {
+        method: 'POST', signal: controller.signal
+    })
+    .then(r => r.ok ? r.json() : null)
+    .catch(() => null) // connection drop on AP start is expected — treat as success
+    .then(data => {
+        clearTimeout(timer);
+        if (starting) {
+            // Can't reload status — WiFi connection is gone.
+            // Update state manually and show reconnect guidance.
+            btn.disabled = false;
+            apActive = true;
+            document.getElementById('wifi-current').innerHTML =
+                '📡 <strong>Hotspot starting…</strong> If you lose this page, connect to ' +
+                'WiFi network <strong>MComzOS</strong> (password: <code>mcomzos1</code>) then reload.';
+            btn.textContent = '⬛ Stop Hotspot';
+            btn.style.background = '#444';
+        } else {
+            // Stopping AP — Python polled for reconnect; surface the result.
+            apActive = false;
+            btn.textContent = '📡 Start Hotspot (AP Mode)';
+            btn.style.background = '';
+            if (data && data.reconnected) {
+                document.getElementById('wifi-current').innerHTML =
+                    '✅ <strong>Hotspot stopped</strong> — reconnected to WiFi.';
+                btn.disabled = false;
+                loadWifiStatus();
+            } else {
+                // NM hasn't finished connecting yet — keep button disabled for 30 s.
+                const hint = (data && data.hint) || 'Browse to http://mcomz.local or reboot if MComzOS doesn\'t reappear.';
+                document.getElementById('wifi-current').innerHTML =
+                    '⏳ <strong>Hotspot stopped.</strong> Reconnecting… ' + esc(hint);
+                setTimeout(() => {
+                    btn.disabled = false;
+                    loadWifiStatus();
+                }, 30000);
+            }
+        }
+    });
 }
 
-// ── MeshCore flasher (online → meshcore.co.uk, offline → local bundle) ───────
-async function openMeshFlasher(btn) {
-    const orig = btn.textContent;
-    btn.textContent = 'Checking connection\u2026';
-    btn.disabled = true;
-    let online = false;
-    if (navigator.onLine) {
-        try {
-            await fetch('https://flasher.meshcore.co.uk/favicon.ico',
-                {method: 'HEAD', cache: 'no-store',
-                 signal: AbortSignal.timeout(3000)});
-            online = true;
-        } catch(_) {}
-    }
-    btn.textContent = orig;
-    btn.disabled = false;
-    window.open(online ? 'https://flasher.meshcore.co.uk' : '/meshcore-flash/', '_blank');
+// ── Power controls ────────────────────────────────────────────────────────────
+function togglePowerMenu() {
+    const m = document.getElementById('power-menu');
+    m.style.display = m.style.display === 'none' ? 'block' : 'none';
+}
+function closePowerMenu() {
+    document.getElementById('power-menu').style.display = 'none';
+}
+document.addEventListener('click', function(e) {
+    if (!document.getElementById('power-btn').contains(e.target)) closePowerMenu();
+});
+
+function confirmShutdown() {
+    if (!confirm('Shut down the hub?\n\nAll connected users will be disconnected. You will need physical access to power it back on.')) return;
+    fetch('/api/system/poweroff', { method: 'POST' })
+        .then(() => {
+            document.body.innerHTML = '<div style="padding:40px;text-align:center;color:#e0e0e0;font-family:sans-serif;"><h2>Shutting down…</h2><p style="color:#888;margin-top:12px;">The hub is powering off. It is safe to unplug once the activity light stops.</p></div>';
+        })
+        .catch(() => {
+            alert('Shutdown command sent. The hub should power off shortly.');
+        });
+}
+
+function confirmReboot() {
+    if (!confirm('Reboot the hub?\n\nAll connected users will be briefly disconnected.')) return;
+    fetch('/api/system/reboot', { method: 'POST' })
+        .then(() => {
+            document.body.innerHTML = '<div style="padding:40px;text-align:center;color:#e0e0e0;font-family:sans-serif;"><h2>Rebooting…</h2><p style="color:#888;margin-top:12px;">The hub is restarting. This page will reload automatically.</p></div>';
+            setTimeout(() => location.reload(), 30000);
+        })
+        .catch(() => {
+            alert('Reboot command sent. Reload this page in about 30 seconds.');
+        });
 }
 
 function esc(s) {
@@ -509,7 +703,278 @@ function esc(s) {
         .replace(/>/g,'&gt;').replace(/"/g,'&quot;')
         .replace(/'/g,'&#39;');
 }
+
+// ── Library panel ─────────────────────────────────────────────────────────────
+function openLibrary() {
+    document.getElementById('library-overlay').style.display = 'block';
+    document.getElementById('library-panel').style.display = 'block';
+    loadLibrary();
+}
+function closeLibrary() {
+    document.getElementById('library-overlay').style.display = 'none';
+    document.getElementById('library-panel').style.display = 'none';
+}
+function loadLibrary() {
+    const el = document.getElementById('library-grid');
+    el.innerHTML = '<div style="color:var(--muted);font-size:0.85rem;padding:8px 0;">Loading…</div>';
+    fetch('/api/kiwix/books').then(r => r.json()).then(data => {
+        const books = data.books || [];
+        if (!books.length) {
+            el.innerHTML = `<div style="color:var(--muted);font-size:0.9rem;padding:24px 0;text-align:center;">
+                <div style="font-size:2rem;margin-bottom:12px;">📭</div>
+                <div>Library is empty.</div>
+                <div style="margin-top:8px;font-size:0.8rem;">Add books via <button onclick="closeLibrary();openBooks()" style="background:none;border:none;color:var(--green);cursor:pointer;padding:0;font-size:0.8rem;text-decoration:underline;">Manage Books</button>.</div>
+            </div>`;
+            return;
+        }
+        el.innerHTML = books.map(b => {
+            // kiwix-serve reader URL uses the book UUID from library.xml
+            const filename = b.path.split('/').pop();
+            const title = b.title || filename;
+            const readerUrl = `/library/A/${encodeURIComponent(b.id)}/`;
+            return `<a href="${readerUrl}" target="_blank" rel="noopener"
+                style="display:block;background:#111;border-radius:8px;padding:16px;margin-bottom:10px;
+                       text-decoration:none;color:var(--text);border:1px solid #2a2a2a;">
+                <div style="font-weight:600;font-size:0.95rem;margin-bottom:4px;">${esc(title)}</div>
+                <div style="font-size:0.75rem;color:var(--muted);">${esc(filename)}</div>
+                <div style="margin-top:10px;font-size:0.78rem;color:var(--green);">Open →</div>
+            </a>`;
+        }).join('');
+    }).catch(() => {
+        el.innerHTML = '<div style="color:var(--muted);font-size:0.85rem;">Could not load library.</div>';
+    });
+}
+
+// ── Books panel ───────────────────────────────────────────────────────────────
+const MCOMZ_LIB_API = 'https://api.github.com/repos/mcomz-org/MComzLibrary/releases?per_page=1';
+const RECOMMENDED_ZIMS = [
+    // MComzLibrary ZIMs — URLs change each release, so we fetch from GitHub API
+    { title: "MComz Survival Library (~30 MB)",
+      fetchUrl: MCOMZ_LIB_API, zimPattern: "survival",
+      note: "MComzLibrary — click to fetch the latest download URL from GitHub" },
+    { title: "MComz Literature Library (~15 MB)",
+      fetchUrl: MCOMZ_LIB_API, zimPattern: "literature",
+      note: "MComzLibrary — click to fetch the latest download URL from GitHub" },
+    { title: "MComz Scriptures Library (~10 MB)",
+      fetchUrl: MCOMZ_LIB_API, zimPattern: "scripture",
+      note: "MComzLibrary — click to fetch the latest download URL from GitHub" },
+    // Kiwix community ZIMs — fetched by name from the Kiwix OPDS catalog
+    { title: "WikiMed Medical Encyclopedia (mini, ~155 MB)",
+      kiwixName: "wikipedia_en_medicine_mini",
+      note: "Kiwix community — click to fetch the latest download URL" },
+    { title: "Wikipedia English (mini, ~900 MB)",
+      kiwixName: "wikipedia_en_all_mini",
+      note: "Kiwix community — click to fetch the latest download URL" },
+    { title: "Appropedia (appropriate technology, ~100 MB)",
+      kiwixName: "appropedia_en_all",
+      note: "Kiwix community — click to fetch the latest download URL" },
+    { title: "Wikisource (texts &amp; literature, ~2 GB)",
+      kiwixName: "wikisource_en_all",
+      note: "Kiwix community — click to fetch the latest download URL" },
+];
+
+let _pollTimer = null;
+
+function openBooks() {
+    document.getElementById('books-overlay').style.display = 'block';
+    document.getElementById('books-panel').style.display = 'block';
+    fetch('/api/kiwix/books').then(r => r.json()).then(data => {
+        const books = data.books || [];
+        _renderInstalled(books);
+        renderRecommended(books);
+    }).catch(() => {
+        _renderInstalled([]);
+        renderRecommended([]);
+    });
+}
+function closeBooks() {
+    document.getElementById('books-overlay').style.display = 'none';
+    document.getElementById('books-panel').style.display = 'none';
+    if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+}
+function loadBooks() {
+    fetch('/api/kiwix/books').then(r => r.json()).then(data => {
+        _renderInstalled(data.books || []);
+    }).catch(() => _renderInstalled([]));
+}
+function _renderInstalled(books) {
+    const el = document.getElementById('books-installed');
+    if (!books.length) {
+        el.innerHTML = '<div style="color:var(--muted);font-size:0.85rem;">No books installed yet.</div>';
+        return;
+    }
+    el.innerHTML = books.map(b => {
+        const name = b.title || b.path.split('/').pop();
+        const size = b.size ? ` <span style="color:var(--muted)">(${(b.size/1024/1024).toFixed(0)} MB)</span>` : '';
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:#111;border-radius:4px;margin-bottom:4px;font-size:0.85rem;">
+            <span>${esc(name)}${size}</span>
+            <button onclick="removeBook('${esc(b.path)}')" class="small-btn" style="color:var(--red);border-color:var(--red);">Remove</button>
+        </div>`;
+    }).join('');
+}
+function renderRecommended(installedBooks) {
+    const installedFiles = (installedBooks || []).map(b => b.path.split('/').pop().toLowerCase());
+    const isInstalled = pat => installedFiles.some(f => f.includes(pat));
+    const items = RECOMMENDED_ZIMS.filter(r => {
+        const pat = r.zimPattern || r.kiwixName;
+        return !pat || !isInstalled(pat);
+    });
+    document.getElementById('books-recommended').innerHTML = items.length
+        ? items.map(r => {
+            let btn;
+            if (r.fetchUrl) {
+                btn = `<button onclick="fetchMComzUrl('${r.fetchUrl}','${r.zimPattern}')" class="small-btn">Get Download URL</button>`;
+            } else {
+                btn = `<button onclick="fetchKiwixUrl('${r.kiwixName}')" class="small-btn">Get Download URL</button>`;
+            }
+            return `<div style="padding:8px;background:#111;border-radius:4px;margin-bottom:6px;font-size:0.85rem;">
+                <div style="font-weight:600;margin-bottom:2px;">${r.title}</div>
+                <div style="color:var(--muted);font-size:0.75rem;margin-bottom:6px;">${r.note}</div>
+                ${btn}
+            </div>`;
+        }).join('')
+        : '<div style="color:var(--muted);font-size:0.85rem;padding:4px 0;">All recommended books are already installed.</div>';
+}
+function fetchMComzUrl(apiUrl, pattern) {
+    const statusEl = document.getElementById('books-dl-status');
+    statusEl.style.color = 'var(--blue)';
+    statusEl.textContent = 'Fetching latest URL from GitHub…';
+    fetch(apiUrl)
+        .then(r => r.json())
+        .then(data => {
+            const releases = Array.isArray(data) ? data : [data];
+            if (!releases.length) { statusEl.textContent = 'No releases found.'; return; }
+            const asset = releases[0].assets.find(
+                a => a.name.endsWith('.zim') && a.name.toLowerCase().includes(pattern)
+            );
+            if (!asset) {
+                statusEl.style.color = 'var(--red)';
+                statusEl.textContent = `No ${pattern} ZIM found in latest MComzLibrary release.`;
+                return;
+            }
+            document.getElementById('books-url').value = asset.browser_download_url;
+            statusEl.style.color = 'var(--green)';
+            statusEl.textContent = `URL ready: ${asset.name}`;
+        })
+        .catch(() => {
+            statusEl.style.color = 'var(--red)';
+            statusEl.textContent = 'Could not reach GitHub — check internet connection.';
+        });
+}
+function fetchKiwixUrl(kiwixName) {
+    const statusEl = document.getElementById('books-dl-status');
+    statusEl.style.color = 'var(--blue)';
+    statusEl.textContent = 'Fetching latest URL from Kiwix catalog…';
+    fetch(`https://library.kiwix.org/catalog/v2/entries?lang=eng&name=${encodeURIComponent(kiwixName)}`)
+        .then(r => r.text())
+        .then(xml => {
+            const doc = new DOMParser().parseFromString(xml, 'text/xml');
+            const ns = 'http://www.w3.org/2005/Atom';
+            const entries = doc.getElementsByTagNameNS(ns, 'entry');
+            if (!entries.length) {
+                statusEl.style.color = 'var(--red)';
+                statusEl.textContent = `Not found in Kiwix catalog: ${kiwixName}`;
+                return;
+            }
+            const links = entries[0].getElementsByTagNameNS(ns, 'link');
+            let zimUrl = null;
+            for (const link of links) {
+                const href = link.getAttribute('href') || '';
+                if (href.endsWith('.meta4')) { zimUrl = href.slice(0, -6); break; }
+            }
+            if (!zimUrl) {
+                statusEl.style.color = 'var(--red)';
+                statusEl.textContent = `No download link found for ${kiwixName}.`;
+                return;
+            }
+            document.getElementById('books-url').value = zimUrl;
+            statusEl.style.color = 'var(--green)';
+            statusEl.textContent = `URL ready: ${zimUrl.split('/').pop()}`;
+        })
+        .catch(() => {
+            statusEl.style.color = 'var(--red)';
+            statusEl.textContent = 'Could not reach library.kiwix.org — check internet connection.';
+        });
+}
+function startDownload() {
+    const url = document.getElementById('books-url').value.trim();
+    const statusEl = document.getElementById('books-dl-status');
+    if (!url) { statusEl.textContent = 'Enter a URL first.'; return; }
+    const filename = url.split('/').pop().split('?')[0];
+    statusEl.style.color = 'var(--blue)';
+    statusEl.textContent = 'Starting download…';
+    fetch('/api/kiwix/download', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({url})
+    }).then(r => r.json()).then(data => {
+        if (!data.ok) { statusEl.style.color = 'var(--red)'; statusEl.textContent = data.error; return; }
+        statusEl.style.color = 'var(--blue)';
+        statusEl.textContent = `Downloading ${filename}…`;
+        if (_pollTimer) clearInterval(_pollTimer);
+        _pollTimer = setInterval(() => {
+            fetch(`/api/kiwix/download/status?file=${encodeURIComponent(filename)}`)
+                .then(r => r.json()).then(s => {
+                    if (s.status === 'done') {
+                        clearInterval(_pollTimer); _pollTimer = null;
+                        statusEl.style.color = 'var(--green)';
+                        statusEl.textContent = `✅ ${filename} added — reloading library…`;
+                        loadBooks();
+                    } else if (s.status === 'error') {
+                        clearInterval(_pollTimer); _pollTimer = null;
+                        statusEl.style.color = 'var(--red)';
+                        statusEl.textContent = `Error: ${s.error}`;
+                    }
+                });
+        }, 3000);
+    }).catch(() => { statusEl.style.color = 'var(--red)'; statusEl.textContent = 'Request failed.'; });
+}
+function removeBook(path) {
+    if (!confirm(`Remove ${path.split('/').pop()}?\n\nThis deletes the file from the hub.`)) return;
+    fetch('/api/kiwix/remove', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({path})
+    }).then(r => r.json()).then(data => {
+        if (data.ok) loadBooks();
+        else alert('Remove failed: ' + data.error);
+    });
+}
 </script>
+
+<!-- Library slide-in panel -->
+<div id="library-overlay" onclick="closeLibrary()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100;"></div>
+<div id="library-panel" style="display:none;position:fixed;top:0;right:0;height:100vh;width:480px;max-width:100vw;background:#1a1a1a;z-index:101;overflow-y:auto;padding:20px;box-shadow:-4px 0 24px rgba(0,0,0,0.6);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h2 style="font-size:1.1rem;">📚 Library</h2>
+        <button onclick="closeLibrary()" style="background:none;border:none;color:#aaa;cursor:pointer;font-size:1.3rem;">✕</button>
+    </div>
+    <div id="library-grid"></div>
+</div>
+
+<div id="books-overlay" onclick="closeBooks()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100;"></div>
+<div id="books-panel" style="display:none;position:fixed;top:0;right:0;height:100vh;width:400px;max-width:100vw;background:#1a1a1a;z-index:101;overflow-y:auto;padding:20px;box-shadow:-4px 0 24px rgba(0,0,0,0.6);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h2 style="font-size:1.1rem;">Manage Books</h2>
+        <button onclick="closeBooks()" style="background:none;border:none;color:#aaa;cursor:pointer;font-size:1.3rem;">✕</button>
+    </div>
+
+    <div class="wifi-section-head">Installed Books</div>
+    <div id="books-installed" style="margin-bottom:16px;">
+        <div style="color:var(--muted);font-size:0.85rem;">Loading…</div>
+    </div>
+
+    <div class="wifi-section-head">Add a Book</div>
+    <p class="note" style="margin-bottom:8px;">Paste a direct URL to a .zim file. Download requires internet access — do this before going off-grid.</p>
+    <input id="books-url" type="url" placeholder="https://download.kiwix.org/zim/…/foo.zim"
+           class="wifi-input" style="margin-bottom:8px;">
+    <button onclick="startDownload()" class="btn btn-green" style="margin-bottom:4px;">⬇ Download &amp; Add</button>
+    <div id="books-dl-status" style="font-size:0.8rem;min-height:1.4em;margin-top:4px;"></div>
+
+    <div class="wifi-section-head" style="margin-top:16px;">Recommended Books</div>
+    <p class="note" style="margin-bottom:8px;">From <a href="https://library.kiwix.org" target="_blank" style="color:var(--blue);">library.kiwix.org</a> — click to copy the URL into the field above.</p>
+    <div id="books-recommended"></div>
+</div>
 
 </body>
 </html>

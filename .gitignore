@@ -1,6 +1,7 @@
 *.local.json
 .claude/settings.json
 .claude/mcp*.json
-.DS_Store
 .claude/settings.local.json
+**/.DS_Store
 __pycache__/
+claudebox.run

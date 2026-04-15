@@ -22,9 +22,9 @@ Every component is open-source. No proprietary software, no internet-dependent l
 | [Chrony](https://chrony-project.org/) | Time synchronisation — uses GPS as a reference clock for accurate offline timekeeping |
 | [RTL-SDR](https://www.rtl-sdr.com/) | Software-defined radio driver — enables USB SDR dongles for signal monitoring |
 | [Hamlib](https://hamlib.github.io/) | Radio control library — standardised CAT/CI-V control for connected transceivers |
-| [TigerVNC](https://tigervnc.org/) | Headless VNC server — runs GUI radio apps (JS8Call, FreeDATA) without a monitor |
-| [noVNC](https://novnc.com/) + [websockify](https://github.com/novnc/websockify) | Browser remote desktop — exposes the VNC session to any browser on the LAN, no install needed |
+| [TigerVNC](https://tigervnc.org/) + [noVNC](https://novnc.com/) + [websockify](https://github.com/novnc/websockify) | Headless VNC server + browser remote desktop — runs GUI radio apps (JS8Call, FreeDATA) accessible from any browser on the LAN |
 | [OverlayFS](https://www.kernel.org/doc/html/latest/filesystems/overlayfs.html) | Read-only root filesystem — protects the SD card from corruption on power loss |
+| [Chromium](https://www.chromium.org/) + [Openbox](http://openbox.org/) | Kiosk display — auto-launches full-screen dashboard when a monitor is connected |
 
 ---
 
@@ -41,7 +41,7 @@ Every component is open-source. No proprietary software, no internet-dependent l
 
 | Tool | Role |
 |------|------|
-| [Kiwix](https://kiwix.org/) | Offline content server — serves ZIM archives (Wikipedia, survival guides, MComz docs) over WiFi |
+| [Kiwix](https://kiwix.org/) | Offline content server — serves ZIM archives (MComzLibrary survival/literature/scriptures, WikiMed, and user-added books) over WiFi |
 
 ---
 
@@ -60,9 +60,8 @@ Every component is open-source. No proprietary software, no internet-dependent l
 |------|------|
 | [JS8Call](http://js8call.com/) | Weak-signal keyboard-to-keyboard messaging over HF using JS8 protocol |
 | [Pat](https://getpat.io) | Winlink email client and gateway — internet-free email over HF and VHF, with built-in web UI |
-| [ardopcf](https://github.com/pflarue/ardopcf) | ARDOP HF modem — active fork; provides the soundcard modem Pat uses for HF connections |
-| [FreeDATA](https://freedata.app/) | Peer-to-peer HF file transfer — direct data exchange without infrastructure |
-| [Mercury / HERMES v2](https://github.com/rhizomatica/mercury) | Automated HF data sync — [Rhizomatica](https://www.rhizomatica.org/) project for autonomous network updates |
+| [ardopcf](https://github.com/pflarue/ardop) | ARDOP HF modem — active fork; provides the soundcard modem Pat uses for HF connections |
+| [FreeDATA](https://freedata.app/) | Peer-to-peer HF file transfer — direct data exchange without infrastructure (ARM64 AppImage pending upstream) |
 
 ---
 

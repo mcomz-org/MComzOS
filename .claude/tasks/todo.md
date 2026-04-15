@@ -14,6 +14,96 @@
 
 ## Outstanding
 
+> **Key:** `[vibe]` = code changes to index.html / status.py / site.yml — use a vibe session.
+> `[claude]` = test infrastructure, research, git ops, curl/diagnostic work — do directly in Claude Code.
+
+---
+
+### Bugs confirmed in v0.0.2-pre-alpha.19 (RPi 5, 2026-04-12)
+
+#### Vibe tasks
+
+- [ ] **iOS Safari broken (regression)** — Investigated: nginx serves clean 200 on both HTTP and HTTPS with zero security headers (no HSTS, no redirect, no CSP). index.html has no JS redirect. Root cause: iOS Safari (15+) auto-upgrades bare hostnames to HTTPS; "Visit Website" no longer creates a persistent cert exception in iOS 18. iOS Chrome works because WKWebView has looser cert bypass behaviour. **Remaining fix:** add a dedicated HTTPS landing response (minimal HTML page) that clearly instructs the user to use `http://mcomz.local` — currently "Visit Website" lands on the full dashboard and re-triggers HTTPS fetches which Safari may re-block. Longer term: document the manual cert trust flow (Settings → General → About → Certificate Trust Settings) in the dashboard.
+
+- [ ] **VNC / JS8Call and FreeDATA — Connect button loops** — Fix shipped. Three causes fixed: (1) removed `-localhost` from Xvnc which can bind to `::1` only on Bookworm, making `127.0.0.1:5901` unreachable; (2) replaced `sleep 1.5` with a `/dev/tcp` port-ready loop (waits up to 15s); (3) added `Wants=mcomz-vnc.service` to novnc unit. **Needs hardware verification.**
+
+- ✅ **Kiwix ZIM reader URLs wrong** — Library panel now uses `b.id` (UUID from library.xml) as the kiwix-serve reader path: `/library/A/<uuid>/`. The UUID stored by the playbook is the one kiwix-serve assigns, so reader links are correct.
+
+- ✅ **Kiwix.org recommended URLs are directory listings, not .zim files** — Added `fetchKiwixUrl(kiwixName)` which queries `https://library.kiwix.org/catalog/v2/entries?lang=eng&name=<name>`, parses OPDS Atom XML via `DOMParser`, strips `.meta4` to get the direct ZIM URL, and populates the download field. All community ZIMs in RECOMMENDED_ZIMS updated to use `kiwixName`.
+
+- ✅ **Installed books appear in recommended list** — `renderRecommended(books)` now accepts the installed books list and filters entries whose `zimPattern` or `kiwixName` matches any installed filename. `openBooks()` does a single `/api/kiwix/books` fetch and passes the result to both the installed list and the recommended panel.
+
+- ✅ **Licensed Radio card before Mesh card (wrong order)** — Mesh Communication card now appears before Licensed Radio in index.html.
+
+- ✅ **Tooltip delay** — Replaced `title=` on svc-badge with `data-tip=` + CSS `::after` pseudo-element tooltip (0.08s fade-in, no browser delay). Works on hover; doesn't require JS.
+
+- ✅ **WiFi icon clipped at top** — SVG viewBox expanded from `0 0 22 16` to `0 -2 22 18`, giving the top arc 2px headroom above the stroke.
+
+- [ ] **Offline MeshCore flasher for Heltec v4** `[vibe]` — In hotspot/offline mode the "Flash MeshCore" link fails. Bundle the Heltec v4 repeater and node ESPTool web-flasher assets locally during provisioning (site.yml), serve them via nginx, and update the dashboard to: (a) detect whether internet is available via the status API or a probe, (b) if online, link to flasher.meshcore.co.uk as now, (c) if offline, link to the locally-served flasher.
+
+- ✅ **Installed ZIM sizes** — `kiwix_books()` in status.py now uses `os.path.getsize(path)` to return actual file size in bytes. The Manage Books panel already renders it as `(N MB)`.
+
+- ✅ **WikiMed Mini provisioning (recurring)** — Moved to a `ConditionPathExists=!` first-boot systemd oneshot (`mcomz-wikimed-download.service`). Runs on first boot after `network-online.target`; restarts kiwix-serve when done. Build-time download tasks removed. Will not time out in qemu since it never runs in the chroot.
+
+#### Claude tasks
+
+- ✅ **Fix smoke-test.py: misleading detail + OPDS catalog check** `[claude]` — Detail strings now only passed on failure. Added OPDS catalog check: fetches `/library/catalog/v2/entries`, verifies HTTP 200 + Atom XML + at least one `<entry>`. Also fixed download-status detail string same way.
+
+- ✅ **Add VNC/noVNC connection check to smoke-test.py** `[claude]` — TCP connect to `HOST:5901`, verify `RFB` banner. Directly detects the noVNC connect-loop class of failure.
+
+---
+
+### Unverified fixes (shipped in code, awaiting hardware confirmation)
+
+- [ ] **VNC Connect button** — All fixes applied (removed Requires=, StartLimitIntervalSec=0, removed -localhost, port-ready loop, Wants=). **Needs hardware verification in next flash.**
+
+- [ ] **Mumble controls greyed on macOS Chrome** `[vibe]` — `mcomz-mumble-ws` added to status dict; `server_hostname='localhost'` added to websockify SSL patch. **Needs hardware verification.**
+
+- [ ] **Mumble microphone on iOS** `[vibe]` — "Use Safari on iPhone/iPad" note added to dashboard. **Tied to iOS Safari regression above — verify once Safari access is restored.**
+
+- [ ] **SSL cert verify on ZIM download** `[vibe]` — Switched from `urlretrieve` to `urlopen` with `CERT_NONE` context. **Needs hardware verification.**
+
+---
+
+### P0 — Bugs found during first hardware test (v0.0.2-pre-alpha.11, RPi 5, 2026-04-09)
+
+- ✅ **Kiwix CSS/images broken** — `--urlRootLocation /library` added to kiwix-serve ExecStart so all internal URL paths are prefixed correctly.
+
+- ✅ **Pat fails to start — wrong user** — `mcomz_user=pi` removed from both CI extra-vars; playbook default `mcomz_user: mcomz` now used for all service files.
+
+- ✅ **mumble-web WebSocket bridge fails** — Fixed in two parts:
+  1. npm install path: `creates:` guard and websockify ExecStart updated to use `/usr/local/lib/node_modules/` (actual npm global path on Debian).
+  2. WebSocket routing: websockify runs TCP-only (no `--web` flag); nginx serves mumble-web static files via `alias /usr/local/lib/node_modules/mumble-web/dist/` at `/mumble/`; WebSocket-only endpoint at `/mumble/ws`; dashboard button URL updated to `port=443/mumble/ws`.
+
+- ✅ **AP hotspot button stuck on "Starting..."** — AbortController with 4s timeout added to `toggleAP()`; connection drop treated as success; manual state update and reconnect guidance shown; no longer freezes.
+  - Note: actual hostapd/dnsmasq startup on hardware needs verification in next flash test.
+
+- ✅ **nginx does not start on first boot** — Root cause: `deb-systemd-helper` detects chroot build and defers enables instead of creating symlinks. Fix: explicit `multi-user.target.wants/nginx.service` symlink deployed by Ansible, same as all custom services.
+
+### P0 — Bugs found during second hardware test (v0.0.2-pre-alpha.13, RPi 5, 2026-04-09)
+
+- ✅ **Safari iOS refuses to open HTTPS** — Self-signed cert was 3650 days; iOS Safari hard-blocks any cert with validity > 398 days since iOS 14. Fixed: cert regenerated with 397-day validity.
+
+- ✅ **Kiwix returns `/libraryINVALID URL` 404** — nginx `proxy_pass http://127.0.0.1:8888/` stripped the `/library/` prefix, but kiwix with `--urlRootLocation /library` expects to receive the full `/library/...` path. Fixed: `proxy_pass http://127.0.0.1:8888/library/` (preserves prefix).
+
+- [ ] **VNC Connect button does nothing** — mcomz-novnc has `Requires=mcomz-vnc`. If VNC server restarts during boot (it does — `Restart=on-failure`), novnc is stopped by systemd and never restarted. Fixed in code: removed `Requires=`, added `StartLimitIntervalSec=0`. **Needs hardware verification.**
+
+- [ ] **Mumble controls greyed on macOS Chrome** — `mcomz-mumble-ws` (websockify bridge) was not in the SERVICES dict so its status was invisible. Added to dashboard. Also fixed websockify SSL patch to pass `server_hostname='localhost'` to `wrap_socket()` (Python 3.12 compatibility). **Root cause of greyed controls unknown until websockify status is confirmed on device.**
+
+- [ ] **Mumble microphone on iOS** — iOS Chrome cannot access microphone (Apple restricts WebRTC to Safari only on iOS). Added "use Safari on iPhone/iPad" note to dashboard. Safari iOS also had the cert validity issue (now fixed above).
+
+- ✅ **Meshtastic / MeshCore 502 Bad Gateway** — Both links now open in a new tab (`target="_blank"`). If the service is known inactive (from status API), an inline warning is shown: "not connected — attach your LoRa radio and reload." No raw nginx 502 navigation.
+
+- ✅ **hostapd / dnsmasq showing "off" in status** — fixed: "off" badge now shows "(standby — activates with hotspot)" inline note in renderStatus().
+
+- [ ] **Manage Books: ZIM download fails with SSL CERTIFICATE_VERIFY_FAILED** — Pi clock may lag behind cert notBefore on first boot (no GPS/NTP sync yet). `kiwix_download` used `urlretrieve` which does cert verification. Fixed in code (pre-alpha.18): switched to `urlopen` with `CERT_NONE` context. **Needs hardware verification.**
+
+- ✅ **Manage Books: MComzLibrary ZIMs not in recommended list** — Added Survival, Literature, Scriptures entries to RECOMMENDED_ZIMS with "Get Download URL" button that fetches the latest release from the GitHub API (mcomz-org/MComzLibrary) and populates the URL field.
+
+- ✅ **meshtasticd shows 'failed' in status** — renderStatus now distinguishes: `active` → green "on", `failed` → orange "error", standby svcs inactive → grey "standby", hardware svcs inactive → grey "standby (requires hardware)", core svcs inactive → red "off". Red is now reserved for services that should be running but aren't.
+
+- ✅ **direwolf/mcomz-meshcore show 'activating'** — added `ConditionPathExists=/dev/snd` to direwolf unit and `ConditionPathExists=/dev/spidev0.0` to mcomz-meshcore unit. Services stay inactive (not stuck activating/restarting) when required hardware is absent.
+
 ### P0 — Hub is non-functional without these
 
 - ✅ **WiFi AP + captive portal** (site.yml)
@@ -141,16 +231,16 @@
 
 - ✅ **FreeDATA AppImage availability**: GitHub API probe replaces hardcoded URL; download task skipped gracefully if no AppImage published for arch
 
-- ✅ **Mumble HTTPS for microphone access**: Self-signed cert generated via openssl (`/etc/ssl/mcomz/`); nginx serves HTTPS on 443 for Mumble mic access; HTTP on 80 serves the dashboard directly (no redirect — avoids iOS Safari cert loop); HTTPS root shows redirect-to-HTTP page
+- ✅ **Mumble HTTPS for microphone access**: Self-signed cert generated via openssl (`/etc/ssl/mcomz/`); nginx now serves HTTPS on 443 and redirects HTTP→HTTPS; dashboard shows warning banner if loaded over HTTP
 
 ### P1 — Chroot build reliability (v0.0.2-pre-alpha series)
 
 #### Phase A: Get the build green (use `ignore_errors` as scaffolding)
 
-- ✅ **Fix meshtasticd enable** — uses `file: state=link` (symlink pattern, chroot-safe)
-- ✅ **Remove all `daemon_reload: yes` / `ignore_errors`** — zero `ignore_errors` and zero `daemon_reload` remain in site.yml; all service enables use the symlink pattern
-- ✅ **Meshtastic OBS repo tasks** — entire Meshtastic block is in block/rescue (better than ignore_errors); OBS outage warns and skips cleanly
-- ✅ **Timeout on `npm install -g mumble-web`** — `timeout 600` in place, also wrapped in block/rescue with warning on failure
+- ✅ **Fix meshtasticd enable** — uses `file: state=link` symlink pattern (same as all other services); no `ignore_errors` needed.
+- ✅ **All service enables** — all use `file: state=link` to multi-user.target.wants; no daemon_reload tasks remain.
+- ✅ **Meshtastic OBS repo tasks** — entire Meshtastic block wrapped in `block/rescue`; OBS unavailability prints a warning and continues build.
+- ✅ **npm install timeout** — `shell: timeout 600 npm install -g mumble-web` with `block/rescue` for stall protection.
 
 **High-risk tasks to monitor in build logs (may need fixes):**
 - `npm install -g mumble-web` — webpack build under qemu emulation (~30-40% failure)
@@ -190,65 +280,20 @@ Build reported green (`ok=82 changed=58 failed=0 ignored=15`) but the `ignored=1
 
 #### Phase B: Replace `ignore_errors` with proper chroot-safe patterns
 
-✅ **Complete.** All items implemented as part of Phase A.5 work:
-- All service enables use `file: state=link` (chroot-safe, no systemd needed)
-- Meshtastic OBS in block/rescue — entire block skipped with warning on any failure
-- avahi-daemon, meshtasticd, all other enables: symlink pattern
-- Audit confirmed: zero `ignore_errors`, zero `daemon_reload` in site.yml
+Once the build is green and tested, systematically remove every `ignore_errors`:
 
-### P1 — Runtime/UX bugs (dashboard and nginx)
-
-#### Bug 1: VNC "Connect" button loops without showing password dialog
-
-**Status:** ✅ Fixed (2026-04-14)
-
-**Root cause:** Dashboard links (`index.html:236,243`) used `path=websockify` but the nginx WebSocket proxy lives at `/vnc/websockify`. noVNC's `path` parameter is a full URL path (no leading slash), so it tried `ws://host/websockify` — no matching nginx location — and retried in a loop with `autoconnect=true`.
-
-**What was NOT wrong:** Xvnc binding (localhost:5901 ✓), websockify target (localhost:5901 ✓), service ordering (`After=`/`Requires=` mcomz-vnc.service ✓), rfbport (default 5901 for display :1 ✓).
-
-**Fix:** Changed `path=websockify` → `path=vnc/websockify` in both VNC links.
-
-#### Bug 2: iOS Safari HTTPS loop with self-signed cert
-
-**Status:** ✅ Fixed (2026-04-14)
-
-**Root cause:** nginx port 80 returned `301 https://`. iOS Safari auto-upgrades bare hostnames to HTTPS. With a self-signed cert, Safari shows "This Connection Is Not Private" — and even after tapping "Visit Website", subsequent fetch() calls to `/api/status` etc. can re-trigger the block, causing a loop.
-
-**Tension:** Mumble needs HTTPS for `getUserMedia()` (microphone), but the dashboard should be accessible without cert hassle.
-
-**Fix:**
-- Port 80: serves the full dashboard and all service proxies directly (no redirect)
-- Port 443: root `/` returns a minimal HTML page redirecting to HTTP; all other locations (`/api/`, `/mumble/`, `/library/`, etc.) remain functional for HTTPS-dependent features
-- Dashboard Mumble link changed to explicit `https://` for microphone access
-- HTTPS warning banner updated to explain the HTTP/HTTPS split and link to HTTPS Mumble
-
-#### Bug 3: MeshCore flasher requires internet (offline unusable)
-
-**Status:** ✅ Fixed (2026-04-15)
-
-**Problem:** "Flash MeshCore" button linked to `flasher.meshcore.co.uk` which requires internet. In hotspot/offline mode (the primary use case), this fails.
-
-**Research findings:**
-- The MeshCore flasher (`meshcore-dev/flasher.meshcore.io`) is a self-contained static Vue.js app (no build step needed) with its own bundled esptool-js wrapper, config.json manifest, and `/lib/` JS dependencies.
-- It is NOT using esptool-js or esp-web-tools directly — it's a custom Vue app that wraps `esp32.js` (a bundled esptool-js build).
-- `config.json` (148 KB) controls device types, firmware roles, and version metadata. Key field: `staticPath` sets the firmware binary base URL.
-- Firmware binaries live at `github.com/meshcore-dev/MeshCore/releases`, filtered by `heltec` in asset name.
-- The flasher uses absolute URL paths (`/lib/`, `/css/`, `/config.json`) so direct subpath serving would break without path patching.
-
-**Fix (site.yml + index.html):**
-1. **Provisioning:** `git clone --depth=1 meshcore-dev/flasher.meshcore.io` into `/var/www/html/meshcore-flash/`. Python patch script rewrites absolute paths in `index.html` and `flasher.js` to `/meshcore-flash/`-prefixed versions; sets `staticPath` to `/meshcore-flash/firmware` in `config.json`. GitHub API resolves and downloads all Heltec V3/V4 firmware `.bin` assets. Entire block is in block/rescue so build doesn't fail if GitHub is slow.
-2. **nginx:** Added `location /meshcore-flash/` alias to both HTTP and HTTPS server blocks.
-3. **Dashboard:** Flash button replaced with `openMeshFlasher()` JS function — probes `flasher.meshcore.co.uk/favicon.ico` with 3s timeout (using `navigator.onLine` as quick gate); routes to online or local flasher accordingly. Button shows "Checking connection…" while probing.
-
-**Known limitation:** If the flasher app uses any absolute path not covered by the regex patch (e.g. dynamic paths constructed in Vue components), those would 404. Needs validation on first flash.
+- [ ] **Service enables**: Replace `systemd: enabled: yes` + `ignore_errors` with direct symlink creation (`file: state=link`) for chroot builds, guarded by `when: build_mode`. Keep the `systemd:` task for live installs. This is the correct fix — `systemctl enable` just creates symlinks, so we can do it without systemd running.
+- [ ] **Meshtastic OBS repo**: Add a verification step that checks the repo is reachable before adding it; skip the entire Meshtastic block (repo + install + enable) if unavailable, rather than failing mid-sequence.
+- [ ] **avahi-daemon enable**: Same symlink pattern as above; remove `ignore_errors`.
+- [ ] **meshtasticd enable**: Same symlink pattern as above; remove `ignore_errors`.
+- [ ] **Audit**: Confirm zero `ignore_errors` remain in site.yml. Every task either succeeds or fails the build intentionally.
 
 #### Phase C: First flash and hardware validation
 
-- [ ] Flash RPi image, boot, verify `http://mcomz.local` loads (HTTP, not HTTPS)
+- [ ] Flash RPi image, boot, verify `https://mcomz.local` loads
 - [ ] Dashboard: all service status dots showing correct state
 - [ ] WiFi panel: scan, connect, forget, AP mode toggle
-- [ ] Each service link: Kiwix, Pat, VNC (JS8Call), Mumble voice (via HTTPS)
-- [ ] iOS Safari: verify no HTTPS redirect loop, Mumble mic works after cert accept
+- [ ] Each service link: Kiwix, Pat, VNC (JS8Call), Mumble voice
 - [ ] AP fallback: unplug router, wait 5 min, verify `MComzOS` hotspot appears
 - [ ] x86: flash to USB, boot on a PC, same checks
 
@@ -276,7 +321,7 @@ Direwolf decodes APRS packets but there is no map UI. README updated to reflect 
 
 | Service | Port | Status |
 |---------|------|--------|
-| Nginx (dashboard + offline flasher) | 80 | ✅ Configured |
+| Nginx (dashboard) | 80 | ✅ Configured |
 | noVNC (JS8Call etc.) | 6080 | ✅ Configured |
 | Mumble voice+text | 64737 | ✅ Configured |
 | Meshtastic web UI | 8080 | ✅ Configured |
@@ -288,6 +333,36 @@ Direwolf decodes APRS packets but there is no map UI. README updated to reflect 
 | Direwolf APRS | 8010 (AGWPORT), 8011 (KISS) | ✅ Running |
 | ardopcf HF modem | 8515 (TCP) | ✅ Running |
 | Status API | 9000 → /api/ | ✅ Running |
+
+## Post-v0.0.2 Dashboard Features (requested 2026-04-09)
+
+### Inline service guides (offline-friendly)
+- [ ] Mumble: inline "How to connect" guide on the dashboard card (don't rely on external docs link which requires internet). Cover: enter any username, leave password blank, allow microphone when prompted, push-to-talk vs voice-activated.
+- [ ] JS8Call: brief inline guide covering the #MCOMZ net schedule and how to send a message
+- [ ] Pat: inline guide covering callsign setup and sending a Winlink check-in
+
+### Radio Communications tab
+- [ ] Add a "Radio Communications" tab to the dashboard alongside "Mesh Communications"
+- [ ] Gate licenced-radio features behind a question: "Do you have an Amateur Radio licence and a radio?"
+  - If No: show explanation of what a licence enables, link to licensing info
+  - If Yes: reveal JS8Call (VNC), Pat (Winlink), ardopcf, Direwolf APRS, FreeDATA (when available)
+- [ ] Unlicenced LoRa hardware (Meshtastic, MeshCore) stays visible without the gate
+
+### Admin login / protected functions
+- [ ] Add a login screen protecting admin-only functions (simple password, stored locally — no internet auth)
+- [ ] Protected functions include: power off / reboot RPi, WiFi settings panel, add Kiwix books, any action that could impact other users on the network
+- [ ] Non-admin users can use all comms features without logging in
+
+### Kiwix library onboarding
+- [ ] Flash screen on first login (or if library is empty) suggesting the user adds at least WikiMed Medical Encyclopedia
+- [ ] "Add Books" button in the Library section — requires login
+- [ ] Recommended books list with variants (full / no-pic / mini) and approximate sizes:
+  - Wikipedia (full, mini)
+  - Wikipedia 0.8 (English simplified)
+  - WikiMed Medical Encyclopedia
+  - Appropedia (appropriate technology / survival)
+  - Wikisource "The Free Library" (Bible, Shakespeare, etc.)
+- [ ] Clicking a recommended book triggers a kiwix-manage download on the Pi (requires kiwix-manage integration in status.py API)
 
 ## Key Decisions Made
 - TigerVNC + noVNC chosen over Wayland + RustDesk (lighter, browser-native, battle-tested)
