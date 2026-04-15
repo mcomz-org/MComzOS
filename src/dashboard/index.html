@@ -295,8 +295,8 @@
                 <p class="note">Private tactical mesh — this hub acts as a node and repeater. You control the network: flash your own LoRa radios with MeshCore firmware to join.</p>
                 <a href="/meshcore/" target="_blank" rel="noopener" class="btn btn-orange" style="margin-top:8px;"
                    onclick="return guardMeshService('mcomz-meshcore','MeshCore',document.getElementById('meshcore-section'))">MeshCore Dashboard</a>
-                <a href="https://flasher.meshcore.co.uk" target="_blank" rel="noopener"
-                   class="btn" style="background:#333;color:#fff;">Flash Radio to MeshCore ↗</a>
+                <button onclick="openMeshFlasher(this)"
+                   class="btn" style="background:#333;color:#fff;">Flash Radio to MeshCore ↗</button>
             </div>
         </div>
     </div>
@@ -695,6 +695,25 @@ function confirmReboot() {
         .catch(() => {
             alert('Reboot command sent. Reload this page in about 30 seconds.');
         });
+}
+
+// ── MeshCore flasher — online → flasher.meshcore.co.uk, offline → local ──────
+async function openMeshFlasher(btn) {
+    const orig = btn.textContent;
+    btn.textContent = 'Checking connection\u2026';
+    btn.disabled = true;
+    let online = false;
+    if (navigator.onLine) {
+        try {
+            await fetch('https://flasher.meshcore.co.uk/favicon.ico',
+                {method: 'HEAD', cache: 'no-store',
+                 signal: AbortSignal.timeout(3000)});
+            online = true;
+        } catch(_) {}
+    }
+    btn.textContent = orig;
+    btn.disabled = false;
+    window.open(online ? 'https://flasher.meshcore.co.uk' : '/meshcore-flash/', '_blank');
 }
 
 function esc(s) {

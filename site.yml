@@ -1320,6 +1320,96 @@
         dest: /var/www/html/
         owner: www-data
 
+    - name: Provision MeshCore offline firmware flasher
+      # Clones the MeshCore web flasher and Heltec V3/V4 firmware so users can
+      # flash radios from the dashboard without internet (hotspot/offline mode).
+      # Served at /meshcore-flash/; dashboard detects connectivity and routes there
+      # when flasher.meshcore.co.uk is unreachable.
+      block:
+        - name: Create MeshCore flasher directories
+          file:
+            path: "{{ item }}"
+            state: directory
+            owner: www-data
+            mode: '0755'
+          loop:
+            - /var/www/html/meshcore-flash
+            - /var/www/html/meshcore-flash/firmware
+
+        - name: Clone MeshCore web flasher (shallow)
+          shell: |
+            git clone --depth=1 https://github.com/meshcore-dev/flasher.meshcore.io.git \
+              /var/www/html/meshcore-flash
+          args:
+            creates: /var/www/html/meshcore-flash/index.html
+
+        - name: Patch flasher for /meshcore-flash/ subpath serving
+          # The flasher app uses absolute paths (/lib/, /css/, /config.json) — it was
+          # designed to be served from the domain root. Rewrite to /meshcore-flash/-
+          # prefixed paths so nginx alias resolves them correctly. Also update
+          # config.json staticPath so firmware binaries are fetched locally.
+          shell: |
+            python3 << 'PYEOF'
+            import re, json, os
+
+            with open('/var/www/html/meshcore-flash/index.html') as f:
+                html = f.read()
+            html = re.sub(
+                r'(<(?:script|link|img)[^>]+ (?:src|href))="/((?!meshcore-flash/))',
+                r'\1="/meshcore-flash/\2', html)
+            html = html.replace("'/config.json'", "'/meshcore-flash/config.json'")
+            html = html.replace('"/config.json"', '"/meshcore-flash/config.json"')
+            with open('/var/www/html/meshcore-flash/index.html', 'w') as f:
+                f.write(html)
+
+            js_path = '/var/www/html/meshcore-flash/flasher.js'
+            if os.path.exists(js_path):
+                with open(js_path) as f:
+                    js = f.read()
+                js = js.replace("'/config.json'", "'/meshcore-flash/config.json'")
+                js = js.replace('"/config.json"', '"/meshcore-flash/config.json"')
+                with open(js_path, 'w') as f:
+                    f.write(js)
+
+            with open('/var/www/html/meshcore-flash/config.json') as f:
+                cfg = json.load(f)
+            cfg['staticPath'] = '/meshcore-flash/firmware'
+            with open('/var/www/html/meshcore-flash/config.json', 'w') as f:
+                json.dump(cfg, f)
+            PYEOF
+
+        - name: Resolve MeshCore latest Heltec firmware URLs
+          shell: |
+            curl -sf ${GITHUB_TOKEN:+-H "Authorization: Bearer $GITHUB_TOKEN"} \
+              "https://api.github.com/repos/meshcore-dev/MeshCore/releases/latest" \
+              | python3 -c "
+            import sys, json
+            data = json.load(sys.stdin)
+            urls = [a['browser_download_url'] for a in data.get('assets', [])
+                    if 'heltec' in a['name'].lower()]
+            print('\n'.join(urls))
+            "
+          register: meshcore_fw_urls
+          changed_when: false
+          failed_when: meshcore_fw_urls.rc != 0
+          environment:
+            GITHUB_TOKEN: "{{ lookup('env', 'GITHUB_TOKEN') }}"
+
+        - name: Download Heltec V3/V4 MeshCore firmware binaries
+          get_url:
+            url: "{{ item }}"
+            dest: "/var/www/html/meshcore-flash/firmware/{{ item | basename }}"
+            owner: www-data
+            mode: '0644'
+          loop: "{{ meshcore_fw_urls.stdout_lines | select('match', '.+') | list }}"
+          when: meshcore_fw_urls.stdout_lines | length > 0
+
+      rescue:
+        - name: Warn MeshCore offline flasher provisioning failed
+          debug:
+            msg: "MeshCore offline flasher could not be provisioned (GitHub unavailable or clone failed). Flash button will always link to flasher.meshcore.co.uk."
+      when: not (minimal_build | default(false))
+
     - name: Deploy MComzOS status API script
       copy:
         src: ./src/api/status.py
@@ -1429,6 +1519,12 @@
                   proxy_set_header Connection "upgrade";
                   proxy_read_timeout 86400;
               }
+
+              # MeshCore offline firmware flasher (used when internet is unavailable)
+              location /meshcore-flash/ {
+                  alias /var/www/html/meshcore-flash/;
+                  index index.html;
+              }
           }
 
           server {
@@ -1439,9 +1535,14 @@
               root /var/www/html;
               index index.html;
 
-              # Dashboard
+              # iOS Safari auto-upgrades bare hostnames to HTTPS (iOS 15+) and
+              # won't create a persistent exception for self-signed certs in iOS 18.
+              # Serving the full dashboard here re-triggers fetch() calls that Safari
+              # re-blocks. Instead, return a minimal redirect page so the user lands
+              # on HTTP where everything works without certificate interaction.
               location / {
-                  try_files $uri $uri/ /index.html;
+                  default_type text/html;
+                  return 200 '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MComzOS</title><style>body{background:#121212;color:#e0e0e0;font-family:system-ui,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;text-align:center;padding:24px}a{color:#29b6f6;font-size:1.1rem}</style></head><body><div><h2>MComzOS</h2><p style="margin:16px 0;color:#aaa">The dashboard runs over HTTP to avoid certificate warnings on phones.</p><p><a href="http://mcomz.local/">Open Dashboard &rarr; http://mcomz.local/</a></p><p style="margin-top:20px;font-size:0.8rem;color:#666">HTTPS is available for Mumble voice chat at <a href="/mumble/" style="font-size:0.8rem">/mumble/</a></p></div></body></html>';
               }
 
               # Status API (Python service on localhost:9000)

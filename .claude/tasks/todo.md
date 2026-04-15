@@ -23,7 +23,7 @@
 
 #### Vibe tasks
 
-- [ ] **iOS Safari broken (regression)** — Investigated: nginx serves clean 200 on both HTTP and HTTPS with zero security headers (no HSTS, no redirect, no CSP). index.html has no JS redirect. Root cause: iOS Safari (15+) auto-upgrades bare hostnames to HTTPS; "Visit Website" no longer creates a persistent cert exception in iOS 18. iOS Chrome works because WKWebView has looser cert bypass behaviour. **Remaining fix:** add a dedicated HTTPS landing response (minimal HTML page) that clearly instructs the user to use `http://mcomz.local` — currently "Visit Website" lands on the full dashboard and re-triggers HTTPS fetches which Safari may re-block. Longer term: document the manual cert trust flow (Settings → General → About → Certificate Trust Settings) in the dashboard.
+- ✅ **iOS Safari broken (regression)** — nginx port 443 root `/` now returns a minimal static HTML page directing users to `http://mcomz.local` instead of the full dashboard. The full dashboard still served on HTTP (port 80). All other HTTPS locations (`/api/`, `/mumble/ws`, `/library/`, etc.) remain functional. Needs hardware verification.
 
 - [ ] **VNC / JS8Call and FreeDATA — Connect button loops** — Fix shipped. Three causes fixed: (1) removed `-localhost` from Xvnc which can bind to `::1` only on Bookworm, making `127.0.0.1:5901` unreachable; (2) replaced `sleep 1.5` with a `/dev/tcp` port-ready loop (waits up to 15s); (3) added `Wants=mcomz-vnc.service` to novnc unit. **Needs hardware verification.**
 
@@ -39,7 +39,7 @@
 
 - ✅ **WiFi icon clipped at top** — SVG viewBox expanded from `0 0 22 16` to `0 -2 22 18`, giving the top arc 2px headroom above the stroke.
 
-- [ ] **Offline MeshCore flasher for Heltec v4** `[vibe]` — In hotspot/offline mode the "Flash MeshCore" link fails. Bundle the Heltec v4 repeater and node ESPTool web-flasher assets locally during provisioning (site.yml), serve them via nginx, and update the dashboard to: (a) detect whether internet is available via the status API or a probe, (b) if online, link to flasher.meshcore.co.uk as now, (c) if offline, link to the locally-served flasher.
+- ✅ **Offline MeshCore flasher for Heltec v4** — `git clone --depth=1 meshcore-dev/flasher.meshcore.io` into `/var/www/html/meshcore-flash/` during provisioning; Python patch script rewrites absolute paths for subpath serving; GitHub API downloads all Heltec V3/V4 `.bin` firmware assets; nginx alias at `/meshcore-flash/`. Dashboard Flash button replaced with `openMeshFlasher()` — probes `flasher.meshcore.co.uk` with 3s timeout, routes to online flasher or local bundle. Needs hardware verification.
 
 - ✅ **Installed ZIM sizes** — `kiwix_books()` in status.py now uses `os.path.getsize(path)` to return actual file size in bytes. The Manage Books panel already renders it as `(N MB)`.
 
