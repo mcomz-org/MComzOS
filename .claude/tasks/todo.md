@@ -226,21 +226,23 @@ Once the build is green and tested, systematically remove every `ignore_errors`:
 
 #### Bug 3: MeshCore flasher requires internet (offline unusable)
 
-**Status:** Open — deferred to Sonnet 4.6
+**Status:** ✅ Fixed (2026-04-15)
 
-**Problem:** "Flash MeshCore" button links to `flasher.meshcore.co.uk` which requires internet. In hotspot/offline mode (the primary use case), this fails.
+**Problem:** "Flash MeshCore" button linked to `flasher.meshcore.co.uk` which requires internet. In hotspot/offline mode (the primary use case), this fails.
 
-**Proposed fix (two parts):**
-1. **Provisioning (site.yml):** During build, download esptool-js web flasher static assets + MeshCore firmware binaries (Heltec V3/V4 repeater + node `.bin` files from GitHub releases). Serve from nginx at `/meshcore-flash/`.
-2. **Dashboard (index.html):** Replace the Flash button with online/offline detection: if online → open `flasher.meshcore.co.uk`; if offline → open local `/meshcore-flash/`.
+**Research findings:**
+- The MeshCore flasher (`meshcore-dev/flasher.meshcore.io`) is a self-contained static Vue.js app (no build step needed) with its own bundled esptool-js wrapper, config.json manifest, and `/lib/` JS dependencies.
+- It is NOT using esptool-js or esp-web-tools directly — it's a custom Vue app that wraps `esp32.js` (a bundled esptool-js build).
+- `config.json` (148 KB) controls device types, firmware roles, and version metadata. Key field: `staticPath` sets the firmware binary base URL.
+- Firmware binaries live at `github.com/meshcore-dev/MeshCore/releases`, filtered by `heltec` in asset name.
+- The flasher uses absolute URL paths (`/lib/`, `/css/`, `/config.json`) so direct subpath serving would break without path patching.
 
-**Why deferred:** Requires research into esptool-js asset structure, MeshCore firmware release URLs, and manifest format. Well-suited for Sonnet 4.6 implementation.
+**Fix (site.yml + index.html):**
+1. **Provisioning:** `git clone --depth=1 meshcore-dev/flasher.meshcore.io` into `/var/www/html/meshcore-flash/`. Python patch script rewrites absolute paths in `index.html` and `flasher.js` to `/meshcore-flash/`-prefixed versions; sets `staticPath` to `/meshcore-flash/firmware` in `config.json`. GitHub API resolves and downloads all Heltec V3/V4 firmware `.bin` assets. Entire block is in block/rescue so build doesn't fail if GitHub is slow.
+2. **nginx:** Added `location /meshcore-flash/` alias to both HTTP and HTTPS server blocks.
+3. **Dashboard:** Flash button replaced with `openMeshFlasher()` JS function — probes `flasher.meshcore.co.uk/favicon.ico` with 3s timeout (using `navigator.onLine` as quick gate); routes to online or local flasher accordingly. Button shows "Checking connection…" while probing.
 
-**Research needed:**
-- [ ] Identify esptool-js static assets required for web-based ESP32 flashing
-- [ ] Find MeshCore firmware binary URLs on GitHub releases (Heltec V3 repeater + node)
-- [ ] Determine manifest format for esptool-js web flasher
-- [ ] Size estimate for bundled firmware (image size impact)
+**Known limitation:** If the flasher app uses any absolute path not covered by the regex patch (e.g. dynamic paths constructed in Vue components), those would 404. Needs validation on first flash.
 
 #### Phase C: First flash and hardware validation
 
@@ -276,7 +278,7 @@ Direwolf decodes APRS packets but there is no map UI. README updated to reflect 
 
 | Service | Port | Status |
 |---------|------|--------|
-| Nginx (dashboard) | 80 | ✅ Configured |
+| Nginx (dashboard + offline flasher) | 80 | ✅ Configured |
 | noVNC (JS8Call etc.) | 6080 | ✅ Configured |
 | Mumble voice+text | 64737 | ✅ Configured |
 | Meshtastic web UI | 8080 | ✅ Configured |
