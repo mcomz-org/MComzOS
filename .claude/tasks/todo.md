@@ -147,10 +147,10 @@
 
 #### Phase A: Get the build green (use `ignore_errors` as scaffolding)
 
-- [ ] **Fix meshtasticd enable** — same chroot failure as avahi-daemon (package-installed unit, no init script). Add `ignore_errors: yes` with comment.
-- [ ] **Add `ignore_errors: yes` to ALL `daemon_reload: yes` service enable tasks** — in chroot builds the fake systemctl makes daemon_reload meaningless; the unit files are on disk and systemd picks them up on real boot. This eliminates the entire class of "service not found in chroot" failures.
-- [ ] **Add `ignore_errors: yes` to Meshtastic OBS repo tasks** — external third-party repo is outside our control; if download.opensuse.org is unavailable the build shouldn't die.
-- [ ] **Add timeout to `npm install -g mumble-web`** — webpack postinstall under qemu ARM64 emulation can stall; default npm timeout may exceed GitHub Actions step limits.
+- ✅ **Fix meshtasticd enable** — uses `file: state=link` (symlink pattern, chroot-safe)
+- ✅ **Remove all `daemon_reload: yes` / `ignore_errors`** — zero `ignore_errors` and zero `daemon_reload` remain in site.yml; all service enables use the symlink pattern
+- ✅ **Meshtastic OBS repo tasks** — entire Meshtastic block is in block/rescue (better than ignore_errors); OBS outage warns and skips cleanly
+- ✅ **Timeout on `npm install -g mumble-web`** — `timeout 600` in place, also wrapped in block/rescue with warning on failure
 
 **High-risk tasks to monitor in build logs (may need fixes):**
 - `npm install -g mumble-web` — webpack build under qemu emulation (~30-40% failure)
@@ -190,13 +190,11 @@ Build reported green (`ok=82 changed=58 failed=0 ignored=15`) but the `ignored=1
 
 #### Phase B: Replace `ignore_errors` with proper chroot-safe patterns
 
-Once the build is green and tested, systematically remove every `ignore_errors`:
-
-- [ ] **Service enables**: Replace `systemd: enabled: yes` + `ignore_errors` with direct symlink creation (`file: state=link`) for chroot builds, guarded by `when: build_mode`. Keep the `systemd:` task for live installs. This is the correct fix — `systemctl enable` just creates symlinks, so we can do it without systemd running.
-- [ ] **Meshtastic OBS repo**: Add a verification step that checks the repo is reachable before adding it; skip the entire Meshtastic block (repo + install + enable) if unavailable, rather than failing mid-sequence.
-- [ ] **avahi-daemon enable**: Same symlink pattern as above; remove `ignore_errors`.
-- [ ] **meshtasticd enable**: Same symlink pattern as above; remove `ignore_errors`.
-- [ ] **Audit**: Confirm zero `ignore_errors` remain in site.yml. Every task either succeeds or fails the build intentionally.
+✅ **Complete.** All items implemented as part of Phase A.5 work:
+- All service enables use `file: state=link` (chroot-safe, no systemd needed)
+- Meshtastic OBS in block/rescue — entire block skipped with warning on any failure
+- avahi-daemon, meshtasticd, all other enables: symlink pattern
+- Audit confirmed: zero `ignore_errors`, zero `daemon_reload` in site.yml
 
 ### P1 — Runtime/UX bugs (dashboard and nginx)
 
