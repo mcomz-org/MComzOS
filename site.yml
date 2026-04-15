@@ -991,6 +991,102 @@
         dest: /var/www/html/
         owner: www-data
 
+    - name: Provision MeshCore offline firmware flasher
+      # Downloads the MeshCore web flasher app and Heltec V3/V4 firmware binaries
+      # and bundles them at /var/www/html/meshcore-flash/ so the dashboard can offer
+      # offline flashing when flasher.meshcore.co.uk is unreachable (hotspot/no-internet mode).
+      block:
+        - name: Create MeshCore flasher directories
+          file:
+            path: "{{ item }}"
+            state: directory
+            owner: www-data
+            mode: '0755'
+          loop:
+            - /var/www/html/meshcore-flash
+            - /var/www/html/meshcore-flash/firmware
+
+        - name: Clone MeshCore web flasher (shallow)
+          # flasher.meshcore.io is a self-contained static Vue.js site; cloning is
+          # simpler than downloading individual files and stays current automatically.
+          shell: |
+            git clone --depth=1 https://github.com/meshcore-dev/flasher.meshcore.io.git \
+              /var/www/html/meshcore-flash
+          args:
+            creates: /var/www/html/meshcore-flash/index.html
+
+        - name: Patch flasher for /meshcore-flash/ subpath serving
+          # The flasher uses absolute paths (/lib/, /css/, /config.json) — it was designed
+          # to serve from the domain root. Rewrite to /meshcore-flash/-prefixed paths so
+          # nginx alias at /meshcore-flash/ resolves them correctly. Also set staticPath
+          # in config.json so firmware is fetched from the local /meshcore-flash/firmware/ dir.
+          shell: |
+            python3 << 'PYEOF'
+            import re, json, os
+
+            # Patch index.html: rewrite absolute src/href attributes to subpath-prefixed
+            with open('/var/www/html/meshcore-flash/index.html') as f:
+                html = f.read()
+            html = re.sub(
+                r'(<(?:script|link|img)[^>]+ (?:src|href))="/((?!meshcore-flash/))',
+                r'\1="/meshcore-flash/\2', html)
+            html = html.replace("'/config.json'", "'/meshcore-flash/config.json'")
+            html = html.replace('"/config.json"', '"/meshcore-flash/config.json"')
+            with open('/var/www/html/meshcore-flash/index.html', 'w') as f:
+                f.write(html)
+
+            # Patch flasher.js: fix config.json fetch path
+            js_path = '/var/www/html/meshcore-flash/flasher.js'
+            if os.path.exists(js_path):
+                with open(js_path) as f:
+                    js = f.read()
+                js = js.replace("'/config.json'", "'/meshcore-flash/config.json'")
+                js = js.replace('"/config.json"', '"/meshcore-flash/config.json"')
+                with open(js_path, 'w') as f:
+                    f.write(js)
+
+            # Patch config.json: point firmware downloads to local path
+            with open('/var/www/html/meshcore-flash/config.json') as f:
+                cfg = json.load(f)
+            cfg['staticPath'] = '/meshcore-flash/firmware'
+            with open('/var/www/html/meshcore-flash/config.json', 'w') as f:
+                json.dump(cfg, f)
+
+            print('Flasher patched for /meshcore-flash/ subpath')
+            PYEOF
+
+        - name: Resolve MeshCore latest Heltec firmware URLs
+          shell: |
+            curl -sf ${GITHUB_TOKEN:+-H "Authorization: Bearer $GITHUB_TOKEN"} \
+              "https://api.github.com/repos/meshcore-dev/MeshCore/releases/latest" \
+              | python3 -c "
+            import sys, json
+            data = json.load(sys.stdin)
+            urls = [a['browser_download_url'] for a in data.get('assets', [])
+                    if 'heltec' in a['name'].lower()]
+            print('\n'.join(urls))
+            "
+          register: meshcore_fw_urls
+          changed_when: false
+          failed_when: meshcore_fw_urls.rc != 0
+          environment:
+            GITHUB_TOKEN: "{{ lookup('env', 'GITHUB_TOKEN') }}"
+
+        - name: Download Heltec V3/V4 MeshCore firmware binaries
+          get_url:
+            url: "{{ item }}"
+            dest: "/var/www/html/meshcore-flash/firmware/{{ item | basename }}"
+            owner: www-data
+            mode: '0644'
+          loop: "{{ meshcore_fw_urls.stdout_lines | select('match', '.+') | list }}"
+          when: meshcore_fw_urls.stdout_lines | length > 0
+
+      rescue:
+        - name: Warn MeshCore offline flasher provisioning failed
+          debug:
+            msg: "MeshCore offline flasher could not be provisioned (GitHub unavailable or clone failed). Dashboard Flash button will always open flasher.meshcore.co.uk regardless of connectivity."
+      when: not (minimal_build | default(false))
+
     - name: Deploy MComzOS status API script
       copy:
         src: ./src/api/status.py
@@ -1093,6 +1189,12 @@
                   proxy_set_header Connection "upgrade";
                   proxy_read_timeout 86400;
               }
+
+              # MeshCore offline firmware flasher (served when internet is unavailable)
+              location /meshcore-flash/ {
+                  alias /var/www/html/meshcore-flash/;
+                  index index.html;
+              }
           }
 
           # HTTPS — needed for Mumble microphone (getUserMedia requires secure context).
@@ -1148,6 +1250,12 @@
                   proxy_set_header Upgrade $http_upgrade;
                   proxy_set_header Connection "upgrade";
                   proxy_read_timeout 86400;
+              }
+
+              # MeshCore offline firmware flasher
+              location /meshcore-flash/ {
+                  alias /var/www/html/meshcore-flash/;
+                  index index.html;
               }
           }
 
