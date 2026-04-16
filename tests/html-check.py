@@ -80,7 +80,6 @@ for id_val in [
     "library-overlay", "library-panel", "library-grid",
     "books-overlay", "books-panel", "books-installed",
     "books-url", "books-dl-status", "books-recommended",
-    "https-warn",
 ]:
     check(f"id={id_val!r} exists", has_id(id_val))
 
@@ -109,6 +108,7 @@ for fn in [
     "fetchMComzUrl", "fetchKiwixUrl", "startDownload", "removeBook",
     "togglePowerMenu", "closePowerMenu",
     "confirmShutdown", "confirmReboot",
+    "openMeshFlasher",
     "esc",
 ]:
     check(f"function {fn}() defined", has_fn(fn))
@@ -173,10 +173,18 @@ check("guardMeshService called for meshtasticd",
 check("guardMeshService called for mcomz-meshcore",
       "guardMeshService('mcomz-meshcore'" in src)
 
-# HTTPS warning banner
-check("HTTPS warning banner present", "https-warn" in src)
-check("HTTPS protocol check present",
-      "location.protocol" in src and "https:" in src)
+# MeshCore offline flasher — openMeshFlasher() probes live URL, falls back to local bundle
+check("openMeshFlasher references live flasher URL",
+      "flasher.meshcore.co.uk" in src)
+check("openMeshFlasher references local offline bundle path",
+      "/meshcore-flash/" in src)
+check("openMeshFlasher uses timeout-based connectivity probe",
+      "AbortSignal.timeout" in src or "AbortController" in src)
+
+# Pat button must use literal https:// — not location.protocol (port 8081 is HTTPS-only)
+check("Pat button uses literal https:// (not location.protocol)",
+      bool(re.search(r"'https://'\s*\+\s*location\.hostname.*8081", src)) and
+      not bool(re.search(r"location\.protocol.*8081", src)))
 
 # AbortController for AP toggle
 check("AbortController used in toggleAP",
@@ -213,6 +221,11 @@ check("Safari usage note present in Mumble section",
 # FreeDATA note — may not be installed on all builds
 check("FreeDATA 'may not be installed' caveat present",
       bool(re.search(r'FreeDATA.{0,120}(may not|not.*installed|install)', src, re.IGNORECASE | re.DOTALL)))
+
+# RECOMMENDED_ZIMS regression guard — these names do not exist in the Kiwix catalog
+for bad_name in ("wikipedia_en_medicine_mini", "wikimed_en_all_mini", "wikipedia_en_all_mini"):
+    check(f"RECOMMENDED_ZIMS does not contain obsolete name {bad_name!r}",
+          bad_name not in src)
 
 # ---------------------------------------------------------------------------
 # API routes referenced in JS

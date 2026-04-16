@@ -123,9 +123,14 @@ check("HTTP dashboard responds", code == 200,
 check("HTTP dashboard is MComz", code == 200 and b"MComz" in body,
       "body does not contain 'MComz'" if code == 200 and b"MComz" not in body else "")
 
-code_s, _ = get(path="/", use_ssl=True)
-check("HTTPS dashboard responds", code_s in (200, 301, 302),
+code_s, body_s = get(path="/", use_ssl=True)
+check("HTTPS dashboard responds", code_s == 200,
       f"HTTP {code_s}" if code_s else "no response")
+if code_s == 200:
+    check("HTTPS / serves full dashboard (not redirect page)",
+          b"MComz" in body_s and b"status-grid" in body_s,
+          "HTTPS / returned unexpected content — port-443 location / may be misconfigured"
+          if not (b"MComz" in body_s and b"status-grid" in body_s) else "")
 
 # mDNS resolution — only meaningful when HOST is a .local name
 if HOST.endswith(".local"):
@@ -218,6 +223,13 @@ if books_data:
     check("WikiMed Mini ZIM present", any_wikimed,
           "" if any_wikimed else "wikimed/medicine not found — mcomz-wikimed-download.service may not have run yet")
 
+    # ZIM entries should include a size field (bytes, from os.path.getsize in status.py)
+    if books:
+        sizes_present = all(isinstance(b.get("size"), int) for b in books)
+        check("ZIM entries have size field", sizes_present,
+              "size field missing or non-integer — status.py kiwix_books() may need updating"
+              if not sizes_present else "")
+
 # OPDS catalog — verifies kiwix-serve is exposing its library
 code_opds, body_opds = get(path="/library/catalog/v2/entries")
 check("Kiwix OPDS catalog responds", code_opds == 200,
@@ -227,6 +239,24 @@ if code_opds == 200:
           "unexpected response body")
     check("OPDS catalog has at least one entry", b"<entry" in body_opds,
           "no <entry> elements — library may be empty or kiwix-serve not yet indexed ZIMs")
+
+# Kiwix reader URLs — fetch book UUIDs from API and confirm /library/viewer responds
+if books_data:
+    books = books_data.get("books", [])
+    if books:
+        # /library/viewer (no fragment) should return 200 — it's a static HTML page
+        code_viewer, _ = get(path="/library/viewer")
+        check("Kiwix /library/viewer page responds", code_viewer == 200,
+              f"HTTP {code_viewer}" if code_viewer else "no response")
+        # /library/content/<uuid>/ should return 200 for a real book UUID
+        first_uuid = books[0].get("id", "")
+        if first_uuid:
+            import urllib.parse
+            reader_path = f"/library/content/{urllib.parse.quote(first_uuid)}/"
+            code_content, _ = get(path=reader_path)
+            check("Kiwix /library/content/<uuid>/ responds for first book",
+                  code_content in (200, 301, 302),
+                  f"HTTP {code_content} for UUID {first_uuid!r}" if code_content not in (200, 301, 302) else "")
 
 # Manage Books API endpoints
 dl_status = get_json("/api/kiwix/download/status", params={"file": "test.zim"})
@@ -270,6 +300,32 @@ except Exception as e:
     check("Xvnc is accepting connections on port 5901", False,
           f"TCP connect failed: {e} — mcomz-vnc may not be running")
 
+# websockify WebSocket upgrade — raw HTTP/1.1 Upgrade to confirm the chain is alive
+# (nginx → websockify → Xvnc). A plain GET returns 400/426; a real Upgrade gets 101.
+try:
+    import hashlib, base64, os as _os
+    ws_key = base64.b64encode(_os.urandom(16)).decode()
+    upgrade_req = (
+        f"GET /vnc/websockify HTTP/1.1\r\n"
+        f"Host: {HOST}\r\n"
+        f"Upgrade: websocket\r\n"
+        f"Connection: Upgrade\r\n"
+        f"Sec-WebSocket-Key: {ws_key}\r\n"
+        f"Sec-WebSocket-Version: 13\r\n"
+        f"\r\n"
+    )
+    with socket.create_connection((HOST, 80), timeout=5) as ws_sock:
+        ws_sock.sendall(upgrade_req.encode())
+        resp_line = ws_sock.recv(64).split(b"\r\n")[0].decode(errors="replace")
+    ws_upgraded = resp_line.startswith("HTTP/1.1 101")
+    check("websockify WebSocket upgrade succeeds (101 Switching Protocols)",
+          ws_upgraded,
+          f"got {resp_line!r} — websockify or nginx proxy may be broken"
+          if not ws_upgraded else "")
+except Exception as e:
+    check("websockify WebSocket upgrade succeeds (101 Switching Protocols)", False,
+          f"socket error: {e}")
+
 # Mumble static files
 code_mum, body_mum = get(path="/mumble/")
 check("Mumble-web static files serve at /mumble/", code_mum == 200,
@@ -285,6 +341,17 @@ check("Mumble WebSocket endpoint exists",
 # Section 6 — Mesh Communication
 # ---------------------------------------------------------------------------
 section("Mesh Communication")
+
+# Offline MeshCore firmware flasher — provisioned at build time into /meshcore-flash/
+code_mf, body_mf = get(path="/meshcore-flash/")
+check("/meshcore-flash/ responds (offline flasher provisioned)", code_mf == 200,
+      f"HTTP {code_mf}" if code_mf else
+      "no response — flasher may not have been provisioned (check CI log for rescue-block message)")
+if code_mf == 200:
+    check("/meshcore-flash/ contains flasher content",
+          b"MeshCore" in body_mf or b"meshcore" in body_mf.lower(),
+          "unexpected body — flasher app may not have cloned or path-patched correctly"
+          if not (b"MeshCore" in body_mf or b"meshcore" in body_mf.lower()) else "")
 
 # Without LoRa hardware these should return 502
 code_mesh, _ = get(path="/meshtastic/")
@@ -349,6 +416,33 @@ check("Download rejects non-.zim URL", code_b == 200 and resp_b and not resp_b.g
 code_r, resp_r = post_json("/api/kiwix/remove", {"path": "/nonexistent/path.zim"})
 check("Remove nonexistent path does not 500", code_r == 200,
       f"HTTP {code_r}")
+
+# ---------------------------------------------------------------------------
+# Section 11 — Kiwix catalog name validation (online-only, warn not fail)
+# ---------------------------------------------------------------------------
+section("RECOMMENDED_ZIMS catalog names (online check)")
+
+_RECOMMENDED_KIWIX_NAMES = [
+    "wikipedia_en_medicine",
+    "wikipedia_en_top",
+    "appropedia_en_all",
+    "wikisource_en_all",
+]
+
+try:
+    for kiwix_name in _RECOMMENDED_KIWIX_NAMES:
+        catalog_url = f"https://library.kiwix.org/catalog/v2/entries?name={kiwix_name}"
+        try:
+            with urllib.request.urlopen(catalog_url, timeout=10) as r:
+                body_cat = r.read()
+            found = b"<entry>" in body_cat
+            check(f"Kiwix catalog resolves {kiwix_name!r}", found,
+                  "name not found in catalog" if not found else "")
+        except Exception as e:
+            # Warn only — smoke-test must pass on an offline LAN
+            print(f"  ⚠  catalog check skipped for {kiwix_name!r}: {e}")
+except Exception as e:
+    print(f"  ⚠  RECOMMENDED_ZIMS catalog section skipped: {e}")
 
 # ---------------------------------------------------------------------------
 # Summary

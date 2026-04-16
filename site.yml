@@ -1066,7 +1066,7 @@
 
           os.makedirs(ZIM_DIR, exist_ok=True)
 
-          catalog_url = 'https://library.kiwix.org/catalog/v2/entries?lang=eng&name=wikipedia_en_medicine_mini'
+          catalog_url = 'https://library.kiwix.org/catalog/v2/entries?lang=eng&name=wikipedia_en_medicine'
           try:
               with urllib.request.urlopen(catalog_url, timeout=60) as r:
                   root = ET.fromstring(r.read())
@@ -1378,6 +1378,16 @@
                 json.dump(cfg, f)
             PYEOF
 
+        - name: Set MeshCore flasher file ownership to www-data
+          # git clone runs as root, producing root-owned files nginx cannot read (403).
+          # Recursively chown after clone+patch so www-data can serve all assets.
+          file:
+            path: /var/www/html/meshcore-flash
+            state: directory
+            owner: www-data
+            group: www-data
+            recurse: yes
+
         - name: Resolve MeshCore latest Heltec firmware URLs
           shell: |
             curl -sf ${GITHUB_TOKEN:+-H "Authorization: Bearer $GITHUB_TOKEN"} \
@@ -1535,14 +1545,12 @@
               root /var/www/html;
               index index.html;
 
-              # iOS Safari auto-upgrades bare hostnames to HTTPS (iOS 15+) and
-              # won't create a persistent exception for self-signed certs in iOS 18.
-              # Serving the full dashboard here re-triggers fetch() calls that Safari
-              # re-blocks. Instead, return a minimal redirect page so the user lands
-              # on HTTP where everything works without certificate interaction.
+              # Serve the full dashboard over HTTPS as well as HTTP.
+              # iOS Safari note: the cert warning on first visit is unavoidable with a
+              # self-signed cert. Users should either accept the cert once or use HTTP
+              # directly (http://mcomz.local/). Mumble microphone still requires HTTPS.
               location / {
-                  default_type text/html;
-                  return 200 '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MComzOS</title><style>body{background:#121212;color:#e0e0e0;font-family:system-ui,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;text-align:center;padding:24px}a{color:#29b6f6;font-size:1.1rem}</style></head><body><div><h2>MComzOS</h2><p style="margin:16px 0;color:#aaa">The dashboard runs over HTTP to avoid certificate warnings on phones.</p><p><a href="http://mcomz.local/">Open Dashboard &rarr; http://mcomz.local/</a></p><p style="margin-top:20px;font-size:0.8rem;color:#666">HTTPS is available for Mumble voice chat at <a href="/mumble/" style="font-size:0.8rem">/mumble/</a></p></div></body></html>';
+                  try_files $uri $uri/ /index.html;
               }
 
               # Status API (Python service on localhost:9000)

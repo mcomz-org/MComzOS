@@ -193,12 +193,6 @@
     </div>
 </header>
 
-<div id="https-warn" style="display:none;background:#1a1200;border:1px solid #ff9800;border-radius:6px;padding:12px 16px;margin-bottom:16px;font-size:0.85rem;color:#ff9800;">
-    <strong>Not using HTTPS.</strong> Microphone access for voice chat requires HTTPS.
-    <a href="javascript:void(0)" onclick="document.getElementById('https-warn').style.display='none'" style="float:right;color:#ff9800;">dismiss</a>
-</div>
-<script>if(location.protocol!=='https:')document.getElementById('https-warn').style.display='block';</script>
-
 <!-- WiFi slide-in panel -->
 <div id="wifi-overlay" onclick="closeWifi()"></div>
 <div id="wifi-panel">
@@ -311,7 +305,7 @@
             <div class="mesh-section">
                 <h2 style="color:var(--pink);font-size:0.9rem;margin-bottom:6px;">✉️ Winlink Email (Pat)</h2>
                 <p class="note">Send and receive email over radio without internet, using the global Winlink network.</p>
-                <a href="#" class="btn btn-pink" style="margin-top:8px;" onclick="window.open(location.protocol+'//'+location.hostname+':8081/');return false;">Open Pat — Winlink Email</a>
+                <a href="#" class="btn btn-pink" style="margin-top:8px;" onclick="window.open('https://'+location.hostname+':8081/');return false;">Open Pat — Winlink Email</a>
             </div>
             <div class="mesh-section">
                 <h2 style="color:var(--pink);font-size:0.9rem;margin-bottom:6px;">📻 JS8Call</h2>
@@ -750,7 +744,7 @@ function loadLibrary() {
             // kiwix-serve reader URL uses the book UUID from library.xml
             const filename = b.path.split('/').pop();
             const title = b.title || filename;
-            const readerUrl = `/library/A/${encodeURIComponent(b.id)}/`;
+            const readerUrl = `/library/viewer#${encodeURIComponent(b.id)}`;
             return `<a href="${readerUrl}" target="_blank" rel="noopener"
                 style="display:block;background:#111;border-radius:8px;padding:16px;margin-bottom:10px;
                        text-decoration:none;color:var(--text);border:1px solid #2a2a2a;">
@@ -778,11 +772,11 @@ const RECOMMENDED_ZIMS = [
       fetchUrl: MCOMZ_LIB_API, zimPattern: "scripture",
       note: "MComzLibrary — click to fetch the latest download URL from GitHub" },
     // Kiwix community ZIMs — fetched by name from the Kiwix OPDS catalog
-    { title: "WikiMed Medical Encyclopedia (mini, ~155 MB)",
-      kiwixName: "wikipedia_en_medicine_mini",
+    { title: "WikiMed Medical Encyclopedia (~155 MB)",
+      kiwixName: "wikipedia_en_medicine",
       note: "Kiwix community — click to fetch the latest download URL" },
-    { title: "Wikipedia English (mini, ~900 MB)",
-      kiwixName: "wikipedia_en_all_mini",
+    { title: "Best of Wikipedia (~315 MB)",
+      kiwixName: "wikipedia_en_top",
       note: "Kiwix community — click to fetch the latest download URL" },
     { title: "Appropedia (appropriate technology, ~100 MB)",
       kiwixName: "appropedia_en_all",
