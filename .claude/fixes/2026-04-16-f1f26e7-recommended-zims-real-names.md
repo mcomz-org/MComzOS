@@ -1,7 +1,7 @@
-# Fix RECOMMENDED_ZIMS catalog names — `XXXXXXX`
+# Fix RECOMMENDED_ZIMS catalog names — `f1f26e7`
 
 **Date:** 2026-04-16
-**Commit:** `XXXXXXX` — `fix(dashboard,site): correct Kiwix ZIM catalog names in RECOMMENDED_ZIMS and first-boot script`
+**Commit:** `f1f26e7` — `fix(dashboard,site): correct Kiwix ZIM catalog names in RECOMMENDED_ZIMS and first-boot script`
 **Files changed:** `site.yml`, `src/dashboard/index.html`, `tests/smoke-test.py`, `tests/html-check.py`
 **Related:** todo.md §1.A, hardware test pre-alpha.20
 **Status:** shipped
