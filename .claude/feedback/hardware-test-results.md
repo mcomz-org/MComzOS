@@ -33,6 +33,48 @@ Verbatim user feedback per release, followed by issue interpretation.
 
 ---
 
+## v0.0.2-pre-alpha.22 — RPi 5, 2026-04-17
+
+### Smoke test: 72/73 (automated, mcomz.local)
+
+Only failure: **WikiMed ZIM not yet registered** — `mcomz-wikimed-download.service` is running on first boot. The `Restart=on-failure` + `RestartSec=30` fix (shipped this session) should handle DNS-not-ready failures automatically. Expect the check to pass ~2–5 minutes after first boot once DNS is up and download completes.
+
+### Confirmed working (automated smoke test)
+
+| Area | Result |
+|------|--------|
+| HTTP + HTTPS dashboard | ✅ Both 200, full dashboard content |
+| All services present in /api/status | ✅ |
+| Kiwix slug routing (S-4) | ✅ All 3 MComz ZIMs registered with correct slugs; content fetches by slug all 200 |
+| Kiwix ZIM titles | ✅ `mcomz-survival \| Mcomz Survival \| 181785593` etc. (filename-derived titles working) |
+| OPDS catalog | ✅ 200 + Atom XML |
+| MeshCore offline flasher | ✅ `/meshcore-flash/` returns 200 with flasher content |
+| noVNC page | ✅ 200 with "noVNC" content |
+| Xvnc port 5901 | ✅ Accepting connections |
+| websockify WebSocket upgrade | ✅ 101 Switching Protocols |
+| Pat HTTPS :8081 | ✅ 200 (302→200) |
+| Mumble-web static | ✅ 200 |
+| Mumble WebSocket | ✅ 405 (endpoint present) |
+| WiFi/AP APIs | ✅ |
+| System control endpoints | ✅ |
+| FreeDATA `freedata_installed` field | ✅ API returns `false` on ARM64 — section hidden in dashboard |
+| RECOMMENDED_ZIMS catalog names | ✅ All 4 resolve on kiwix.org |
+
+### Issues found / still pending
+
+| # | Area | Symptom | Status |
+|---|------|---------|--------|
+| 1 | WikiMed download | Not yet registered at smoke-test time | ⏳ Expected — awaiting first-boot download completion |
+| 2 | SSH password auth | `ssh-copy-id` fails — `Permission denied (publickey,password)` on new image | 🔍 Unknown — playbook may have hardened sshd; needs investigation |
+| 3 | meshtasticd | Status `failed` without hardware → shows `err` badge (not `std`) | ⬜ renderStatus checks `failed` before `HW_SVCS` — hardware-absent services show scary red badge. Low priority. |
+| 4 | direwolf | Status `activating` without sound hardware | ⬜ Expected — B-3 diagnostic still pending |
+| 5 | VNC HTTPS links | JS8Call/FreeDATA buttons changed to `onclick https://` — needs manual confirm | ⏳ Awaiting user test |
+| 6 | JS8Call in VNC | VNC stack confirmed working by smoke test; JS8Call window not manually verified | ⏳ Needs manual test |
+| 7 | Pat send/receive | UI confirmed reachable; full send/receive on real radio not tested | ⏳ Needs real-radio test |
+| 8 | Mumble mic | `getUserMedia` requires HTTPS — mic still unusable over HTTP | ⬜ Known/won't fix without HTTPS trust story |
+
+---
+
 ## v0.0.2-pre-alpha.21 — RPi 5, 2026-04-16
 
 ### Confirmed working

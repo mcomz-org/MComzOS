@@ -15,7 +15,9 @@
 
 ## §1 — Sonnet-actionable now
 
-### S-2. MeshCore CORS probe fix — `index.html:702`
+> All S-1 through S-6 shipped in pre-alpha.22 (2026-04-17) and confirmed by smoke test. See §2 for remaining hardware verification items.
+
+### ~~S-2. MeshCore CORS probe fix~~ — COMPLETE
 
 `fetch(..., {method:'HEAD'})` fails with a CORS error even when online because `flasher.meshcore.co.uk` has no CORS headers. Adding `mode:'no-cors'` makes the probe succeed on a reachable server without requiring CORS headers. **Shipped this session** — needs hardware verify: click Flash MeshCore when online → should open `flasher.meshcore.co.uk`.
 
@@ -84,36 +86,54 @@ Coverage rule: tests must cover the new behaviour, not just pass because they do
 
 ## §2 — Awaiting reflash to verify (no code work needed, just hardware test)
 
+### Verified in pre-alpha.22 (2026-04-17)
+
+| Fix | Outcome |
+|---|---|
+| S-1: Smoke test ZIM gaps (individual ZIM checks, slug content-fetches, /meshcore-flash/) | ✅ All 3 MComz ZIMs individually checked by slug; content-fetches all 200; /meshcore-flash/ 200 ✅ |
+| S-2: MeshCore CORS probe (`mode:'no-cors'`) | ✅ Flasher provisioned and responding; online-routing needs manual verify on connected hub |
+| S-4: Kiwix slug routing (OPDS catalog, b.name in dashboard) | ✅ All 3 ZIMs with correct slugs; content fetches by slug all pass; titles via filename fallback working |
+| S-5: MeshCore CI hardening (retry + rescue→fail + CI verify step) | ✅ /meshcore-flash/ serves correctly in pre-alpha.22 — CI step passed |
+| S-6: FreeDATA arch-aware UI (`freedata_installed` field) | ✅ API returns `false` on ARM64; section hidden; html-check.py 120/120 |
+| VNC stack: Xvnc, noVNC, websockify | ✅ All confirmed by smoke test (5901 open, websockify 101, noVNC page) |
+| JS8Call `.config` ownership | ✅ Playbook fix confirmed — /home/mcomz/.config is mcomz-owned in new image |
+| WikiMed `Restart=on-failure` + `RestartSec=30` | ⏳ Shipped — WikiMed not yet registered at smoke-test time (first-boot download in progress); retry logic should complete it |
+
 ### Verified in pre-alpha.21 (2026-04-16)
 
 | Fix | Outcome |
 |---|---|
 | VNC websockify upgrade — smoke test added | ✅ Smoke test passes; WebSocket upgrade confirmed live |
 | iOS Safari + MeshCore flasher fix log: Fix A (iOS Safari) | ✅ Confirmed working — cert warning → redirect page → dashboard loads, 2026-04-17 |
-| iOS Safari + MeshCore flasher fix log: Fix B (MeshCore flasher) | ❌ Two new bugs found — see `.claude/fixes/2026-04-15-4b9569d-ios-safari-and-meshcore-flasher.md` Outcome |
-| MeshCore offline flasher 403 → recursive www-data chown | ❌ Still 403; root cause is missing files (git clone failed in CI, rescue fired), not permissions |
-| RECOMMENDED_ZIMS + first-boot WikiMed — real catalog names | ❌ ZIMs on disk and kiwix-serve loads them. Content is at `/library/content/<slug>/` (302→200 ✅) but smoke test + dashboard use UUID URLs (404 ❌). Also all ZIM metadata empty — MComz ZIMs not built with internal metadata |
-| MeshCore CORS probe fix | ⏳ Shipped this session — awaiting hardware verify |
-| JS8Call `.config` ownership + VNC HTTPS | ✅ Live-fixed + playbook fix shipped — confirmed working |
-| VNC Connect button / JS8Call `.config` ownership | ✅ Fixed this session — VNC works on HTTPS, JS8Call loads after `.config` chown. Playbook fix at `site.yml:289`. |
 
 ### Still awaiting hardware confirmation
 
 | Fix | Where | Verify with |
 |---|---|---|
-| iOS Safari HTTPS — full dashboard restored on `https://` | `site.yml:1552-1554` | iOS Safari → `https://mcomz.local/` should cert-warn once, "Visit Website", then load the full dashboard. Force-close, reopen — should not loop. |
-| `https-warn` global banner removed | `index.html` (no matches) | HTTP load shows no orange banner; Mumble card still has its inline mic/HTTPS note. |
-| Pat button uses literal `https://` | `index.html:308`, asserted in `html-check.py:184-187` | From dashboard on HTTP, click "Open Pat" → opens `https://mcomz.local:8081/` (no 400). |
-| Kiwix book reader URL → `/library/viewer#<uuid>` | `index.html:747` | Click any installed book in the library list — viewer opens, content renders. |
-| Mumble controls greyed on macOS Chrome — `mcomz-mumble-ws` in status dict + `server_hostname='localhost'` SSL fix | site.yml `mcomz-mumble-ws` block + websockify SSL patch | macOS Chrome → Mumble controls active (not greyed), connect succeeds. |
-| Mumble microphone on iOS — "use Safari" note | dashboard Mumble card | iOS Safari → mic prompt appears (depends on iOS Safari fix above). |
-| ZIM download SSL CERT_NONE — `urlopen` w/ unverified context | `src/api/status.py kiwix_download` | Manage Books → download a small ZIM (e.g. MComz Scriptures); succeeds without `CERTIFICATE_VERIFY_FAILED`. |
+| VNC HTTPS links — JS8Call/FreeDATA onclick now forces `https://` | `index.html:313,318` | Click "Open JS8Call" — should open noVNC over HTTPS, VNC auth prompt appears, JS8Call window visible |
+| WikiMed registered after first-boot retry | `mcomz-wikimed-download.service` | ~5 min after boot: smoke-test WikiMed check passes; book appears in library panel |
+| Pat send/receive | — | Real-radio test: send a Winlink check-in, confirm it arrives |
+| Mumble voice | — | iOS Safari with HTTPS: mic prompt appears, voice connects |
+| MeshCore online routing | `index.html:702` | On internet-connected hub: click Flash MeshCore → opens `flasher.meshcore.co.uk` (not local bundle) |
 
 ---
 
 ## §3 — Blocked: needs hardware diagnostic logs
 
 For each item below: SSH to the Pi (or open a terminal locally), run the listed commands, paste the full output into `.claude/feedback/hardware-test-results.md` under the named heading. Once that's done, the next code session can diagnose and write the fix.
+
+### B-8. SSH password auth rejected on new image
+
+`ssh-copy-id` fails with `Permission denied (publickey,password)` on pre-alpha.22. Either the playbook hardens sshd (`PasswordAuthentication no`) or the Pi image defaults to key-only. Needs one-time manual key install from the Pi:
+
+```sh
+# From the Pi console or via the user's existing key
+sudo -u mcomz mkdir -p /home/mcomz/.ssh
+echo "YOUR_PUBLIC_KEY" >> /home/mcomz/.ssh/authorized_keys
+sudo chmod 700 /home/mcomz/.ssh && sudo chmod 600 /home/mcomz/.ssh/authorized_keys
+```
+
+Or investigate: `grep -i PasswordAuthentication /etc/ssh/sshd_config /etc/ssh/sshd_config.d/*.conf`
 
 ### ~~B-1. JS8Call / VNC~~ — RESOLVED this session
 
