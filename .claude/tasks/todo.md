@@ -97,24 +97,25 @@ Coverage rule: tests must cover the new behaviour, not just pass because they do
 | S-6: FreeDATA arch-aware UI (`freedata_installed` field) | ✅ API returns `false` on ARM64; section hidden; html-check.py 120/120 |
 | VNC stack: Xvnc, noVNC, websockify | ✅ All confirmed by smoke test (5901 open, websockify 101, noVNC page) |
 | JS8Call `.config` ownership | ✅ Playbook fix confirmed — /home/mcomz/.config is mcomz-owned in new image |
-| WikiMed `Restart=on-failure` + `RestartSec=30` | ⏳ Shipped — WikiMed not yet registered at smoke-test time (first-boot download in progress); retry logic should complete it |
+| WikiMed `Restart=on-failure` + `RestartSec=30` | ✅ Confirmed — fired once on first boot, downloaded 2.1 GB wikimed-maxi successfully |
 
-### Verified in pre-alpha.21 (2026-04-16)
+### Verified in pre-alpha.21/22 (2026-04-16/17)
 
 | Fix | Outcome |
 |---|---|
-| VNC websockify upgrade — smoke test added | ✅ Smoke test passes; WebSocket upgrade confirmed live |
-| iOS Safari + MeshCore flasher fix log: Fix A (iOS Safari) | ✅ Confirmed working — cert warning → redirect page → dashboard loads, 2026-04-17 |
+| VNC no-auth + correct noVNC path (`path=websockify`) | ✅ JS8Call window confirmed visible in Chrome + Safari |
+| MeshCore CORS probe | ✅ flasher.meshcore.co.uk opens when online |
+| Mumble voice | ✅ Confirmed working |
+| VNC websockify upgrade — smoke test | ✅ Confirmed |
+| iOS Safari HTTPS | ✅ Confirmed |
 
 ### Still awaiting hardware confirmation
 
 | Fix | Where | Verify with |
 |---|---|---|
-| VNC no-auth (SecurityTypes None) + WikiMed Restart=on-failure | `site.yml` | ✅ Both confirmed live on pre-alpha.22: noVNC auto-connects; WikiMed 2.1 GB downloaded after 1 retry; 74/74 smoke checks pass |
-| VNC JS8Call window visible | — | ⏳ VNC connects now (no password); user needs to confirm JS8Call window appears |
-| Pat send/receive | — | Real-radio test: send a Winlink check-in, confirm it arrives |
-| Mumble voice | — | iOS Safari with HTTPS: mic prompt appears, voice connects |
-| MeshCore online routing | `index.html:702` | On internet-connected hub: click Flash MeshCore → opens `flasher.meshcore.co.uk` (not local bundle) |
+| Captive portal suppression + avahi restart on AP stop | `site.yml` + `status.py` (6c9d6b0) | Flash new image; connect to hotspot → no CNA popup; stop hotspot → mcomz.local resolves again within ~5 s |
+| JS8Call with radio | — | Connect radio, open JS8Call via VNC, make a contact on #MCOMZ net |
+| Pat send/receive | — | **After JS8Call radio test** — send a Winlink check-in, confirm it arrives. User has never used Pat before so JS8Call experience first. |
 
 ---
 

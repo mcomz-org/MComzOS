@@ -64,8 +64,13 @@ Only failure: **WikiMed ZIM not yet registered** — `mcomz-wikimed-download.ser
 
 | # | Area | Symptom | Status |
 |---|------|---------|--------|
-| 1 | WikiMed download | Not yet registered at smoke-test time | ⏳ Expected — awaiting first-boot download completion |
-| 2 | SSH password auth | `ssh-copy-id` fails — `Permission denied (publickey,password)` on new image | 🔍 Unknown — playbook may have hardened sshd; needs investigation |
+| 1 | WikiMed download | Not yet registered at smoke-test time — downloaded successfully after 1 retry (Restart=on-failure confirmed working) | ✅ |
+| 2 | MeshCore online routing | Flash MeshCore opened `flasher.meshcore.co.uk` correctly when online | ✅ Confirmed |
+| 3 | JS8Call in VNC | VNC connects without password; JS8Call window visible in Chrome (Cmd+Opt+R) and Safari (hard refresh) | ✅ Confirmed |
+| 4 | Mumble voice | ✅ Confirmed working | ✅ |
+| 5 | Captive portal (iOS hotspot) | iOS showed "Captive Wi-Fi" CNA popup with raw Vue.js `{{ template }}` syntax — dnsmasq resolves all DNS to hub; CNA fetches MeshCore flasher page without JS | 🔴 Fixed in 6c9d6b0 — needs reflash |
+| 6 | mDNS after AP stop | After stopping hotspot and rejoining WiFi, `mcomz.local` stopped resolving — avahi doesn't re-announce when wlan0 interface changes | 🔴 Fixed in 6c9d6b0 — needs reflash |
+| 7 | SSH password auth | `ssh-copy-id` fails — `Permission denied (publickey,password)` on new image | 🔍 Unresolved — workaround: `sshpass` with password |
 | 3 | meshtasticd | Status `failed` without hardware → shows `err` badge (not `std`) | ⬜ renderStatus checks `failed` before `HW_SVCS` — hardware-absent services show scary red badge. Low priority. |
 | 4 | direwolf | Status `activating` without sound hardware | ⬜ Expected — B-3 diagnostic still pending |
 | 5 | VNC spinner | noVNC stuck on spinner — VncAuth password dialog hidden behind loading overlay | ✅ Fixed live: SecurityTypes None; noVNC auto-connects. See fix log `2026-04-17-9869880-vnc-no-auth.md` |
