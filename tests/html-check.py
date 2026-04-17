@@ -222,6 +222,11 @@ check("Safari usage note present in Mumble section",
 check("FreeDATA 'may not be installed' caveat present",
       bool(re.search(r'FreeDATA.{0,120}(may not|not.*installed|install)', src, re.IGNORECASE | re.DOTALL)))
 
+# Kiwix viewer must use b.name (slug) not b.id (UUID) — UUID-based URLs return 404
+check("Kiwix viewer link uses b.name slug (not b.id UUID)",
+      "b.name" in src and "/library/viewer#" in src and "b.id" not in src.split("/library/viewer")[1][:30],
+      "viewer link should use b.name slug — check index.html around /library/viewer#")
+
 # RECOMMENDED_ZIMS regression guard — these names do not exist in the Kiwix catalog
 for bad_name in ("wikipedia_en_medicine_mini", "wikimed_en_all_mini", "wikipedia_en_all_mini"):
     check(f"RECOMMENDED_ZIMS does not contain obsolete name {bad_name!r}",

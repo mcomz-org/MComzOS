@@ -93,12 +93,10 @@ Preconditions: freshly flashed image, iPhone running iOS 18, Safari website data
 
 ## Outcome
 
-*(Filled in after hardware verification.)*
-
-- Verified on:
-- Result:
-- What actually happened:
-- Follow-up:
+- Verified on: RPi 5, pre-alpha.21, 2026-04-16
+- Result: **Working ✅** — fix confirmed.
+- What actually happened: Fresh Safari session (all mcomz.local tabs closed, no saved website data found). Navigating to `mcomz.local` triggered the cert warning. User tapped "Show Details" → "visit the website" (Safari cert exception) → "Visit Website" (link on redirect page) → full dashboard loaded. Two-tap sequence matches the intended redirect-page flow exactly.
+- Follow-up: None — fix validated. Minor caveat: user said "appears to enter MComz as I would expect" rather than explicitly describing the redirect page; if doubt arises, confirm HTTPS root serves the minimal redirect HTML and not the full dashboard.
 
 ---
 
@@ -201,9 +199,9 @@ Invalidating evidence: local flasher opens but fails to flash, or firmware list 
 
 ## Outcome
 
-*(Filled in after hardware verification.)*
-
-- Verified on:
-- Result:
+- Verified on: RPi 5, pre-alpha.21, 2026-04-16
+- Result: **Two bugs confirmed** — online routing broken; `/meshcore-flash/` itself 403.
 - What actually happened:
-- Follow-up:
+  1. **Online routing always falls back to local.** Hub is internet-connected; clicking Flash MeshCore opens `https://mcomz.local/meshcore-flash/` instead of `https://flasher.meshcore.co.uk/`. Root cause: `fetch('https://flasher.meshcore.co.uk/')` issued from an HTTP dashboard page fails with a CORS error (flasher site has no CORS headers), not a network error. Browser still fires `.catch()`, so the probe always routes to the offline fallback regardless of connectivity.
+  2. **`/meshcore-flash/` returns 403.** Git clone of the flasher repo failed during the CI build (likely GitHub rate-limit); the rescue block ran silently; the directory exists but is empty. No `index.html` → nginx `alias` + `index index.html` returns 403.
+- Follow-up: Fix connectivity probe to use `fetch(..., {mode: 'no-cors'})` or a HEAD request (CORS-free); fix build to either retry clone or emit a clearly visible CI failure rather than silently continuing via rescue.

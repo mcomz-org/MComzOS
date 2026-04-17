@@ -4,6 +4,7 @@ Proxied by nginx at /api/. Runs as root so nmcli/ip/systemctl work without sudo.
 
 import json
 import os
+import socket
 import ssl
 import subprocess
 import threading
@@ -43,6 +44,14 @@ def service_status(name):
         capture_output=True, text=True
     )
     return result.stdout.strip()
+
+
+def port_open(host, port, timeout=1.0):
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
 
 
 def _nmcli_parse(line):
@@ -212,15 +221,52 @@ def ap_stop():
 
 
 def kiwix_books():
+    ATOM = "http://www.w3.org/2005/Atom"
     try:
-        tree = ET.parse(LIBRARY_XML)
+        with urllib.request.urlopen(
+            "http://127.0.0.1:8888/library/catalog/v2/entries?count=200", timeout=3
+        ) as r:
+            root = ET.fromstring(r.read())
         books = []
-        for b in tree.getroot().findall("book"):
+        for entry in root.findall(f"{{{ATOM}}}entry"):
+            uid = entry.findtext(f"{{{ATOM}}}id", "").replace("urn:uuid:", "")
+            title = entry.findtext(f"{{{ATOM}}}title", "") or ""
+            href = ""
+            for link in entry.findall(f"{{{ATOM}}}link"):
+                if link.get("type") == "text/html":
+                    href = link.get("href", "")
+                    break
+            name = href.rstrip("/").rsplit("/", 1)[-1] if href else ""
+            if not title and name:
+                title = name.replace("-", " ").title()
+            books.append({"id": uid, "name": name, "title": title, "path": "", "size": 0})
+        # Enrich with file paths and sizes from library.xml
+        try:
+            by_id = {b.get("id"): b.get("path", "")
+                     for b in ET.parse(LIBRARY_XML).getroot().findall("book")}
+            for book in books:
+                path = by_id.get(book["id"], "")
+                book["path"] = path
+                if path and os.path.exists(path):
+                    book["size"] = os.path.getsize(path)
+        except Exception:
+            pass
+        return {"books": books}
+    except Exception:
+        pass
+    # Fallback: parse library.xml directly (used during boot before kiwix-serve is up)
+    try:
+        books = []
+        for b in ET.parse(LIBRARY_XML).getroot().findall("book"):
+            path = b.get("path", "")
+            filename = path.rsplit("/", 1)[-1].replace(".zim", "")
+            name = filename.lower()
             books.append({
                 "id": b.get("id", ""),
-                "title": b.get("title", b.get("path", "").split("/")[-1]),
-                "path": b.get("path", ""),
-                "size": os.path.getsize(b.get("path", "")) if b.get("path") and os.path.exists(b.get("path", "")) else 0,
+                "name": name,
+                "title": b.get("title", "") or filename,
+                "path": path,
+                "size": os.path.getsize(path) if path and os.path.exists(path) else 0,
             })
         return {"books": books}
     except Exception as e:
@@ -327,10 +373,15 @@ class StatusHandler(BaseHTTPRequestHandler):
         params = dict(kv.split("=", 1) for kv in qs.split("&") if "=" in kv)
 
         if path == "/api/status":
-            self._json({
-                name: {"status": service_status(name), **info}
-                for name, info in SERVICES.items()
-            })
+            result = {}
+            for name, info in SERVICES.items():
+                st = service_status(name)
+                # websockify restarts on connection errors; if port 64737 is
+                # listening the bridge is healthy regardless of transient state.
+                if name == "mcomz-mumble-ws" and st != "active" and port_open("127.0.0.1", 64737):
+                    st = "active"
+                result[name] = {"status": st, **info}
+            self._json(result)
         elif path == "/api/version":
             try:
                 with open("/etc/mcomzos-version") as f:

@@ -15,13 +15,89 @@
 
 ## §1 — Sonnet-actionable now
 
-*(No items — all actionable fixes have been shipped. See §2 for hardware verification queue.)*
+### S-2. MeshCore CORS probe fix — `index.html:702`
+
+`fetch(..., {method:'HEAD'})` fails with a CORS error even when online because `flasher.meshcore.co.uk` has no CORS headers. Adding `mode:'no-cors'` makes the probe succeed on a reachable server without requiring CORS headers. **Shipped this session** — needs hardware verify: click Flash MeshCore when online → should open `flasher.meshcore.co.uk`.
+
+### S-3. JS8Call `.config` ownership — `site.yml:289`
+
+`/home/mcomz/.config/` was created by Ansible as `root:root`; `mcomz` user could not create `JS8Call.ini`, causing immediate fatal crash on launch. Added explicit `.config` directory creation task with `owner: mcomz`. **Live-fixed on Pi and shipped in playbook** — confirmed working this session. Needs reflash to verify the playbook fix persists.
+
+### S-1. Smoke test: add individual ZIM checks + /meshcore-flash/ + VNC/FreeDATA coverage
+
+Pre-alpha.21 hardware test revealed four smoke test gaps:
+
+1. **All 3 MComzOS ZIMs individually** — current check passes if any one keyword (`survival`/`literature`/`scripture`) is present; need three separate checks. Also add a content-fetch for each registered ZIM by **slug** (not UUID — see S-4) — not just the first book.
+2. **WikiMed** — current check is keyword-only; add a slug content-fetch once registered.
+3. **`/meshcore-flash/`** — not checked at all; add a check that it returns 200 (not 403/404).
+4. **FreeDATA on ARM64** — add a check that on ARM64 the FreeDATA card is either absent or clearly flagged unavailable (HTML-check.py).
+
+VNC/JS8Call auth cannot be automated (needs a WebSocket VNC client); add to MANUAL-TESTS.md instead.
+
+Coverage rule: tests must cover the new behaviour, not just pass because they don't know about it.
+
+### S-4. Kiwix routing: switch dashboard + smoke test from UUID to slug `[claude+vibe]`
+
+**Root cause (pre-alpha.21):** kiwix-serve's `/library/content/<X>/` route expects the **slug** (the `name=` attribute on `<book>` in `library.xml`), not the UUID. The dashboard download path (`status.py:262`) writes books with `id=` and `path=` only — no `name=` — so kiwix auto-derives a slug from the filename. UUID lookups always 404. This is the real cause of the pre-alpha.21 "Kiwix UUID 404" symptom (B-4 in §3 — likely resolved by this fix without needing the full diagnostic).
+
+**Edits:**
+
+- `src/api/status.py:214-227 kiwix_books()` — replace `library.xml` parsing with a query against kiwix-serve's own catalog (it is the source of truth for which slugs it actually serves):
+  ```python
+  with urllib.request.urlopen("http://127.0.0.1:8888/catalog/v2/entries?count=200", timeout=3) as r:
+      tree = ET.fromstring(r.read())
+  # parse OPDS Atom; for each <entry>: id (UUID), name (slug), title, summary, length
+  ```
+  Return per book: `{ "id", "name", "title", "size", "language" }`. On exception (kiwix not yet up), fall back to the current `library.xml` parser so the API still responds during boot.
+- `src/dashboard/index.html:747` — change `\`/library/viewer#${encodeURIComponent(b.id)}\`` → `\`/library/viewer#${encodeURIComponent(b.name)}\``.
+- `tests/smoke-test.py:255` — change `/library/content/<uuid>/` → `/library/content/<slug>/`. Loop over **every** book, not just the first.
+- `tests/html-check.py` — assert the viewer href uses `b.name` (regression guard).
+
+**Acceptance:** smoke-test passes against a Pi with both MComz and downloaded ZIMs; clicking a book in the dashboard library list opens the viewer and content renders.
+
+### S-5. MeshCore offline flasher CI hardening `[vibe]`
+
+**Root cause (pre-alpha.21):** `site.yml:1347` git clone fails in CI; `rescue:` block at line 1425 swallows the failure with a `debug:` message — build still ships green, image arrives with a missing `/var/www/html/meshcore-flash/` directory and the dashboard falls back to a 403/404.
+
+**Edits:**
+
+- `site.yml:1347` (Clone MeshCore web flasher) — add `register: clone_result`, `until: clone_result.rc == 0`, `retries: 3`, `delay: 10`.
+- `site.yml:1425-1428` (rescue block) — replace the `debug:` task with `fail: msg="MeshCore offline flasher provisioning failed; build aborted to avoid shipping a broken image"`.
+- `.github/workflows/build-image.yml` — add a post-Ansible CI step: `test -s "$MNT/var/www/html/meshcore-flash/index.html" || (echo "meshcore-flash missing" && exit 1)`. Same for both arm64 and x86 jobs.
+- `tests/smoke-test.py` — add: GET `/meshcore-flash/`; assert HTTP 200 and body contains `flasher` or `MeshCore` (catches future 403/404 silently).
+
+**Acceptance:** if GitHub is unreachable or the clone fails 3× in a row, CI fails loudly. Reflashed image always serves `/meshcore-flash/`.
+
+### S-6. FreeDATA arch-aware UI `[vibe]`
+
+**Pre-alpha.21:** dashboard always renders the FreeDATA Connect button even on ARM64, where there is no AppImage and the button does nothing.
+
+**Edits:**
+
+- `src/api/status.py` — extend the `/api/status` payload with `"freedata_installed": bool`. True iff the AppImage exists at the path used by `site.yml` (confirm by grepping the FreeDATA install task — typically `/opt/freedata/FreeDATA-<ver>.AppImage` or wherever `Pat and FreeDATA URLs made architecture-aware` deposits it).
+- `src/dashboard/index.html:316-320` — read `status.freedata_installed`. If false, replace the `mesh-section` content with: "FreeDATA is not yet available on this device (no ARM64 AppImage published upstream — see [DJ2LS/FreeDATA](https://github.com/DJ2LS/FreeDATA))."
+- `tests/html-check.py` — assert the FreeDATA section gates on `freedata_installed`.
+
+**Acceptance:** ARM64 hub no longer shows a dead Connect button; x86 hub (where the AppImage installs) is unchanged.
 
 ---
 
 ## §2 — Awaiting reflash to verify (no code work needed, just hardware test)
 
-These fixes are in `main` already. The next image build (v0.0.2-pre-alpha.21 or later) needs to be flashed, then the listed tests run. After verification, fill in the **Outcome** section of the corresponding `.claude/fixes/` entry.
+### Verified in pre-alpha.21 (2026-04-16)
+
+| Fix | Outcome |
+|---|---|
+| VNC websockify upgrade — smoke test added | ✅ Smoke test passes; WebSocket upgrade confirmed live |
+| iOS Safari + MeshCore flasher fix log: Fix A (iOS Safari) | ✅ Confirmed working — cert warning → redirect page → dashboard loads, 2026-04-17 |
+| iOS Safari + MeshCore flasher fix log: Fix B (MeshCore flasher) | ❌ Two new bugs found — see `.claude/fixes/2026-04-15-4b9569d-ios-safari-and-meshcore-flasher.md` Outcome |
+| MeshCore offline flasher 403 → recursive www-data chown | ❌ Still 403; root cause is missing files (git clone failed in CI, rescue fired), not permissions |
+| RECOMMENDED_ZIMS + first-boot WikiMed — real catalog names | ❌ ZIMs on disk and kiwix-serve loads them. Content is at `/library/content/<slug>/` (302→200 ✅) but smoke test + dashboard use UUID URLs (404 ❌). Also all ZIM metadata empty — MComz ZIMs not built with internal metadata |
+| MeshCore CORS probe fix | ⏳ Shipped this session — awaiting hardware verify |
+| JS8Call `.config` ownership + VNC HTTPS | ✅ Live-fixed + playbook fix shipped — confirmed working |
+| VNC Connect button / JS8Call `.config` ownership | ✅ Fixed this session — VNC works on HTTPS, JS8Call loads after `.config` chown. Playbook fix at `site.yml:289`. |
+
+### Still awaiting hardware confirmation
 
 | Fix | Where | Verify with |
 |---|---|---|
@@ -29,16 +105,6 @@ These fixes are in `main` already. The next image build (v0.0.2-pre-alpha.21 or 
 | `https-warn` global banner removed | `index.html` (no matches) | HTTP load shows no orange banner; Mumble card still has its inline mic/HTTPS note. |
 | Pat button uses literal `https://` | `index.html:308`, asserted in `html-check.py:184-187` | From dashboard on HTTP, click "Open Pat" → opens `https://mcomz.local:8081/` (no 400). |
 | Kiwix book reader URL → `/library/viewer#<uuid>` | `index.html:747` | Click any installed book in the library list — viewer opens, content renders. |
-| MeshCore offline flasher 403 → recursive www-data chown | `site.yml:1381-1389` | In hotspot mode (no internet), click Flash MeshCore — opens `/meshcore-flash/` and serves all assets without 403. |
-| VNC websockify upgrade — smoke test added | `tests/smoke-test.py:303-327` | Run `python3 tests/smoke-test.py mcomz.local` from a LAN laptop. Look for "websockify WebSocket upgrade succeeds (101 Switching Protocols)" — pass means the chain is alive. |
-| iOS Safari + MeshCore flasher fix log | `.claude/fixes/2026-04-15-4b9569d-ios-safari-and-meshcore-flasher.md` | After hardware test, fill in **Outcome** for both Fix A and Fix B. |
-| RECOMMENDED_ZIMS + first-boot WikiMed — real catalog names | `site.yml:1069`, `index.html RECOMMENDED_ZIMS`, fix log `2026-04-16-f1f26e7` | Manage Books panel: all four Kiwix titles show download URLs (no "Not found"). First boot downloads wikimed-mini.zim successfully. |
-
-### Older unverified fixes (still pending hardware confirmation)
-
-| Fix | Source ref | Verify |
-|---|---|---|
-| VNC Connect button — Requires=/StartLimit/-localhost/port-ready loop/Wants= | pre-alpha.19 fix in main | Click Open JS8Call → noVNC connects, password prompt appears, JS8Call window visible. |
 | Mumble controls greyed on macOS Chrome — `mcomz-mumble-ws` in status dict + `server_hostname='localhost'` SSL fix | site.yml `mcomz-mumble-ws` block + websockify SSL patch | macOS Chrome → Mumble controls active (not greyed), connect succeeds. |
 | Mumble microphone on iOS — "use Safari" note | dashboard Mumble card | iOS Safari → mic prompt appears (depends on iOS Safari fix above). |
 | ZIM download SSL CERT_NONE — `urlopen` w/ unverified context | `src/api/status.py kiwix_download` | Manage Books → download a small ZIM (e.g. MComz Scriptures); succeeds without `CERTIFICATE_VERIFY_FAILED`. |
@@ -49,21 +115,62 @@ These fixes are in `main` already. The next image build (v0.0.2-pre-alpha.21 or 
 
 For each item below: SSH to the Pi (or open a terminal locally), run the listed commands, paste the full output into `.claude/feedback/hardware-test-results.md` under the named heading. Once that's done, the next code session can diagnose and write the fix.
 
-### B-1. JS8Call / FreeDATA "Connect button just flashes"
-The websockify smoke-test now confirms the chain is reachable, but click-time behaviour fails. Need:
+### ~~B-1. JS8Call / VNC~~ — RESOLVED this session
+
+Root cause diagnosed and fixed 2026-04-17:
+- VNC auth only works over HTTPS (HTTP path has a silent auth failure — acceptable, dashboard links to `https://mcomz.local/vnc/`)
+- `/home/mcomz/.config/` was `root:root`; JS8Call couldn't create its ini file and crashed immediately
+- Fixed live on Pi + playbook fix at `site.yml:289`
+- JS8Call confirmed loading in VNC session
+
+### ~~B-4. Kiwix ZIM content 404 after download~~ — superseded by §1.S-4
+
+Root cause is now known: kiwix-serve's content route expects the **slug**, not the UUID. Plan in §1.S-4 fixes this without further diagnostics. If S-4 is shipped and the bug still occurs, then re-open this entry and run the Pi-side commands below.
+
+<details><summary>Original diagnostic commands (kept in case S-4 doesn't resolve it)</summary>
 
 ```sh
-sudo journalctl -u mcomz-novnc -n 200 --no-pager
-sudo journalctl -u mcomz-vnc  -n 200 --no-pager
-sudo systemctl status mcomz-novnc mcomz-vnc
-ss -lntp | grep -E '5901|6080'
-curl -i -H "Connection: Upgrade" -H "Upgrade: websocket" \
-     -H "Sec-WebSocket-Key: dGVzdA==" -H "Sec-WebSocket-Version: 13" \
-     http://localhost/vnc/websockify
+curl -s http://localhost:8888/library/catalog/v2/entries | grep -E "<id>|<title>|<name>"
+ls -lh /var/lib/kiwix/*.zim 2>/dev/null || find /var/lib -name "*.zim" -ls 2>/dev/null
+find /home -name "*.zim" -ls 2>/dev/null
+find /opt -name "*.zim" -ls 2>/dev/null
+sudo systemctl status kiwix-serve
+sudo journalctl -u kiwix-serve -n 100 --no-pager
+curl -i "http://localhost:8888/content/171ffc5a-c68a-4f92-8ad1-279170745a3e/"
 ```
-And from the browser: DevTools → Network → filter `websockify` → click Open JS8Call → screenshot the failed frame headers (request and response).
+**Paste under heading:** `## v0.0.2-pre-alpha.21 — Kiwix UUID 404 diagnostic` (only if needed).
+</details>
 
-**Paste under heading:** `## v0.0.2-pre-alpha.21 — VNC connect diagnostic`.
+### ~~B-5. MeshCore flash CORS bug~~ — RESOLVED by §1.S-2
+
+Already shipped: `index.html:702` adds `mode:'no-cors'` to the connectivity probe. Awaiting hardware verify (§2).
+
+### B-6. WikiMed first-boot download did not produce a ZIM
+
+**Pre-alpha.21 status:** §1.A catalog name fix is in main, but it's still unconfirmed whether the `mcomz-wikimed-download` oneshot actually ran to completion on first boot. Gather:
+
+```sh
+sudo systemctl status mcomz-wikimed-download
+sudo journalctl -u mcomz-wikimed-download -n 200 --no-pager
+ls -lh /var/mcomz/library/
+```
+
+**Paste under heading:** `## v0.0.2-pre-alpha.21 — WikiMed first-boot diagnostic`.
+
+### B-7. Mumble websocket bridge shows `err` despite text chat working
+
+The status badge is driven by `systemctl is-active`. If `mcomz-mumble-ws` failed once at boot and `Restart=on-failure` recovered it, `is-active` may still report a stale failed state — or the dashboard's badge mapping treats `activating` as `err`. Need:
+
+```sh
+systemctl status mcomz-mumble-ws
+sudo journalctl -u mcomz-mumble-ws -n 200 --no-pager
+ss -lntp | grep 64737
+curl -i http://127.0.0.1:64737/
+```
+
+**Paste under heading:** `## v0.0.2-pre-alpha.21 — Mumble websocket status diagnostic`.
+
+Once logs land: code fix in `src/api/status.py` to either treat `active`-or-`activating` as healthy and only `failed`/`inactive` as err, or check port responsiveness on `localhost:64737` for this service rather than relying solely on `is-active`.
 
 ### B-2. Meshtastic showing `err` ("Service crashed, check journalctl")
 
@@ -92,7 +199,8 @@ ls /dev/snd 2>/dev/null
 ## §4 — Won't fix / external
 
 - **Kiwix download speed** — server-side throughput / Pi uplink. No code lever.
-- **FreeDATA ARM64** — no upstream AppImage; correct fix is a PR to `DJ2LS/FreeDATA` adding ARM64 to its release matrix. Playbook already skips gracefully.
+- **FreeDATA ARM64 (upstream)** — no upstream AppImage; correct fix is a PR to `DJ2LS/FreeDATA` adding ARM64 to its release matrix. Playbook already skips install gracefully. **Dashboard arch-aware UI is in §1.S-6** so pre-alpha.21's "dead Connect button" symptom is addressed in-product even while the upstream gap remains.
+- **MComzLibrary ZIM metadata empty (upstream)** — pre-alpha.21 found the MComz ZIMs are missing internal title/language/etc. Fix belongs in the `MComzLibrary` build pipeline (add `--title --description --language --creator --publisher` to whatever wraps `zimwriterfs`). Dashboard already falls back to filename-derived titles, so impact in-product is cosmetic. Action: file an issue on the MComzLibrary repo.
 - **PDF books inline on iOS Chrome** — platform limitation.
 - **Mumble mic on iOS Chrome** — Apple restricts WebRTC to Safari only on iOS.
 

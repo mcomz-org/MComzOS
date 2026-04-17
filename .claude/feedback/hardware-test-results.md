@@ -33,6 +33,50 @@ Verbatim user feedback per release, followed by issue interpretation.
 
 ---
 
+## v0.0.2-pre-alpha.21 — RPi 5, 2026-04-16
+
+### Confirmed working
+
+| # | Area | Result |
+|---|------|--------|
+| 1 | Mumble text | Login and messaging work in Safari Mac ✅ |
+| 2 | Pat/Winlink | UI loads; reaches NOCALL callsign setup window ✅ |
+| 3 | VNC/noVNC | Loads and connects; Xvnc fix confirmed ✅ |
+
+### Issues found
+
+| # | Area | Symptom | Diagnosis | Status |
+|---|------|---------|-----------|--------|
+| 1 | Mumble WebSocket Bridge | Status grid shows `err` despite text chat working | Health check may be hitting the wrong endpoint or a timing issue; not a full outage | ⬜ Investigate |
+| 2 | Mumble microphone | `NotSupportedError: MediaStreamError` on Safari Mac | Known limitation — `getUserMedia` requires HTTPS; HTTP dashboard can't grant mic access | ⬜ Known / won't fix without HTTPS trust story |
+| 3 | All 3 MComzOS ZIMs | Dashboard shows "Not Found" for all three | mcomz-wikimed-download.service was still running during test (Appropedia downloading); Kiwix may not have indexed ZIMs yet | ⬜ Recheck after service completes |
+| 4 | Kiwix content UUID 404 | Smoke test hits `/library/content/<uuid>/` → 404 for all books | Root cause diagnosed via SSH: kiwix-serve serves content at `/library/content/<slug>/` (slug derived from ZIM filename), not UUID. Slug URLs return 302→200. Smoke test and dashboard both use wrong URL pattern. Secondary issue: all ZIM metadata (title, language, article count) empty in OPDS — MComz ZIMs not built with internal metadata | 🔴 Code fix needed: status API + smoke test + dashboard |
+| 5 | MeshCore flash — online routing | Hub is online; clicking Flash MeshCore routes to local `/meshcore-flash/` instead of `flasher.meshcore.co.uk` | `fetch(...favicon.ico, {method:'HEAD'})` fails due to CORS even when online; `.catch()` always fires → always routes offline. Fix: add `mode:'no-cors'` to probe. **Fixed in this session** (`index.html:702`) | ✅ Fixed — needs reflash to verify |
+| 6 | /meshcore-flash/ | Returns `403 Forbidden nginx` | Git clone of web flasher failed during CI build; rescue block ran silently; empty directory, no `index.html` | 🔴 Build provisioning — check CI logs |
+| 7 | JS8Call in noVNC | VNC password prompt never appeared on HTTP; JS8Call crashed with `Cannot access /home/mcomz/.config/JS8Call.ini for writing` | Two issues found via SSH: (a) VNC only works on HTTPS (over HTTP the auth flow fails silently); (b) `/home/mcomz/.config/` owned by `root:root` — mcomz user can't create JS8Call.ini. **Both fixed this session**: `.config` chowned live + playbook fix at `site.yml:289`. JS8Call confirmed loading after fix | ✅ Fixed — needs reflash to confirm playbook fix |
+| 8 | FreeDATA | Connect button loops, no "unavailable" message | ARM64: no AppImage, service skipped by playbook; UI still shows the button. No change this session | ⬜ UI should indicate unavailability on ARM64 |
+
+### Smoke test gaps identified
+
+| Gap | Impact |
+|---|--------|
+| All 3 MComzOS ZIMs not individually checked | "at least one" check passes even if two are missing |
+| WikiMed checked only by keyword, not UUID content | ZIM can be registered but content can 404 without smoke test failing |
+| `/meshcore-flash/` not checked | 403 undetected by automated test |
+| JS8Call / noVNC auth not exercised | Can't detect auth-popup regression |
+| FreeDATA ARM64 skip not verified | No check that ARM64 build gracefully hides the UI |
+
+### §2 verification results (from this session)
+
+| §2 item | Outcome |
+|---------|---------|
+| MeshCore offline flasher 403 → recursive www-data chown (`site.yml:1381-1389`) | ❌ Still 403 — root cause was not permissions but missing files (git clone failed in CI, rescue fired) |
+| RECOMMENDED_ZIMS + first-boot WikiMed — real catalog names | ❌ Partial — ZIMs downloading but Kiwix content endpoint returning 404 on registered UUID; all 3 MComz ZIMs show Not Found |
+| VNC websockify upgrade — smoke test added | ✅ Smoke test passes; WebSocket upgrade confirmed live |
+| VNC Connect button — Requires=/StartLimit/port-ready loop | ❌ noVNC connects but VNC auth dialog never appears; JS8Call window not visible |
+
+---
+
 ## v0.0.2-pre-alpha.19 — RPi 5, 2026-04-12
 
 **Verbatim feedback:**

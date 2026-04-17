@@ -700,7 +700,7 @@ async function openMeshFlasher(btn) {
     if (navigator.onLine) {
         try {
             await fetch('https://flasher.meshcore.co.uk/favicon.ico',
-                {method: 'HEAD', cache: 'no-store',
+                {method: 'HEAD', mode: 'no-cors', cache: 'no-store',
                  signal: AbortSignal.timeout(3000)});
             online = true;
         } catch(_) {}
@@ -741,10 +741,10 @@ function loadLibrary() {
             return;
         }
         el.innerHTML = books.map(b => {
-            // kiwix-serve reader URL uses the book UUID from library.xml
+            // kiwix-serve reader URL uses the book slug (name), not UUID
             const filename = b.path.split('/').pop();
-            const title = b.title || filename;
-            const readerUrl = `/library/viewer#${encodeURIComponent(b.id)}`;
+            const title = b.title || b.name || filename;
+            const readerUrl = `/library/viewer#${encodeURIComponent(b.name)}`;
             return `<a href="${readerUrl}" target="_blank" rel="noopener"
                 style="display:block;background:#111;border-radius:8px;padding:16px;margin-bottom:10px;
                        text-decoration:none;color:var(--text);border:1px solid #2a2a2a;">

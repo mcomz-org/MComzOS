@@ -123,6 +123,11 @@ jobs:
             --extra-vars "deb_arch=arm64 build_mode=true mcomzos_version=${{ github.ref_name }}" \
             site.yml
 
+      - name: Verify MeshCore offline flasher was provisioned
+        run: |
+          sudo test -s /mnt/rpi/var/www/html/meshcore-flash/index.html || \
+            (echo "ERROR: /meshcore-flash/index.html missing — offline flasher not provisioned" && exit 1)
+
       - name: Tear down chroot and compress image
         id: package_rpi
         if: always()
@@ -361,6 +366,11 @@ jobs:
               -i localhost, \
               --extra-vars "deb_arch=amd64 build_mode=true mcomzos_version=${{ github.ref_name }}" \
               /tmp/mcomzos/site.yml
+
+      - name: Verify MeshCore offline flasher was provisioned
+        run: |
+          sudo test -s /mnt/x86/var/www/html/meshcore-flash/index.html || \
+            (echo "ERROR: /meshcore-flash/index.html missing — offline flasher not provisioned" && exit 1)
 
       - name: Tear down chroot and compress image
         if: always()

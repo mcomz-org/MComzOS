@@ -207,28 +207,47 @@ if books_data:
           "" if len(books) >= 1 else f"found {len(books)} book(s)")
     check("ZIM paths are strings", all(isinstance(b.get("path"), str) for b in books))
 
-    # Check for expected content keywords in titles/paths
-    all_text = " ".join(
-        (b.get("title", "") + " " + b.get("path", "")).lower()
-        for b in books
-    )
-    # Spot-check for at least one MComzLibrary ZIM (any of the three is fine —
-    # the literature ZIM can be deleted by the user and reinstalled via Manage Books)
-    any_mcomz = any(kw in all_text for kw in ("survival", "literature", "scripture"))
-    check("At least one MComzLibrary ZIM present", any_mcomz,
-          "" if any_mcomz else "none of survival/literature/scripture found in titles/paths")
-
-    # WikiMed Mini — downloaded on first boot via mcomz-wikimed-download.service
-    any_wikimed = any(kw in all_text for kw in ("wikimed", "wikipedia_en_medicine", "medicine"))
-    check("WikiMed Mini ZIM present", any_wikimed,
-          "" if any_wikimed else "wikimed/medicine not found — mcomz-wikimed-download.service may not have run yet")
+    # ZIM entries must have a name (slug) field — added in status.py OPDS rewrite
+    names_present = all(isinstance(b.get("name"), str) and b.get("name") for b in books)
+    check("ZIM entries have name (slug) field", names_present,
+          "name field missing — status.py kiwix_books() may not have been updated"
+          if not names_present else "")
 
     # ZIM entries should include a size field (bytes, from os.path.getsize in status.py)
-    if books:
-        sizes_present = all(isinstance(b.get("size"), int) for b in books)
-        check("ZIM entries have size field", sizes_present,
-              "size field missing or non-integer — status.py kiwix_books() may need updating"
-              if not sizes_present else "")
+    sizes_present = all(isinstance(b.get("size"), int) for b in books)
+    check("ZIM entries have size field", sizes_present,
+          "size field missing or non-integer" if not sizes_present else "")
+
+    # Individual MComzLibrary ZIM checks — all three ship in the base image
+    for slug_kw, label in [
+        ("survival",   "MComz Survival"),
+        ("literature", "MComz Literature"),
+        ("scriptures", "MComz Scriptures"),
+    ]:
+        zim = next((b for b in books
+                    if slug_kw in b.get("name", "").lower()
+                    or slug_kw in b.get("path", "").lower()), None)
+        check(f"{label} ZIM registered", zim is not None,
+              f"no book with '{slug_kw}' in name/path" if zim is None else "")
+        if zim and zim.get("name"):
+            slug_path = f"/library/content/{urllib.parse.quote(zim['name'])}/"
+            code_sl, _ = get(path=slug_path)
+            check(f"{label} ZIM content responds",
+                  code_sl in (200, 301, 302),
+                  f"HTTP {code_sl} for {slug_path!r}" if code_sl not in (200, 301, 302) else "")
+
+    # WikiMed — downloaded on first boot via mcomz-wikimed-download.service
+    wikimed = next((b for b in books
+                    if any(kw in (b.get("name", "") + b.get("path", "")).lower()
+                           for kw in ("wikimed", "medicine"))), None)
+    check("WikiMed ZIM registered (first-boot download)", wikimed is not None,
+          "not yet registered — mcomz-wikimed-download.service may still be running"
+          if wikimed is None else "")
+    if wikimed and wikimed.get("name"):
+        wm_path = f"/library/content/{urllib.parse.quote(wikimed['name'])}/"
+        code_wm, _ = get(path=wm_path)
+        check("WikiMed ZIM content responds", code_wm in (200, 301, 302),
+              f"HTTP {code_wm}" if code_wm not in (200, 301, 302) else "")
 
 # OPDS catalog — verifies kiwix-serve is exposing its library
 code_opds, body_opds = get(path="/library/catalog/v2/entries")
@@ -240,23 +259,13 @@ if code_opds == 200:
     check("OPDS catalog has at least one entry", b"<entry" in body_opds,
           "no <entry> elements — library may be empty or kiwix-serve not yet indexed ZIMs")
 
-# Kiwix reader URLs — fetch book UUIDs from API and confirm /library/viewer responds
+# Kiwix reader — /library/viewer page must load; content slugs must serve
 if books_data:
     books = books_data.get("books", [])
     if books:
-        # /library/viewer (no fragment) should return 200 — it's a static HTML page
         code_viewer, _ = get(path="/library/viewer")
         check("Kiwix /library/viewer page responds", code_viewer == 200,
               f"HTTP {code_viewer}" if code_viewer else "no response")
-        # /library/content/<uuid>/ should return 200 for a real book UUID
-        first_uuid = books[0].get("id", "")
-        if first_uuid:
-            import urllib.parse
-            reader_path = f"/library/content/{urllib.parse.quote(first_uuid)}/"
-            code_content, _ = get(path=reader_path)
-            check("Kiwix /library/content/<uuid>/ responds for first book",
-                  code_content in (200, 301, 302),
-                  f"HTTP {code_content} for UUID {first_uuid!r}" if code_content not in (200, 301, 302) else "")
 
 # Manage Books API endpoints
 dl_status = get_json("/api/kiwix/download/status", params={"file": "test.zim"})

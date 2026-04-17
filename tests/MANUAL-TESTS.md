@@ -16,7 +16,8 @@ Record pass/fail and notes against the release version in `.claude/feedback/hard
 
 ## 1. Basic Connectivity
 
-- [ ] **iOS Safari** — open `http://mcomz.local` on iPhone/iPad — dashboard loads without any certificate prompt
+- [ ] **iOS Safari (HTTP)** — open `http://mcomz.local` on iPhone/iPad — dashboard loads without any certificate prompt
+- [ ] **iOS Safari (HTTPS)** — open `https://mcomz.local` on iPhone/iPad — Safari shows a cert warning; tap "Visit Website" (or "Continue"); the full dashboard loads. **Known limitation:** Safari's HTTPS-first upgrade can still send users here; the recommended URL remains `http://mcomz.local/`
 - [ ] **Version display** — System Status card shows the correct release version with a link
 
 ---
@@ -77,6 +78,8 @@ Record pass/fail and notes against the release version in `.claude/feedback/hard
 
 - [ ] **Without LoRa hardware** — clicking Meshtastic or MeshCore shows the inline "not connected" warning rather than navigating to a 502 page
 - [ ] **With LoRa hardware** (if available) — Meshtastic and MeshCore UIs load correctly
+- [ ] **Flash MeshCore (online)** — with normal WiFi active, click "Flash MeshCore"; browser opens `https://flasher.meshcore.co.uk/` (live flasher)
+- [ ] **Flash MeshCore (offline)** — enable hotspot (no internet), click "Flash MeshCore"; browser opens `http://mcomz.local/meshcore-flash/`; flasher UI loads; Heltec V3/V4 firmware options appear in the selector; if a Heltec radio is available, complete a flash and confirm it boots
 
 ---
 

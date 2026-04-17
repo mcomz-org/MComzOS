@@ -24,6 +24,7 @@ Current status: **pre-alpha**. Hardware-tested on RPi 5. All releases use `prere
 | `scripts/generate-release-notes.sh` | Called by CI to generate release notes from conventional commits |
 | `.claude/tasks/todo.md` | Full history of decisions, completed work, and outstanding items |
 | `.claude/feedback/hardware-test-results.md` | Verbatim hardware test feedback per release |
+| `.claude/fixes/` | Fix-attempt log — one file per non-trivial fix, tracking hypothesis, confidence, test plan, and outcome |
 
 ---
 
@@ -137,6 +138,20 @@ Before making dashboard changes, run the static checker locally:
 python3 tests/html-check.py
 ```
 
+### Coverage rule — mandatory
+
+Every change that introduces or modifies user-facing behaviour **must** have a corresponding test added in the same commit. There are no exceptions:
+
+| What changed | Where to add the test |
+|---|---|
+| New or changed nginx route / API endpoint | `tests/smoke-test.py` |
+| New JS function or dashboard element | `tests/html-check.py` |
+| Anything requiring eyes, ears, or physical interaction | `tests/MANUAL-TESTS.md` |
+
+If a behaviour genuinely cannot be tested automatically (e.g. voice audio, hotspot start/stop, kiosk display, destructive ops), add it to `MANUAL-TESTS.md` instead — but do not skip it entirely. If a test is being omitted, say so explicitly and state why.
+
+Running `html-check.py` and `smoke-test.py` after a change and seeing them pass is not sufficient — the tests must actually cover the new behaviour, not just pass because they don't know about it yet.
+
 ---
 
 ## Critical Rules
@@ -147,6 +162,25 @@ python3 tests/html-check.py
 4. **Commit to `main` only** — no feature branches
 5. **Service enables**: always `file: state=link` into `multi-user.target.wants/` — never `systemd: enabled: yes` (breaks in chroot)
 6. **HTTP on port 80 is intentional** — do not add a redirect to HTTPS
+
+---
+
+## Fix Log
+
+When shipping a non-trivial bug fix — especially one whose correctness can only be confirmed on real hardware — create a fix log entry in `.claude/fixes/` before committing. The template and naming convention are in `.claude/fixes/README.md`.
+
+**When to create an entry:**
+- Any fix where hardware behaviour is uncertain (confidence below ~90%)
+- Any fix that touches multiple subsystems or has a meaningful regression surface
+- Any fix that was already attempted once and shipped (second-attempt entries reference the first)
+
+Skip for typo fixes, pure docs changes, and dependency bumps.
+
+**File naming:** `YYYY-MM-DD-<short-sha>-<slug>.md`
+
+**After hardware verification:** fill in the **Outcome** section of the relevant entry — what actually happened, whether the hypothesis was validated, and any follow-up. Don't leave it blank.
+
+**Before attempting a fix:** check `.claude/fixes/` for prior attempts on the same symptom. If one exists, reference it in the new entry rather than repeating background.
 
 ---
 

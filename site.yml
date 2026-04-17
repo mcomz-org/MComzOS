@@ -286,6 +286,14 @@
           [ -r $HOME/.Xresources ] && xrdb $HOME/.Xresources
           exec dbus-run-session -- openbox-session
 
+    - name: Create .config directory for mcomz user
+      file:
+        path: /home/{{ mcomz_user }}/.config
+        state: directory
+        owner: "{{ mcomz_user }}"
+        group: "{{ mcomz_user }}"
+        mode: '0755'
+
     - name: Create Openbox config directory for mcomz user
       file:
         path: /home/{{ mcomz_user }}/.config/openbox
@@ -1338,10 +1346,16 @@
 
         - name: Clone MeshCore web flasher (shallow)
           shell: |
+            rm -rf /var/www/html/meshcore-flash
             git clone --depth=1 https://github.com/meshcore-dev/flasher.meshcore.io.git \
               /var/www/html/meshcore-flash
+            mkdir -p /var/www/html/meshcore-flash/firmware
           args:
             creates: /var/www/html/meshcore-flash/index.html
+          register: meshcore_clone
+          until: meshcore_clone.rc == 0
+          retries: 3
+          delay: 10
 
         - name: Patch flasher for /meshcore-flash/ subpath serving
           # The flasher app uses absolute paths (/lib/, /css/, /config.json) — it was
@@ -1415,9 +1429,13 @@
           when: meshcore_fw_urls.stdout_lines | length > 0
 
       rescue:
-        - name: Warn MeshCore offline flasher provisioning failed
-          debug:
-            msg: "MeshCore offline flasher could not be provisioned (GitHub unavailable or clone failed). Flash button will always link to flasher.meshcore.co.uk."
+        - name: Abort build — MeshCore offline flasher provisioning failed
+          fail:
+            msg: >
+              MeshCore offline flasher could not be provisioned after 3 attempts
+              (GitHub unavailable or clone failed). Build aborted to avoid shipping
+              a broken image with a dead /meshcore-flash/ endpoint.
+              Check GitHub rate limits and network connectivity from the CI runner.
       when: not (minimal_build | default(false))
 
     - name: Deploy MComzOS status API script
