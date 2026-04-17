@@ -209,6 +209,8 @@ check("STANDBY_SVCS set defined (hostapd/dnsmasq get grey badge)",
       "STANDBY_SVCS" in src and "standby" in src)
 check("HW_SVCS set defined (hardware services get grey badge)",
       "HW_SVCS" in src and "attach hardware" in src)
+check("HW_SVCS checked before failed (no spurious err badge without hardware)",
+      src.index("HW_SVCS.has(name)") < src.index("st === 'failed'"))
 check("failed state gets err badge", "'err'" in src and "st === 'failed'" in src)
 check("activating state gets act badge", "'act'" in src and "st === 'activating'" in src)
 check("unknown/disconnected state gets dis badge", "'dis'" in src)

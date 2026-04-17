@@ -381,14 +381,16 @@ function renderStatus(data) {
         let badgeClass, badgeText, badgeTip;
         if (st === 'active') {
             badgeClass = 'on';       badgeText = 'on';  badgeTip = 'Running';
+        } else if (HW_SVCS.has(name)) {
+            // Hardware-dependent services show std regardless of failed/activating state —
+            // systemd keeps retrying without hardware, producing spurious failed/activating states.
+            badgeClass = 'standby';  badgeText = 'std'; badgeTip = 'Standby — attach hardware to activate';
+        } else if (STANDBY_SVCS.has(name)) {
+            badgeClass = 'standby';  badgeText = 'std'; badgeTip = 'Standby — activates with hotspot';
         } else if (st === 'failed') {
             badgeClass = 'error';    badgeText = 'err'; badgeTip = 'Service crashed — check journalctl';
         } else if (st === 'activating') {
             badgeClass = 'checking'; badgeText = 'act'; badgeTip = 'Starting up…';
-        } else if (STANDBY_SVCS.has(name)) {
-            badgeClass = 'standby';  badgeText = 'std'; badgeTip = 'Standby — activates with hotspot';
-        } else if (HW_SVCS.has(name)) {
-            badgeClass = 'standby';  badgeText = 'std'; badgeTip = 'Standby — attach hardware to activate';
         } else if (st === 'inactive') {
             badgeClass = 'off';      badgeText = 'off'; badgeTip = 'Not running';
         } else {
