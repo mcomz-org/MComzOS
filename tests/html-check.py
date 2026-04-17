@@ -149,7 +149,7 @@ check("Winlink/Pat section present inside radio-detail",
 check("JS8Call section present", "JS8Call" in src)
 check("FreeDATA section present", "FreeDATA" in src)
 check("VNC URL in Licensed Radio",
-      "/vnc/vnc.html?path=vnc/websockify&autoconnect=true" in src)
+      "/vnc/vnc.html?path=websockify&autoconnect=true" in src)
 check("VNC links use HTTPS (not bare href — VNC auth requires HTTPS)",
       bool(re.search(r"'https://'\s*\+\s*location\.hostname.*vnc/vnc\.html", src)))
 
