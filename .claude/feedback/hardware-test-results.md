@@ -68,8 +68,8 @@ Only failure: **WikiMed ZIM not yet registered** — `mcomz-wikimed-download.ser
 | 2 | SSH password auth | `ssh-copy-id` fails — `Permission denied (publickey,password)` on new image | 🔍 Unknown — playbook may have hardened sshd; needs investigation |
 | 3 | meshtasticd | Status `failed` without hardware → shows `err` badge (not `std`) | ⬜ renderStatus checks `failed` before `HW_SVCS` — hardware-absent services show scary red badge. Low priority. |
 | 4 | direwolf | Status `activating` without sound hardware | ⬜ Expected — B-3 diagnostic still pending |
-| 5 | VNC HTTPS links | JS8Call/FreeDATA buttons changed to `onclick https://` — needs manual confirm | ⏳ Awaiting user test |
-| 6 | JS8Call in VNC | VNC stack confirmed working by smoke test; JS8Call window not manually verified | ⏳ Needs manual test |
+| 5 | VNC spinner | noVNC stuck on spinner — VncAuth password dialog hidden behind loading overlay | ✅ Fixed live: SecurityTypes None; noVNC auto-connects. See fix log `2026-04-17-9869880-vnc-no-auth.md` |
+| 6 | JS8Call in VNC | JS8Call process confirmed running (`js8call` + `/usr/bin/js8` in VNC cgroup); window visibility unconfirmed | ⏳ Needs user to open noVNC and confirm |
 | 7 | Pat send/receive | UI confirmed reachable; full send/receive on real radio not tested | ⏳ Needs real-radio test |
 | 8 | Mumble mic | `getUserMedia` requires HTTPS — mic still unusable over HTTP | ⬜ Known/won't fix without HTTPS trust story |
 

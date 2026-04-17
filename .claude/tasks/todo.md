@@ -110,8 +110,8 @@ Coverage rule: tests must cover the new behaviour, not just pass because they do
 
 | Fix | Where | Verify with |
 |---|---|---|
-| VNC HTTPS links — JS8Call/FreeDATA onclick now forces `https://` | `index.html:313,318` | Click "Open JS8Call" — should open noVNC over HTTPS, VNC auth prompt appears, JS8Call window visible |
-| WikiMed registered after first-boot retry | `mcomz-wikimed-download.service` | ~5 min after boot: smoke-test WikiMed check passes; book appears in library panel |
+| VNC no-auth (SecurityTypes None) + WikiMed Restart=on-failure | `site.yml` | ✅ Both confirmed live on pre-alpha.22: noVNC auto-connects; WikiMed 2.1 GB downloaded after 1 retry; 74/74 smoke checks pass |
+| VNC JS8Call window visible | — | ⏳ VNC connects now (no password); user needs to confirm JS8Call window appears |
 | Pat send/receive | — | Real-radio test: send a Winlink check-in, confirm it arrives |
 | Mumble voice | — | iOS Safari with HTTPS: mic prompt appears, voice connects |
 | MeshCore online routing | `index.html:702` | On internet-connected hub: click Flash MeshCore → opens `flasher.meshcore.co.uk` (not local bundle) |
