@@ -1130,6 +1130,8 @@
           ExecStart=/usr/local/bin/mcomz-wikimed-download
           ExecStartPost=/bin/systemctl restart kiwix-serve
           RemainAfterExit=yes
+          Restart=on-failure
+          RestartSec=30
           StandardOutput=journal
           StandardError=journal
 

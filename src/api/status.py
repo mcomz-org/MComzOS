@@ -249,6 +249,8 @@ def kiwix_books():
                 book["path"] = path
                 if path and os.path.exists(path):
                     book["size"] = os.path.getsize(path)
+                if not book["title"] and path:
+                    book["title"] = path.rsplit("/", 1)[-1].replace(".zim", "").replace("-", " ").replace("_", " ").title()
         except Exception:
             pass
         return {"books": books}
@@ -381,6 +383,7 @@ class StatusHandler(BaseHTTPRequestHandler):
                 if name == "mcomz-mumble-ws" and st != "active" and port_open("127.0.0.1", 64737):
                     st = "active"
                 result[name] = {"status": st, **info}
+            result["freedata_installed"] = os.path.exists("/usr/local/bin/freedata")
             self._json(result)
         elif path == "/api/version":
             try:

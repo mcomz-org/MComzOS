@@ -80,6 +80,7 @@ for id_val in [
     "library-overlay", "library-panel", "library-grid",
     "books-overlay", "books-panel", "books-installed",
     "books-url", "books-dl-status", "books-recommended",
+    "freedata-section",
 ]:
     check(f"id={id_val!r} exists", has_id(id_val))
 
@@ -149,6 +150,8 @@ check("JS8Call section present", "JS8Call" in src)
 check("FreeDATA section present", "FreeDATA" in src)
 check("VNC URL in Licensed Radio",
       "/vnc/vnc.html?path=vnc/websockify&autoconnect=true" in src)
+check("VNC links use HTTPS (not bare href — VNC auth requires HTTPS)",
+      bool(re.search(r"'https://'\s*\+\s*location\.hostname.*vnc/vnc\.html", src)))
 
 check("Mesh Communication card present", "Mesh Communication" in src)
 check("toggleMesh in Mesh button",
@@ -221,6 +224,12 @@ check("Safari usage note present in Mumble section",
 # FreeDATA note — may not be installed on all builds
 check("FreeDATA 'may not be installed' caveat present",
       bool(re.search(r'FreeDATA.{0,120}(may not|not.*installed|install)', src, re.IGNORECASE | re.DOTALL)))
+
+# FreeDATA section must be conditionally hidden based on freedata_installed API field
+check("renderStatus filters non-service keys (typeof svc.status)",
+      "typeof svc.status === 'string'" in src)
+check("renderStatus hides freedata-section when freedata_installed is false",
+      "freedata_installed" in src and "freedata-section" in src)
 
 # Kiwix viewer must use b.name (slug) not b.id (UUID) — UUID-based URLs return 404
 check("Kiwix viewer link uses b.name slug (not b.id UUID)",

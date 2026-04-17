@@ -310,12 +310,12 @@
             <div class="mesh-section">
                 <h2 style="color:var(--pink);font-size:0.9rem;margin-bottom:6px;">📻 JS8Call</h2>
                 <p class="note">Keyboard-to-keyboard HF messaging via weak-signal digital mode. Join the #MCOMZ net Sundays 1500Z on 7.078 MHz.</p>
-                <a href="/vnc/vnc.html?path=vnc/websockify&autoconnect=true" class="btn btn-pink" style="margin-top:8px;">Open JS8Call (Remote Desktop)</a>
+                <a href="#" class="btn btn-pink" style="margin-top:8px;" onclick="window.open('https://'+location.hostname+'/vnc/vnc.html?path=vnc/websockify&autoconnect=true');return false;">Open JS8Call (Remote Desktop)</a>
             </div>
-            <div class="mesh-section">
+            <div id="freedata-section" class="mesh-section">
                 <h2 style="color:var(--pink);font-size:0.9rem;margin-bottom:6px;">📡 FreeDATA</h2>
                 <p class="note">High-speed HF data modem for file transfer and peer-to-peer data exchange over radio.</p>
-                <a href="/vnc/vnc.html?path=vnc/websockify&autoconnect=true" class="btn btn-pink" style="margin-top:8px;">Open FreeDATA (Remote Desktop)</a>
+                <a href="#" class="btn btn-pink" style="margin-top:8px;" onclick="window.open('https://'+location.hostname+'/vnc/vnc.html?path=vnc/websockify&autoconnect=true');return false;">Open FreeDATA (Remote Desktop)</a>
                 <p class="note">FreeDATA may not be installed — AppImage availability varies by release.</p>
             </div>
         </div>
@@ -374,7 +374,9 @@ function renderStatus(data) {
     const STANDBY_SVCS = new Set(['hostapd', 'dnsmasq']);
     // Services that only run when specific hardware is attached
     const HW_SVCS = new Set(['meshtasticd', 'mcomz-meshcore', 'direwolf', 'ardopcf']);
-    grid.innerHTML = Object.entries(data).map(([name, svc]) => {
+    const fdSection = document.getElementById('freedata-section');
+    if (fdSection) fdSection.style.display = (data.freedata_installed === false) ? 'none' : '';
+    grid.innerHTML = Object.entries(data).filter(([, svc]) => svc && typeof svc.status === 'string').map(([name, svc]) => {
         const st = svc.status;
         let badgeClass, badgeText, badgeTip;
         if (st === 'active') {
