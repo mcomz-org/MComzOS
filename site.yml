@@ -340,9 +340,8 @@
           /usr/bin/Xvnc :1 \
               -geometry 1280x800 \
               -depth 24 \
-              -rfbauth "$HOME/.vnc/passwd" \
               -rfbport 5901 \
-              -SecurityTypes VncAuth &
+              -SecurityTypes None &
           XVNC_PID=$!
 
           # Wait for Xvnc to actually be listening on 5901 (up to 15 seconds)
