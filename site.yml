@@ -1509,6 +1509,30 @@
                   try_files $uri $uri/ /index.html;
               }
 
+              # Captive-portal detection suppression.
+              # When in AP mode, dnsmasq resolves ALL DNS to this hub (address=/#/).
+              # iOS/Android/Windows probe these well-known paths to detect captive portals.
+              # Returning the expected responses suppresses the CNA popup so users can
+              # open a real browser and navigate to mcomz.local directly.
+              location = /hotspot-detect.html {
+                  default_type text/html;
+                  return 200 '<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>';
+              }
+              location = /library/test/success.html {
+                  default_type text/html;
+                  return 200 'Success';
+              }
+              location = /generate_204 { return 204; }
+              location = /connecttest.txt {
+                  default_type text/plain;
+                  return 200 'Microsoft Connect Test';
+              }
+              location = /ncsi.txt {
+                  default_type text/plain;
+                  return 200 'Microsoft NCSI';
+              }
+              location = /redirect { return 302 http://mcomz.local/; }
+
               location /api/ {
                   proxy_pass http://127.0.0.1:9000/api/;
               }

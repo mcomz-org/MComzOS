@@ -211,6 +211,9 @@ def ap_stop():
             capture_output=True, text=True, timeout=5
         )
         if "connected" in r.stdout.lower():
+            # Restart avahi so it re-announces mcomz.local on the rejoined interface.
+            subprocess.run(["systemctl", "restart", "avahi-daemon"],
+                           capture_output=True, timeout=10)
             return {"ok": True, "reconnected": True}
 
     return {
