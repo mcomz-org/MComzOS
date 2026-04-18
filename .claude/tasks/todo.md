@@ -15,7 +15,7 @@
 
 ## §1 — Sonnet-actionable now
 
-> All S-1 through S-6 shipped in pre-alpha.22 (2026-04-17) and confirmed by smoke test. See §2 for remaining hardware verification items.
+> S-1 through S-7 shipped in pre-alpha.22 (2026-04-17); S-1–S-6 confirmed by smoke test, S-7 confirmed only for library index (viewer page still half-themed — S-8 is the follow-up). See §2 for remaining hardware verification items.
 
 ### ~~S-2. MeshCore CORS probe fix~~ — COMPLETE
 
@@ -81,6 +81,268 @@ Coverage rule: tests must cover the new behaviour, not just pass because they do
 - `tests/html-check.py` — assert the FreeDATA section gates on `freedata_installed`.
 
 **Acceptance:** ARM64 hub no longer shows a dead Connect button; x86 hub (where the AppImage installs) is unchanged.
+
+### S-8. Kiwix viewer theme — round 2 (toolbar, cover thumb, icons) `[vibe]`
+
+**Status of S-7 (shipped in 680f36e, pre-alpha.22):** `body`, book tiles, search box, home page all went dark ✅. **But the viewer page (`/library/viewer#<slug>`) is only half-themed** — user screenshots on 2026-04-18 show:
+
+1. **Top toolbar still light.** DevTools confirms: `div#kiwixtoolbar.ui-widget-header` → background `#F4F6FB`, color `#EEDEE0` (near-white text on near-white bg — unreadable), font `10px -apple-system`, padding `5px`. Current `kiwix-overrides.css` lines 16–24 target `header`, `nav`, `#kiwix_serve_taskbar`, `.kiwixHeader` — **none of these match the viewer's jQuery-UI-themed toolbar**. The only selectors that would catch it are `#kiwixtoolbar` (id) or `.ui-widget-header` (jQuery UI class).
+2. **Book cover thumbnail renders as browser broken-image glyph** in the header card — the `<img>` the viewer tries to load is either 404ing (illustration endpoint mismatch) or hitting a CSP/CORS issue. Either hide it gracefully or serve a placeholder.
+3. **PDF/document icon next to the thumbnail is visibly artifacted / blurry / inverted-then-squashed.** Current CSS line 93–99 applies `filter: invert(1) brightness(1.2)` to `#kiwix_serve_taskbar img, header img, nav img, img.favicon` — on the viewer page that CSS scope is wrong, but the artefact shown is on a small sprite in the toolbar, almost certainly a jQuery UI `.ui-icon` sprite being stretched or an SVG getting hit by an unintended filter. Need to scope filters to **exactly** the raster icons kiwix ships, and handle `.ui-icon` sprite separately.
+4. **Background on the viewer is pure `#121212`.** Acceptable but the header "card" wrapping the cover + title is stark white; needs to be `var(--panel)` with `var(--text)`.
+
+The first three are blockers; (4) is the knock-on once (1) is fixed because the `.ui-widget-header` class also paints the header card.
+
+**Reference — verified from the screenshots, not guessed:**
+
+- Top bar element: `<div id="kiwixtoolbar" class="ui-widget-header">` — jQuery UI theme. Kiwix ships jQuery UI's stock stylesheet; `.ui-widget-header` has a very high specificity background-image gradient that our plain `background:` loses to without `!important` on the right selector. Our current CSS has `!important` but on the wrong selectors.
+- The book header card immediately below the toolbar also uses jQuery UI `.ui-widget-content` in at least some kiwix-tools versions. Target both.
+- The small icon that's mangled lives inside the toolbar — kiwix-tools uses jQuery UI `.ui-icon` sprite (single PNG, `background-position` shifted per icon). Inverting the whole sprite with `filter:` is fine in principle but our current filter rule doesn't match `.ui-icon` (it matches `img` only), so the artefact is something else — probably a `<svg>` or inline `<img src="data:...">` inheriting a wrong size. **Do not guess** — on a running Pi, run `curl -s https://mcomz.local/library/viewer\#mcomz-scriptures/berean-standard-bible.html | sed -n '1,120p'` and read the actual toolbar markup before writing the selector list. If SSH is blocked (see B-8), use `gh run view` logs or `docker run --rm -it kiwix/kiwix-tools kiwix-serve ...` locally to inspect the same HTML offline.
+
+**Edits:**
+
+1. **`src/theme/kiwix-overrides.css` — add jQuery UI coverage.** Append a new block before the existing "Monochromatic icons" rule:
+
+   ```css
+   /* jQuery UI — kiwix viewer toolbar uses these classes */
+   #kiwixtoolbar,
+   .ui-widget-header {
+       background: var(--panel) !important;
+       background-image: none !important;   /* kill jQuery UI gradient */
+       border: none !important;
+       border-bottom: 1px solid #333 !important;
+       color: var(--text) !important;
+       font-family: var(--font-sans) !important;
+       font-size: 0.9rem !important;
+       padding: 8px 12px !important;
+   }
+   #kiwixtoolbar a,
+   .ui-widget-header a { color: var(--blue) !important; }
+   #kiwixtoolbar label,
+   .ui-widget-header label { color: var(--text) !important; }
+
+   .ui-widget,
+   .ui-widget-content {
+       background: var(--panel) !important;
+       background-image: none !important;
+       color: var(--text) !important;
+       border-color: #333 !important;
+   }
+
+   /* jQuery UI buttons inside the toolbar (home, random, fullscreen) */
+   .ui-button,
+   .ui-state-default,
+   .ui-widget-content .ui-state-default,
+   .ui-widget-header .ui-state-default {
+       background: #222 !important;
+       background-image: none !important;
+       border: 1px solid #444 !important;
+       color: var(--text) !important;
+   }
+   .ui-button:hover,
+   .ui-state-hover,
+   .ui-widget-content .ui-state-hover,
+   .ui-widget-header .ui-state-hover {
+       background: #2a2a2a !important;
+       border-color: #666 !important;
+       color: var(--text) !important;
+   }
+
+   /* jQuery UI icon sprite — invert the whole sprite, NOT the whole <img> */
+   .ui-icon {
+       filter: invert(1) brightness(1.1) !important;
+   }
+   ```
+
+2. **`src/theme/kiwix-overrides.css` — tighten the raster-icon filter.** Replace lines 93–99 (the `img` filter block) with a scoped version that explicitly lists what to invert and excludes book-cover thumbnails:
+
+   ```css
+   /* Monochromatic icons in kiwix chrome — scope narrowly, never hit covers */
+   #kiwixtoolbar > img,
+   #kiwixtoolbar button img,
+   .kiwix-header img.icon,
+   img.favicon,
+   img[src$=".svg"][src*="skin/"] {
+       filter: invert(1) brightness(1.2) !important;
+   }
+   /* Explicitly DO NOT filter book-cover illustrations */
+   img[src*="/catalog/v2/illustration/"],
+   img.book-cover,
+   .book-cover img { filter: none !important; }
+   ```
+
+3. **`src/theme/kiwix-overrides.css` — handle the broken cover thumbnail.** The viewer's book header img is loaded from `/library/catalog/v2/illustration/<uuid>?size=48` (or similar). If the registered ZIM has no illustration in its header, the endpoint returns 404 and the browser shows its generic broken-image glyph. Fix:
+
+   ```css
+   /* Hide broken illustration icons instead of showing the browser glyph */
+   img[src*="/catalog/v2/illustration/"] {
+       background: var(--panel);
+       min-width: 48px;
+       min-height: 48px;
+       color: transparent;              /* hide alt text */
+   }
+   img[src*="/catalog/v2/illustration/"]:not([src$=".png"]):not([src$=".jpg"]) {
+       visibility: hidden;              /* last-resort hide if image errors */
+   }
+   ```
+
+   Better fix (do this AS WELL) — in `site.yml:1041` change kiwix-serve's launch to pass `--blockExternalLinks --customIndex /var/mcomz/kiwix-index.html` only if a placeholder illustration approach is needed. **Skip this sub-step for now** — CSS hiding is enough. Note as follow-up.
+
+4. **`src/theme/kiwix-overrides.css` — the book-header "card" on viewer pages.** Viewer wraps the book meta in a `<div class="ui-widget-content">` that goes white under stock jQuery UI. Already covered by the `.ui-widget-content` rule in step 1 — confirm by flashing and reopening `/library/viewer#mcomz-scriptures/berean-standard-bible.html`. If the card still renders white, inspect it in DevTools and add the specific selector.
+
+5. **`tests/smoke-test.py` — verify the new selectors are present.** In the existing theme block (added by S-7), add a check that `kiwix-overrides.css` served over HTTPS contains the strings `#kiwixtoolbar`, `.ui-widget-header`, `.ui-icon`, and `/catalog/v2/illustration/`:
+
+   ```python
+   r = http_get("/theme/kiwix-overrides.css")
+   body = r.read().decode()
+   for sel in ("#kiwixtoolbar", ".ui-widget-header", ".ui-icon",
+               "/catalog/v2/illustration/"):
+       assert sel in body, f"kiwix-overrides.css missing required selector: {sel}"
+   ```
+
+   Also: fetch `/library/viewer` (no fragment — the server returns the shell HTML) and assert the response body contains both the injected `<link rel="stylesheet" href="/theme/kiwix-overrides.css">` **and** the string `ui-widget-header` (proves the class we're targeting is really there — regression guard against a kiwix-tools upgrade that renames classes).
+
+6. **`tests/html-check.py` — static checks on the CSS file itself.** Assert `kiwix-overrides.css`:
+   - contains `.ui-widget-header` rule (one of the four new required selectors)
+   - contains a `filter: none` rule scoped to `/catalog/v2/illustration/` (regression guard against the "mangled cover" bug returning if someone re-adds a broad `img { filter: invert() }`)
+   - does NOT contain an unscoped `img { filter: invert` rule
+
+7. **`tests/MANUAL-TESTS.md` — extend section 12 (Kiwix dark-mode) with viewer-specific steps:**
+   - Open `https://mcomz.local/library/viewer#mcomz-scriptures/berean-standard-bible.html`
+   - Top toolbar is dark (`#1e1e1e` panel), text legible against it
+   - No broken-image glyph anywhere in the toolbar or book header
+   - Any small icons in the toolbar are crisp (not artifacted, not squashed, not blurry)
+   - Home / random / fullscreen jQuery UI buttons render as dark pills with hover feedback
+   - Click home icon → returns to `/library/` book list (still dark)
+
+**Acceptance:**
+
+- `#kiwixtoolbar.ui-widget-header` has `background-color: rgb(30, 30, 30)` in computed styles (DevTools) — confirms `var(--panel)` won, jQuery UI's default gradient was overridden
+- No broken-image glyph visible on any viewer page for any of the 3 shipped MComz ZIMs
+- All smoke-test and html-check additions green; MANUAL-TESTS section 12 updated
+
+**Non-goals:**
+
+- Do not rewrite jQuery UI entirely — we override the handful of classes kiwix actually uses, nothing else
+- Do not touch ZIM internal CSS (articles stay as-authored — Appropedia / WikiMed / Bible content)
+- Do not add a dark-mode toggle (post-alpha)
+
+**If Sonnet gets stuck:**
+- If `!important` rules still lose: the jQuery UI stylesheet is being injected *after* `</head>` (e.g. in the body via JS). Fix: move the `sub_filter` to inject on `</body>` instead, so our stylesheet is last in cascade. Or add `<link>` twice (before `</head>` and before `</body>`).
+- If the cover still shows broken: curl the illustration URL directly (`curl -I https://mcomz.local/library/catalog/v2/illustration/<uuid>?size=48`) — a 404 means the ZIM lacks an illustration header (MComzLibrary pipeline bug, §4) and the CSS hide is the correct fix; a 200 with the wrong content-type means kiwix-serve is the problem, not us.
+- If `filter: invert()` still mangles an icon: inspect it in DevTools — if it's an `<img>` with a `data:image/svg+xml;base64,...` src, the filter is correct but the SVG's own stroke may be transparent-on-transparent. Switch that one icon to `opacity: 0.85; filter: none;` with a targeted selector.
+
+---
+
+### S-7. Unified dark theme for Kiwix viewer (and proxied apps) — SHIPPED in pre-alpha.22 (partial) `[vibe]`
+
+**Problem (user-reported, 2026-04-18):** Dashboard at `mcomz.local` is dark and modern. Click a ZIM → Kiwix's default chrome appears — light grey header, boxy buttons, 1995-era aesthetic (screenshot: Appropedia ZIM, grey bar with 🏠 / "Appropedia" / 🎲 / "Search 'Appropedia'"). Jarring transition. The iOS Kiwix app does this right: black background, monochromatic icons, rounded search that appears on pull-down. We want the same vibe in-browser, consistently across `/library/` and where possible across `/meshtastic/`, `/meshcore/`, `/mumble/`, `/vnc/`, `/pat/`.
+
+**Approach:** Inject a custom stylesheet into every HTML response served under `/library/` via nginx `sub_filter`. kiwix-serve has no `--customResources` equivalent — CSS injection at the proxy is the only non-fork lever. Same pattern applies (where proxied) to other app chrome.
+
+**Design tokens — lift from `src/dashboard/index.html:8-18`:**
+
+```
+--bg: #121212;   --panel: #1e1e1e;   --text: #e0e0e0;   --muted: #888;
+--green: #00e676; --blue: #29b6f6; --orange: #ff9800; --red: #ef5350;
+font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif
+radius: 4-8px   button-radius: 4px   card-radius: 8px
+```
+
+These must be centralised — any future dashboard tweak should cascade. Extract them into a single file served by nginx: `src/theme/mcomz-theme.css` (new). Both the dashboard and the injected overrides import it via `@import url("/theme/mcomz-theme.css")` so the shared tokens live in one place. Dashboard `<style>` block stays but consumes the tokens via `:root` fallback defined there today.
+
+**Gotcha — nginx module availability:** `sub_filter` lives in `ngx_http_sub_module`, which is NOT in Debian 12's `nginx-core` (what the `nginx` metapackage installs today, `site.yml:1336-1339`). First step before anything else: switch the apt package to `nginx-light` (smallest variant that ships sub_filter). Confirm on the Pi: `nginx -V 2>&1 | tr ' ' '\n' | grep -i sub`.
+
+**Gotcha — gzipped upstream:** kiwix-serve sends `Content-Encoding: gzip` when the client accepts gzip. nginx `sub_filter` only rewrites uncompressed bodies. Fix: `proxy_set_header Accept-Encoding "";` on the `/library/` location so the upstream returns plaintext.
+
+**Gotcha — content-type filtering:** default `sub_filter_types` is just `text/html`. Kiwix also serves XHTML in some ZIMs as `application/xhtml+xml`. Add: `sub_filter_types text/html application/xhtml+xml;`. Use `sub_filter_once off;` so the pattern matches on every page.
+
+**Gotcha — ZIM-internal CSS:** the iframe content inside `/library/viewer` (the actual Appropedia/WikiMed pages) is HTML from inside the ZIM and carries its own stylesheet. We cannot force every ZIM page to be dark — only the *kiwix-serve chrome* (book index, search results, viewer toolbar, welcome page). That is what matters and what the user complained about. Scope explicitly excludes rewriting in-ZIM article styles. A forced-dark filter toggle can be added later under §5.
+
+**Edits:**
+
+1. **`site.yml:1336-1339`** — change package from `nginx` to `nginx-light`. Keep `state: present`. Add a post-install assert task: `command: nginx -V` with `register:` + a `fail:` if the output doesn't contain `http_sub_module`.
+
+2. **New file: `src/theme/mcomz-theme.css`** — design-token CSS variables plus a small reset. Export `:root { --bg, --panel, --text, --muted, --green, --blue, --orange, --red, --pink; --radius-card: 8px; --radius-btn: 4px; --font-sans: -apple-system, ... }`. No component styles here — just the tokens.
+
+3. **New file: `src/theme/kiwix-overrides.css`** — targeted overrides for kiwix-serve's chrome. Inspect kiwix-tools's HTML first with `curl -s http://mcomz.local/library/ | less` and `curl -s http://mcomz.local/library/viewer` to capture the actual class names and IDs (they are stable across kiwix-tools 3.x). Typical targets: `body`, `.kiwixHomePage`, `#kiwix_serve_taskbar`, `.kiwix-header`, `input[type=search]`, book tile cards, pagination. Styles to apply:
+   - `body { background: var(--bg); color: var(--text); font-family: var(--font-sans); }`
+   - Replace grey top bar with `background: var(--panel); border-bottom: 1px solid #333;`
+   - Search box: `background: #222; border: 1px solid #444; color: var(--text); border-radius: 999px; padding: 8px 14px;` — rounded pill like the iOS app
+   - Icons: `filter: invert(1) brightness(1.2);` on any raster icons kiwix ships, or swap for inline SVGs using `currentColor` if kiwix exposes a hook
+   - Book tiles: `background: var(--panel); border-radius: var(--radius-card); border: none;` on hover `background: #252525`
+   - Links: `color: var(--blue)`; visited: `color: #b39ddb`
+   - First line of the file must be `@import url("/theme/mcomz-theme.css");` so tokens are shared
+
+4. **`site.yml` — new task block before the dashboard copy (`site.yml:1341`):**
+   ```yaml
+   - name: Deploy MComz theme CSS (shared tokens + app overrides)
+     copy:
+       src: "./src/theme/"
+       dest: /var/www/html/theme/
+       mode: '0644'
+   ```
+   Exposes `/theme/mcomz-theme.css` and `/theme/kiwix-overrides.css` as static assets served by the existing `location /` block (the `try_files` fallthrough already catches them).
+
+5. **`site.yml` nginx config — modify the `/library/` location (`site.yml:1622-1624`):**
+   ```nginx
+   location /library/ {
+       proxy_pass http://127.0.0.1:8888/library/;
+       proxy_set_header Accept-Encoding "";
+       sub_filter_once off;
+       sub_filter_types text/html application/xhtml+xml;
+       sub_filter '</head>' '<link rel="stylesheet" href="/theme/kiwix-overrides.css"></head>';
+   }
+   ```
+   Do the same for `/library/test/success.html` at `site.yml:1536-1538` (captive-portal dummy block) only if it serves HTML — otherwise skip.
+
+6. **`src/dashboard/index.html:7`** — replace the inline `:root { --bg: ... }` block with `@import url("/theme/mcomz-theme.css");` at the top of the `<style>` block. Keep all other dashboard CSS inline (component styles specific to the dashboard stay where they are). This proves the token file is wired in and will catch breakage via html-check.
+
+7. **Stretch — proxied apps (same pattern, optional within this S-7 scope):**
+   - `/meshtastic/` at `site.yml:1641-1643` — inspect first; if the Meshtastic web UI ships its own dark theme already, skip
+   - `/meshcore/` at `site.yml:1646-1648` — same, inspect first; pyMC_Repeater's UI is known light-grey
+   - `/pat/` (inside the separate `:8081` server block — search for `pat` in site.yml) — Pat's inbox UI is light; worth overriding
+   - `/mumble/` — we own the static files at `/usr/local/lib/node_modules/mumble-web/dist/`. A post-install sed/patch task to inject our stylesheet link into its `index.html` is simpler than sub_filter since it's nginx `alias`, not `proxy_pass`
+   - `/vnc/` — noVNC at `/usr/share/novnc/vnc.html`. Same approach — post-install patch
+
+   For each stretch target: create `src/theme/<app>-overrides.css`, deploy alongside the others, wire up. Do NOT attempt all five in one shot — Kiwix is the priority, everything else is follow-on.
+
+**Tests (coverage rule — mandatory):**
+
+- **`tests/smoke-test.py`** — add checks:
+  - `GET /theme/mcomz-theme.css` → 200, content-type `text/css`, body contains `--bg:` and `#121212`
+  - `GET /theme/kiwix-overrides.css` → 200, body contains `@import url("/theme/mcomz-theme.css")`
+  - `GET /library/` body contains `<link rel="stylesheet" href="/theme/kiwix-overrides.css">` (proves sub_filter fired)
+  - `GET /library/viewer#<slug>` for a known slug — same assertion
+  - HEAD `/library/` has no `Content-Encoding: gzip` (proves the Accept-Encoding strip worked)
+
+- **`tests/html-check.py`** — add assertions:
+  - `index.html` `<style>` block starts with `@import url("/theme/mcomz-theme.css");`
+  - The inline `:root { --bg: ...; }` block has been removed (it now lives in the imported file)
+  - New per-file static check: `src/theme/mcomz-theme.css` parses as syntactically valid CSS (basic `{` / `}` balance + `:root` present) and exports at least `--bg`, `--panel`, `--text`, `--blue`
+  - `src/theme/kiwix-overrides.css` imports the token file as its first statement
+
+- **`tests/MANUAL-TESTS.md`** — add a new section **"Theme — Kiwix viewer"**:
+  - Open `https://mcomz.local/` → dashboard is dark (unchanged from pre-alpha.22 baseline)
+  - Click any ZIM in the library list → Kiwix index page loads with: dark `#121212` background, rounded pill search bar, no grey header bar
+  - Click a book tile → viewer chrome is dark; in-article ZIM content may be light (documented limitation, not a regression)
+  - On iOS Safari dark mode: verify no flash of light content on load (FOUC)
+  - Resize browser narrow → responsive; search bar doesn't overflow
+
+**Acceptance:**
+
+- `/library/` and `/library/viewer*` pages render with the dashboard's palette — no grey 1995 header
+- Book tiles and search bar match the dashboard's card/input style
+- Dashboard itself still renders identically to pre-alpha.22 (the `@import` refactor is a no-op visually)
+- All three smoke-test additions pass; html-check covers the new files; MANUAL-TESTS entry added
+
+**Non-goals for this ticket (explicit):**
+
+- Do not try to style ZIM article bodies (Appropedia's own CSS, WikiMed's own CSS) — out of scope, ZIM-internal
+- Do not add a dark-mode *toggle* — post-alpha feature (§5 candidate)
+- Do not touch the kiwix-tools binary, kiwix-desktop, or fork anything upstream
+
+**If Sonnet gets stuck:** the three most likely failure modes are (a) sub_filter never fires because `nginx-core` is still installed — check `nginx -V`; (b) response is gzipped — check `curl -I -H "Accept-Encoding: gzip" http://localhost/library/` returns no `Content-Encoding` header; (c) the selector names in kiwix-overrides.css don't match the actual kiwix-serve HTML — always inspect live output before writing the override file.
 
 ---
 

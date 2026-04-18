@@ -129,7 +129,12 @@ Record pass/fail and notes against the release version in `.claude/feedback/hard
 - [ ] **Kiwix index dark** — click any ZIM in the library panel → `http://mcomz.local/library/` shows: dark `#121212` background, dark book tiles, no grey 1995-era header bar
 - [ ] **Search bar style** — search input inside Kiwix is a rounded pill (border-radius ~999px), not a square box; placeholder text is grey
 - [ ] **Home/random icons** — toolbar icons are white/light (inverted), not dark-on-grey
-- [ ] **Viewer chrome dark** — open a book → the Kiwix viewer chrome (toolbar at top) is dark; article body inside may be light (ZIM's own CSS — documented limitation, not a regression)
+- [ ] **Viewer chrome dark** — open `https://mcomz.local/library/viewer#mcomz-scriptures/berean-standard-bible.html`; top toolbar is dark (no light grey `#F4F6FB` bar), text is legible
+- [ ] **Viewer toolbar colour** — DevTools computed style on `#kiwixtoolbar.ui-widget-header` shows `background-color: rgb(30, 30, 30)` — confirms `var(--panel)` won over jQuery UI gradient
+- [ ] **No broken-image glyph** — no browser broken-image icon in the toolbar or book header for any of the 3 shipped MComz ZIMs
+- [ ] **Icons crisp** — small icons in the viewer toolbar are crisp (not artifacted, not squashed, not blurry); jQuery UI sprite appears as light/white icons on dark background
+- [ ] **jQuery UI buttons** — Home / random / fullscreen buttons render as dark pills; hover feedback visible (slightly lighter on hover)
+- [ ] **Home button works** — click home icon in viewer → returns to `/library/` book list (still dark)
 - [ ] **iOS Safari dark mode** — open `http://mcomz.local/library/` on iPhone; no flash of grey/white on load; background is dark
 - [ ] **Responsive** — resize browser narrow → search bar doesn't overflow header
 

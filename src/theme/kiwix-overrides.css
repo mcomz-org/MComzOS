@@ -23,6 +23,55 @@ nav {
     box-shadow: none !important;
 }
 
+/* jQuery UI — kiwix viewer toolbar uses these classes */
+#kiwixtoolbar,
+.ui-widget-header {
+    background: var(--panel) !important;
+    background-image: none !important;
+    border: none !important;
+    border-bottom: 1px solid #333 !important;
+    color: var(--text) !important;
+    font-family: var(--font-sans) !important;
+    font-size: 0.9rem !important;
+    padding: 8px 12px !important;
+}
+#kiwixtoolbar a,
+.ui-widget-header a { color: var(--blue) !important; }
+#kiwixtoolbar label,
+.ui-widget-header label { color: var(--text) !important; }
+
+.ui-widget,
+.ui-widget-content {
+    background: var(--panel) !important;
+    background-image: none !important;
+    color: var(--text) !important;
+    border-color: #333 !important;
+}
+
+/* jQuery UI buttons inside the toolbar (home, random, fullscreen) */
+.ui-button,
+.ui-state-default,
+.ui-widget-content .ui-state-default,
+.ui-widget-header .ui-state-default {
+    background: #222 !important;
+    background-image: none !important;
+    border: 1px solid #444 !important;
+    color: var(--text) !important;
+}
+.ui-button:hover,
+.ui-state-hover,
+.ui-widget-content .ui-state-hover,
+.ui-widget-header .ui-state-hover {
+    background: #2a2a2a !important;
+    border-color: #666 !important;
+    color: var(--text) !important;
+}
+
+/* jQuery UI icon sprite — invert the whole sprite */
+.ui-icon {
+    filter: invert(1) brightness(1.1) !important;
+}
+
 /* Links */
 a             { color: var(--blue) !important; }
 a:visited     { color: #b39ddb !important; }
@@ -90,12 +139,29 @@ article:hover {
     background: #252525 !important;
 }
 
-/* Monochromatic icons shipped by kiwix-serve (home, random, etc.) */
+/* Monochromatic icons in kiwix chrome — scope narrowly, never hit covers */
+#kiwixtoolbar > img,
+#kiwixtoolbar button img,
 #kiwix_serve_taskbar img,
 header img,
 nav img,
-img.favicon {
+.kiwix-header img.icon,
+img.favicon,
+img[src$=".svg"][src*="skin/"] {
     filter: invert(1) brightness(1.2) !important;
+}
+
+/* Explicitly DO NOT filter book-cover illustrations */
+img[src*="/catalog/v2/illustration/"],
+img.book-cover,
+.book-cover img { filter: none !important; }
+
+/* Hide broken illustration icons instead of showing the browser glyph */
+img[src*="/catalog/v2/illustration/"] {
+    background: var(--panel);
+    min-width: 48px;
+    min-height: 48px;
+    color: transparent;
 }
 
 /* Tables */

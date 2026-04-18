@@ -307,6 +307,15 @@ if kiwix_css.exists():
     check("kiwix-overrides.css has balanced braces",
           kiwix_src.count("{") == kiwix_src.count("}"),
           f"{{ count={kiwix_src.count('{')} }} count={kiwix_src.count('}')}")
+    check("kiwix-overrides.css contains .ui-widget-header rule (S-8 jQuery UI coverage)",
+          ".ui-widget-header" in kiwix_src,
+          "missing — S-8 toolbar fix not present")
+    check("kiwix-overrides.css contains filter:none rule for /catalog/v2/illustration/ (S-8 cover guard)",
+          "/catalog/v2/illustration/" in kiwix_src and "filter: none" in kiwix_src,
+          "missing — cover illustration anti-invert guard not present")
+    check("kiwix-overrides.css does NOT have unscoped 'img { filter: invert' rule",
+          not re.search(r"^\s*img\s*\{[^}]*filter\s*:\s*invert", kiwix_src, re.MULTILINE),
+          "unscoped img filter would mangle book covers — scope the filter narrowly")
 else:
     check("kiwix-overrides.css exists at src/theme/kiwix-overrides.css", False,
           f"not found at {kiwix_css}")

@@ -298,6 +298,11 @@ if code_ko == 200:
     check('kiwix-overrides.css imports mcomz-theme.css',
           b'@import url("/theme/mcomz-theme.css")' in body_ko,
           "first line must be @import — token sharing is broken without it")
+    for sel in (b"#kiwixtoolbar", b".ui-widget-header", b".ui-icon",
+                b"/catalog/v2/illustration/"):
+        check(f"kiwix-overrides.css contains required selector {sel.decode()!r}",
+              sel in body_ko,
+              f"selector missing — S-8 jQuery UI coverage not deployed")
 
 # Verify sub_filter fired: /library/ HTML must contain the injected link tag.
 # Only checked if kiwix-serve is already confirmed up (code from earlier fetch).
@@ -307,6 +312,9 @@ if code_lib == 200:
           b"/theme/kiwix-overrides.css" in body_lib,
           "link tag not found — sub_filter may not be active (nginx-core lacks sub_module; "
           "check nginx -V for http_sub_module); or kiwix response is still gzip-encoded")
+    check("/library/ HTML contains ui-widget-header class (kiwix toolbar class present)",
+          b"ui-widget-header" in body_lib or b"kiwixtoolbar" in body_lib,
+          "neither ui-widget-header nor kiwixtoolbar found — kiwix-tools may have changed its markup")
 
 # ---------------------------------------------------------------------------
 # Section 5 — Licensed Radio
