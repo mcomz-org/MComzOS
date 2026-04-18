@@ -154,6 +154,59 @@ Running `html-check.py` and `smoke-test.py` after a change and seeing them pass 
 
 ---
 
+## Build Logs
+
+CI uploads the full Ansible stdout for every build as a GitHub Actions artifact. Download the latest with:
+
+```bash
+# Find the most recent build run ID
+gh run list --limit 3
+
+# Download RPi log
+gh run download <run-id> --name ansible-build-log-rpi
+
+# Download x86 log
+gh run download <run-id> --name ansible-build-log-x86
+```
+
+After reviewing a build log, update `.claude/build-log-insights.md` with any recurring warnings, persistent failures, or patterns that may affect future development. Keep entries concise and dated.
+
+---
+
+## Diagnostics Mode
+
+When `diagnostics_mode=true` is set in the Ansible extra-vars (currently enabled for all builds), the image includes:
+
+- SSH enabled with password `mcomzdiag` for user `mcomz`
+- Diagnostics SSH key at `.claude/diagnostics/mcomzos_diag` (gitignored private key, public key in `src/diagnostics/authorized_keys`)
+- Flag file `/etc/mcomzos-diagnostics` — the dashboard reads this to show a dismissable risk-warning splash
+- `GET /api/status` returns `"diagnostics_mode": true`
+
+**To SSH in:**
+```bash
+ssh -i .claude/diagnostics/mcomzos_diag mcomz@mcomz.local
+# or with password:
+ssh mcomz@mcomz.local   # password: mcomzdiag
+```
+
+**API control over HTTP (no auth):**
+```bash
+curl http://mcomz.local/api/status          # service status + diagnostics flag
+curl http://mcomz.local/api/version         # firmware version
+curl -X POST http://mcomz.local/api/system/reboot    # reboot
+curl -X POST http://mcomz.local/api/system/poweroff  # shutdown
+```
+
+**To disable on a running device:**
+```bash
+ssh -i .claude/diagnostics/mcomzos_diag mcomz@mcomz.local \
+  "sudo rm /etc/mcomzos-diagnostics && sudo reboot"
+```
+
+**To disable in a build:** remove `diagnostics_mode=true` from the `--extra-vars` line in `.github/workflows/build-image.yml`.
+
+---
+
 ## Critical Rules
 
 1. **All releases: `prerelease: true`** in both `softprops/action-gh-release` steps in `build-image.yml`

@@ -190,6 +190,14 @@ if status:
             check(f"  {standby} is standby (not active)", s != "active",
                   f"unexpectedly active" if s == "active" else s)
 
+    check("diagnostics_mode field present in status response",
+          "diagnostics_mode" in status,
+          "missing — status.py must return diagnostics_mode bool")
+    if "diagnostics_mode" in status:
+        check("diagnostics_mode is a boolean",
+              isinstance(status["diagnostics_mode"], bool),
+              f"got {type(status['diagnostics_mode']).__name__}")
+
 # ---------------------------------------------------------------------------
 # Section 3 — Kiwix / Offline Library
 # ---------------------------------------------------------------------------

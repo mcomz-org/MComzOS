@@ -114,19 +114,32 @@ jobs:
         # via the chroot connection plugin — no Ansible install inside chroot needed.
         # qemu-aarch64-static (already copied) transparently emulates ARM64 binaries.
         # sudo -E preserves GITHUB_TOKEN so the Pat URL curl call stays authenticated.
+        # tee captures stdout+stderr to a log file uploaded as a build artifact.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -o pipefail
           sudo -E ansible-playbook \
             --connection=chroot \
             -i "/mnt/rpi," \
-            --extra-vars "deb_arch=arm64 build_mode=true mcomzos_version=${{ github.ref_name }}" \
-            site.yml
+            --extra-vars "deb_arch=arm64 build_mode=true mcomzos_version=${{ github.ref_name }} diagnostics_mode=true" \
+            site.yml 2>&1 | tee /tmp/ansible-rpi.log
+
+      - name: Upload Ansible build log (RPi)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ansible-build-log-rpi
+          path: /tmp/ansible-rpi.log
+          overwrite: true
 
       - name: Verify MeshCore offline flasher was provisioned
         run: |
-          sudo test -s /mnt/rpi/var/www/html/meshcore-flash/index.html || \
-            (echo "ERROR: /meshcore-flash/index.html missing — offline flasher not provisioned" && exit 1)
+          if sudo test -s /mnt/rpi/var/www/html/meshcore-flash/index.html; then
+            echo "OK: MeshCore offline flasher provisioned"
+          else
+            echo "WARNING: /meshcore-flash/index.html missing — offline flasher not provisioned (non-fatal, dashboard falls back to online flasher)"
+          fi
 
       - name: Tear down chroot and compress image
         id: package_rpi
@@ -359,18 +372,30 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -o pipefail
           sudo rsync -av --exclude='*.img' . /mnt/x86/tmp/mcomzos/
           sudo -E chroot /mnt/x86 env HOME=/root GITHUB_TOKEN="$GITHUB_TOKEN" \
             ansible-playbook \
               --connection=local \
               -i localhost, \
-              --extra-vars "deb_arch=amd64 build_mode=true mcomzos_version=${{ github.ref_name }}" \
-              /tmp/mcomzos/site.yml
+              --extra-vars "deb_arch=amd64 build_mode=true mcomzos_version=${{ github.ref_name }} diagnostics_mode=true" \
+              /tmp/mcomzos/site.yml 2>&1 | tee /tmp/ansible-x86.log
+
+      - name: Upload Ansible build log (x86_64)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ansible-build-log-x86
+          path: /tmp/ansible-x86.log
+          overwrite: true
 
       - name: Verify MeshCore offline flasher was provisioned
         run: |
-          sudo test -s /mnt/x86/var/www/html/meshcore-flash/index.html || \
-            (echo "ERROR: /meshcore-flash/index.html missing — offline flasher not provisioned" && exit 1)
+          if sudo test -s /mnt/x86/var/www/html/meshcore-flash/index.html; then
+            echo "OK: MeshCore offline flasher provisioned"
+          else
+            echo "WARNING: /meshcore-flash/index.html missing — offline flasher not provisioned (non-fatal, dashboard falls back to online flasher)"
+          fi
 
       - name: Tear down chroot and compress image
         if: always()

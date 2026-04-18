@@ -1426,39 +1426,85 @@
             group: www-data
             recurse: yes
 
-        - name: Resolve MeshCore latest Heltec firmware URLs
+        - name: Resolve MeshCore companion and repeater firmware URLs for UK top-15 devices
+          # Fetches from both companion-vX.Y.Z and repeater-vX.Y.Z releases (not the
+          # ambiguous /releases/latest which may point to a room-server release).
+          # Device list: UK top 15 by popularity + guaranteed Heltec V4 inclusion.
+          # RAK_4631 and RAK_WisMesh_Tag have repeater firmware only (no companion).
           shell: |
-            curl -sf ${GITHUB_TOKEN:+-H "Authorization: Bearer $GITHUB_TOKEN"} \
-              "https://api.github.com/repos/meshcore-dev/MeshCore/releases/latest" \
-              | python3 -c "
-            import sys, json
-            data = json.load(sys.stdin)
-            urls = [a['browser_download_url'] for a in data.get('assets', [])
-                    if 'heltec' in a['name'].lower()]
+            python3 << 'PYEOF'
+            import json, os, urllib.request
+
+            token = os.environ.get('GITHUB_TOKEN', '')
+            headers = {'User-Agent': 'MComzOS/1.0'}
+            if token:
+                headers['Authorization'] = f'Bearer {token}'
+
+            PREFIXES = [
+                'Heltec_v3_',                    # 1. Heltec V3 — most popular beginner
+                'heltec_v4_',                    # 2. Heltec V4 — guaranteed inclusion
+                'LilyGo_TDeck_',                 # 3. LilyGo T-Deck — best standalone
+                'LilyGo_T-Echo_',                # 4. LilyGo T-Echo — e-ink, great battery
+                'Tbeam_SX1262_',                 # 5. T-Beam SX1262 — popular GPS node
+                't1000e_',                       # 6. SenseCAP T1000-E — compact tracker
+                'Heltec_t114_',                  # 7. Heltec T114 — low-power nRF52
+                'RAK_4631_',                     # 8. RAK WisBlock 4631 — best repeater
+                'Heltec_Wireless_Paper_',        # 9. Heltec Wireless Paper — cheap e-ink
+                'T_Beam_S3_Supreme_SX1262_',    # 10. T-Beam S3 Supreme
+                'LilyGo_T-Echo-Lite_',          # 11. T-Echo Lite — budget T-Echo
+                'WioTrackerL1_',                # 12. Seeed Wio Tracker L1 — rugged
+                'RAK_WisMesh_Tag_',             # 13. RAK WisMesh Tag — tiny tracker
+                'Heltec_WSL3_',                 # 14. Heltec WSL3 — popular dev board
+                'LilyGo_TBeam_1W_',            # 15. T-Beam 1W — high-power variant
+            ]
+
+            def gh_get(url):
+                req = urllib.request.Request(url, headers=headers)
+                with urllib.request.urlopen(req, timeout=30) as r:
+                    return json.load(r)
+
+            releases = gh_get('https://api.github.com/repos/meshcore-dev/MeshCore/releases?per_page=20')
+            urls = []
+            for fw_type in ('companion', 'repeater'):
+                release = next(
+                    (r for r in releases if r['tag_name'].startswith(fw_type + '-')), None
+                )
+                if not release:
+                    continue
+                for asset in release['assets']:
+                    if any(asset['name'].startswith(p) for p in PREFIXES):
+                        urls.append(asset['browser_download_url'])
+
             print('\n'.join(urls))
-            "
+            PYEOF
           register: meshcore_fw_urls
           changed_when: false
           failed_when: meshcore_fw_urls.rc != 0
           environment:
             GITHUB_TOKEN: "{{ lookup('env', 'GITHUB_TOKEN') }}"
 
-        - name: Download Heltec V3/V4 MeshCore firmware binaries
+        - name: Download MeshCore companion and repeater firmware for supported UK devices
           get_url:
             url: "{{ item }}"
             dest: "/var/www/html/meshcore-flash/firmware/{{ item | basename }}"
             owner: www-data
             mode: '0644'
+            timeout: 120
           loop: "{{ meshcore_fw_urls.stdout_lines | select('match', '.+') | list }}"
           when: meshcore_fw_urls.stdout_lines | length > 0
+          register: fw_download
+          until: fw_download is not failed
+          retries: 3
+          delay: 5
 
       rescue:
-        - name: Abort build — MeshCore offline flasher provisioning failed
-          fail:
+        - name: Warn — MeshCore offline flasher provisioning failed (non-fatal)
+          debug:
             msg: >
-              MeshCore offline flasher could not be provisioned after 3 attempts
-              (GitHub unavailable or clone failed). Build aborted to avoid shipping
-              a broken image with a dead /meshcore-flash/ endpoint.
+              WARNING: MeshCore offline flasher could not be provisioned
+              (GitHub unavailable, clone failed, or patch error).
+              The image will ship without /meshcore-flash/; the dashboard
+              falls back to flasher.meshcore.co.uk when offline flasher is absent.
               Check GitHub rate limits and network connectivity from the CI runner.
       when: not (minimal_build | default(false))
 
@@ -1691,6 +1737,51 @@
                   proxy_set_header Host $host;
               }
           }
+
+    # PHASE N: DIAGNOSTICS MODE
+    # ---------------------------------------------------------
+    # Bakes developer access into the image: known SSH key + password,
+    # password auth enabled, and a flag file the dashboard reads to
+    # show a dismissable risk-warning splash screen.
+    # NEVER ship a production build with diagnostics_mode=true.
+    # ---------------------------------------------------------
+    - name: Configure diagnostics mode
+      when: diagnostics_mode | default(false) | bool
+      block:
+        - name: Install openssh-server (diagnostics mode)
+          apt:
+            name: openssh-server
+            state: present
+
+        - name: Create diagnostics flag file
+          copy:
+            dest: /etc/mcomzos-diagnostics
+            content: |
+              diagnostics_mode=true
+            mode: '0644'
+
+        - name: Enable SSH password authentication (diagnostics mode)
+          lineinfile:
+            path: /etc/ssh/sshd_config
+            regexp: '^#?PasswordAuthentication'
+            line: 'PasswordAuthentication yes'
+
+        - name: Set diagnostics SSH authorized key for mcomz user
+          authorized_key:
+            user: "{{ mcomz_user }}"
+            state: present
+            key: "{{ lookup('file', 'src/diagnostics/authorized_keys') }}"
+
+        - name: Set known diagnostics password for mcomz user
+          shell: "echo '{{ mcomz_user }}:mcomzdiag' | chpasswd"
+          no_log: true
+
+        - name: Enable sshd at boot (diagnostics mode — chroot-safe symlink)
+          file:
+            src: /lib/systemd/system/ssh.service
+            dest: /etc/systemd/system/multi-user.target.wants/ssh.service
+            state: link
+            force: yes
 
     - name: Write MComzOS version file
       copy:

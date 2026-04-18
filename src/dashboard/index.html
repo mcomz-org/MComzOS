@@ -164,6 +164,23 @@
             padding: 3px 8px; border-radius: 3px; cursor: pointer; font-size: 0.75rem;
         }
         .small-btn:hover { border-color: #888; color: var(--text); }
+
+        /* Diagnostics mode overlay */
+        #diag-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.88); z-index: 300;
+            align-items: center; justify-content: center; padding: 20px;
+        }
+        #diag-panel {
+            background: #1a1a1a; border: 2px solid var(--orange);
+            border-radius: 10px; max-width: 520px; width: 100%; padding: 28px;
+        }
+        #diag-badge {
+            display: none; background: var(--orange); color: #000;
+            font-size: 0.7rem; font-weight: 700; padding: 2px 7px;
+            border-radius: 3px; letter-spacing: .04em;
+        }
+        code.diag { background: #2a2a2a; padding: 2px 6px; border-radius: 3px; font-size: 0.85em; }
     </style>
 </head>
 <body>
@@ -171,6 +188,7 @@
 <header>
     <h1>MComz</h1>
     <div style="display:flex;align-items:center;gap:12px;">
+        <span id="diag-badge" onclick="document.getElementById('diag-overlay').style.display='flex'" title="Diagnostics mode active — click for details" style="cursor:pointer;">⚠ DIAG</span>
         <button id="wifi-btn" onclick="openWifi()" title="WiFi settings">
             <svg width="22" height="18" viewBox="0 -2 22 18" fill="none" aria-hidden="true">
                 <circle cx="11" cy="15" r="1.6" fill="currentColor"/>
@@ -182,6 +200,22 @@
         <span id="clock">Loading…</span>
     </div>
 </header>
+
+<!-- Diagnostics mode warning splash -->
+<div id="diag-overlay">
+    <div id="diag-panel">
+        <h2 style="color:var(--orange);font-size:1.2rem;margin-bottom:14px;">⚠ Diagnostics Mode Active</h2>
+        <p style="margin-bottom:12px;line-height:1.6;">This image was built with <strong>diagnostics mode enabled</strong>. The following are active on this device:</p>
+        <ul style="margin:0 0 14px 20px;line-height:2.2;font-size:0.9rem;">
+            <li>SSH is open — user <code class="diag">mcomz</code>, password <code class="diag">mcomzdiag</code></li>
+            <li>A developer SSH key has passwordless access</li>
+            <li>Password authentication is allowed over SSH</li>
+        </ul>
+        <p style="color:var(--red);margin-bottom:14px;font-size:0.85rem;line-height:1.5;"><strong>Do not use a diagnostics build in a real emergency or on an untrusted network.</strong></p>
+        <p style="margin-bottom:20px;font-size:0.82rem;color:var(--muted);line-height:1.6;">To disable: SSH in and run <code class="diag">sudo rm /etc/mcomzos-diagnostics && sudo reboot</code>. Or rebuild without <code class="diag">diagnostics_mode=true</code> in the Ansible extra-vars.</p>
+        <button onclick="dismissDiag()" class="btn btn-orange" style="max-width:180px;">Understood — Dismiss</button>
+    </div>
+</div>
 
 <!-- WiFi slide-in panel -->
 <div id="wifi-overlay" onclick="closeWifi()"></div>
@@ -357,9 +391,22 @@ fetch('/api/version').then(r => r.json()).then(d => {
 // ── Service status ───────────────────────────────────────────────────────────
 let lastStatus = null;
 
+function dismissDiag() {
+    sessionStorage.setItem('diag-dismissed', '1');
+    document.getElementById('diag-overlay').style.display = 'none';
+}
+
 function renderStatus(data) {
     lastStatus = data;
     const grid = document.getElementById('status-grid');
+
+    // Diagnostics mode badge + one-time splash
+    const diagBadge = document.getElementById('diag-badge');
+    if (diagBadge) diagBadge.style.display = data.diagnostics_mode ? '' : 'none';
+    if (data.diagnostics_mode && !sessionStorage.getItem('diag-dismissed')) {
+        document.getElementById('diag-overlay').style.display = 'flex';
+    }
+
     // Services intentionally off until the hotspot is started
     const STANDBY_SVCS = new Set(['hostapd', 'dnsmasq']);
     // Services that only run when specific hardware is attached

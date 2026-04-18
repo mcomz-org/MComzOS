@@ -5,3 +5,4 @@
 **/.DS_Store
 __pycache__/
 claudebox.run
+.claude/diagnostics/mcomzos_diag

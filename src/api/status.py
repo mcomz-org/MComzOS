@@ -387,6 +387,7 @@ class StatusHandler(BaseHTTPRequestHandler):
                     st = "active"
                 result[name] = {"status": st, **info}
             result["freedata_installed"] = os.path.exists("/usr/local/bin/freedata")
+            result["diagnostics_mode"] = os.path.exists("/etc/mcomzos-diagnostics")
             self._json(result)
         elif path == "/api/version":
             try:

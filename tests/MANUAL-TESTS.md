@@ -140,7 +140,21 @@ Record pass/fail and notes against the release version in `.claude/feedback/hard
 
 ---
 
-## 13. x86 Image (if testing PC build)
+## 13. Diagnostics Mode (diagnostics builds only)
+
+Only applies when the image was built with `diagnostics_mode=true` (currently all builds).
+
+- [ ] **Splash screen appears** — open `http://mcomz.local/`; a full-screen orange-bordered warning modal appears explaining SSH credentials and risks
+- [ ] **Dismiss persists** — click "Understood — Dismiss"; modal closes and does not reappear on page refresh within the same browser session
+- [ ] **DIAG badge visible** — after dismissing the splash, a small orange `⚠ DIAG` badge is visible in the header; clicking it re-shows the modal
+- [ ] **SSH key access** — from the development machine: `ssh -i .claude/diagnostics/mcomzos_diag mcomz@mcomz.local` — logs in without a password prompt
+- [ ] **SSH password access** — `ssh mcomz@mcomz.local` (password `mcomzdiag`) — logs in successfully
+- [ ] **API readable over HTTP** — `curl http://mcomz.local/api/status` returns JSON with `"diagnostics_mode": true`
+- [ ] **Disable diagnostics** — `sudo rm /etc/mcomzos-diagnostics && sudo reboot`; after reboot, splash does not appear and DIAG badge is absent; SSH password auth still works until next image flash
+
+---
+
+## 14. x86 Image (if testing PC build)
 
 - [ ] Flash `mcomzos-x86_64.img.xz` to USB, boot a PC from USB
 - [ ] Repeat sections 1–12 above

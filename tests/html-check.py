@@ -81,6 +81,7 @@ for id_val in [
     "books-overlay", "books-panel", "books-installed",
     "books-url", "books-dl-status", "books-recommended",
     "freedata-section",
+    "diag-overlay", "diag-badge",
 ]:
     check(f"id={id_val!r} exists", has_id(id_val))
 
@@ -110,6 +111,7 @@ for fn in [
     "togglePowerMenu", "closePowerMenu",
     "confirmShutdown", "confirmReboot",
     "openMeshFlasher",
+    "dismissDiag",
     "esc",
 ]:
     check(f"function {fn}() defined", has_fn(fn))
@@ -233,6 +235,16 @@ check("renderStatus filters non-service keys (typeof svc.status)",
       "typeof svc.status === 'string'" in src)
 check("renderStatus hides freedata-section when freedata_installed is false",
       "freedata_installed" in src and "freedata-section" in src)
+
+# Diagnostics mode splash
+check("diagnostics_mode read from status API in renderStatus",
+      "data.diagnostics_mode" in src)
+check("dismissDiag stores sessionStorage key",
+      "sessionStorage.setItem" in src and "diag-dismissed" in src)
+check("diag-overlay shown only when not already dismissed",
+      "sessionStorage.getItem('diag-dismissed')" in src)
+check("diag-badge toggled on diagnostics_mode",
+      "diag-badge" in src and "diagnostics_mode" in src)
 
 # Kiwix viewer must use b.name (slug) not b.id (UUID) — UUID-based URLs return 404
 check("Kiwix viewer link uses b.name slug (not b.id UUID)",
