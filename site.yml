@@ -1066,14 +1066,16 @@
         content: |
           #!/usr/bin/env python3
           """Download WikiMed Mini ZIM on first boot via the Kiwix OPDS catalog."""
-          import urllib.request, xml.etree.ElementTree as ET, os, sys
+          import urllib.request, xml.etree.ElementTree as ET, os, sys, uuid
 
-          ZIM_DIR = '/var/mcomz/library'
-          DEST    = os.path.join(ZIM_DIR, 'wikimed-mini.zim')
+          ZIM_DIR     = '/var/mcomz/library'
+          LIBRARY_XML = '/var/mcomz/library.xml'
+          DEST        = os.path.join(ZIM_DIR, 'wikimed-mini.zim')
 
           os.makedirs(ZIM_DIR, exist_ok=True)
 
-          catalog_url = 'https://library.kiwix.org/catalog/v2/entries?lang=eng&name=wikipedia_en_medicine'
+          # Request the mini edition specifically to keep the download small (~155 MB).
+          catalog_url = 'https://library.kiwix.org/catalog/v2/entries?lang=eng&name=wikipedia_en_medicine_mini'
           try:
               with urllib.request.urlopen(catalog_url, timeout=60) as r:
                   root = ET.fromstring(r.read())
@@ -1112,6 +1114,19 @@
                   os.unlink(tmp)
               print(f'ERROR: Download failed: {e}', file=sys.stderr)
               sys.exit(1)
+
+          # Register the ZIM in library.xml so kiwix-serve picks it up on restart.
+          try:
+              tree = ET.parse(LIBRARY_XML)
+              lib_root = tree.getroot()
+          except Exception:
+              lib_root = ET.Element('library', version='20110515')
+              tree = ET.ElementTree(lib_root)
+          # Only add if not already registered (avoid duplicate entries on retry).
+          if not any(b.get('path') == DEST for b in lib_root.findall('book')):
+              ET.SubElement(lib_root, 'book', id=str(uuid.uuid4()), path=DEST)
+              tree.write(LIBRARY_XML, xml_declaration=True, encoding='UTF-8')
+              print(f'Registered {DEST} in {LIBRARY_XML}', flush=True)
       when: not (minimal_build | default(false))
 
     - name: Deploy WikiMed Mini first-boot systemd service
