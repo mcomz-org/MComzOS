@@ -1074,8 +1074,9 @@
 
           os.makedirs(ZIM_DIR, exist_ok=True)
 
-          # Request the mini edition specifically to keep the download small (~155 MB).
-          catalog_url = 'https://library.kiwix.org/catalog/v2/entries?lang=eng&name=wikipedia_en_medicine_mini'
+          # Kiwix catalog uses name=wikipedia_en_medicine for all variants;
+          # mini/nopic/maxi are distinguished by filename in the href.
+          catalog_url = 'https://library.kiwix.org/catalog/v2/entries?lang=eng&name=wikipedia_en_medicine'
           try:
               with urllib.request.urlopen(catalog_url, timeout=60) as r:
                   root = ET.fromstring(r.read())
@@ -1088,7 +1089,7 @@
           for entry in root.findall('atom:entry', ns):
               for link in entry.findall('atom:link', ns):
                   href = link.get('href', '')
-                  if href.endswith('.meta4'):
+                  if href.endswith('.meta4') and '_mini_' in href:
                       zim_url = href[:-6]
                       break
               if zim_url:
