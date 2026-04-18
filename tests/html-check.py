@@ -268,6 +268,50 @@ for route in [
     check(f"route {route!r} referenced", route in src)
 
 # ---------------------------------------------------------------------------
+# Theme CSS — shared token file and Kiwix overrides
+# ---------------------------------------------------------------------------
+section("Theme CSS — shared tokens and Kiwix overrides")
+
+theme_dir = html_path.parent.parent / "theme"
+
+check("@import url('/theme/mcomz-theme.css') in dashboard <style>",
+      "@import url(\"/theme/mcomz-theme.css\")" in src,
+      "index.html must import the shared token file — CSS variables are defined there")
+
+check(":root { --bg } block removed from index.html (tokens live in mcomz-theme.css)",
+      "--bg: #121212" not in src,
+      "--bg: #121212 still present in index.html; remove it (it belongs in mcomz-theme.css)")
+
+theme_css = theme_dir / "mcomz-theme.css"
+if theme_css.exists():
+    theme_src = theme_css.read_text()
+    check("mcomz-theme.css exists at src/theme/mcomz-theme.css", True)
+    check("mcomz-theme.css defines --bg", "--bg:" in theme_src)
+    check("mcomz-theme.css defines --panel", "--panel:" in theme_src)
+    check("mcomz-theme.css defines --text", "--text:" in theme_src)
+    check("mcomz-theme.css defines --blue", "--blue:" in theme_src)
+    check("mcomz-theme.css has balanced braces",
+          theme_src.count("{") == theme_src.count("}"),
+          f"{{ count={theme_src.count('{')} }} count={theme_src.count('}')}")
+else:
+    check("mcomz-theme.css exists at src/theme/mcomz-theme.css", False,
+          f"not found at {theme_css}")
+
+kiwix_css = theme_dir / "kiwix-overrides.css"
+if kiwix_css.exists():
+    kiwix_src = kiwix_css.read_text()
+    check("kiwix-overrides.css exists at src/theme/kiwix-overrides.css", True)
+    check('kiwix-overrides.css first statement is @import of mcomz-theme.css',
+          kiwix_src.lstrip().startswith('@import url("/theme/mcomz-theme.css")'),
+          "@import must be the first non-whitespace statement")
+    check("kiwix-overrides.css has balanced braces",
+          kiwix_src.count("{") == kiwix_src.count("}"),
+          f"{{ count={kiwix_src.count('{')} }} count={kiwix_src.count('}')}")
+else:
+    check("kiwix-overrides.css exists at src/theme/kiwix-overrides.css", False,
+          f"not found at {kiwix_css}")
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 total = len(_results)

@@ -276,6 +276,39 @@ if dl_status:
           "" if dl_status.get("status") == "idle" else f"got {dl_status.get('status')!r}")
 
 # ---------------------------------------------------------------------------
+# Section 4 — Theme (shared CSS tokens + Kiwix dark-mode injection)
+# ---------------------------------------------------------------------------
+section("Theme — shared CSS + Kiwix dark-mode injection")
+
+code_tc, body_tc = get(path="/theme/mcomz-theme.css")
+check("/theme/mcomz-theme.css serves", code_tc == 200,
+      f"HTTP {code_tc}" if code_tc else "no response")
+if code_tc == 200:
+    check("mcomz-theme.css contains --bg token",
+          b"--bg:" in body_tc,
+          "token missing — mcomz-theme.css may not have been deployed")
+    check("mcomz-theme.css contains #121212 (dark background value)",
+          b"#121212" in body_tc,
+          "expected dark background value missing")
+
+code_ko, body_ko = get(path="/theme/kiwix-overrides.css")
+check("/theme/kiwix-overrides.css serves", code_ko == 200,
+      f"HTTP {code_ko}" if code_ko else "no response")
+if code_ko == 200:
+    check('kiwix-overrides.css imports mcomz-theme.css',
+          b'@import url("/theme/mcomz-theme.css")' in body_ko,
+          "first line must be @import — token sharing is broken without it")
+
+# Verify sub_filter fired: /library/ HTML must contain the injected link tag.
+# Only checked if kiwix-serve is already confirmed up (code from earlier fetch).
+code_lib, body_lib = get(path="/library/")
+if code_lib == 200:
+    check("/library/ HTML contains injected theme link (sub_filter active)",
+          b"/theme/kiwix-overrides.css" in body_lib,
+          "link tag not found — sub_filter may not be active (nginx-core lacks sub_module; "
+          "check nginx -V for http_sub_module); or kiwix response is still gzip-encoded")
+
+# ---------------------------------------------------------------------------
 # Section 5 — Licensed Radio
 # ---------------------------------------------------------------------------
 section("Licensed Radio")

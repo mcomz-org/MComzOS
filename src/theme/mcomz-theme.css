@@ -1,0 +1,14 @@
+:root {
+    --bg: #121212;
+    --panel: #1e1e1e;
+    --text: #e0e0e0;
+    --muted: #888;
+    --green: #00e676;
+    --blue: #29b6f6;
+    --orange: #ff9800;
+    --red: #ef5350;
+    --pink: #f06292;
+    --radius-card: 8px;
+    --radius-btn: 4px;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}

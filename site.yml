@@ -1335,7 +1335,7 @@
     # ---------------------------------------------------------
     - name: Install Nginx for MComz Captive Portal Dashboard
       apt:
-        name: nginx
+        name: nginx-light
         state: present
 
     - name: Deploy MComz HTML Dashboard files
@@ -1343,6 +1343,13 @@
         src: ./src/dashboard/
         dest: /var/www/html/
         owner: www-data
+
+    - name: Deploy MComz shared theme CSS
+      copy:
+        src: ./src/theme/
+        dest: /var/www/html/theme/
+        owner: www-data
+        mode: '0644'
 
     - name: Provision MeshCore offline firmware flasher
       # Clones the MeshCore web flasher and Heltec V3/V4 firmware so users can
@@ -1554,6 +1561,10 @@
 
               location /library/ {
                   proxy_pass http://127.0.0.1:8888/library/;
+                  proxy_set_header Accept-Encoding "";
+                  sub_filter_once off;
+                  sub_filter_types text/html application/xhtml+xml;
+                  sub_filter '</head>' '<link rel="stylesheet" href="/theme/kiwix-overrides.css"></head>';
               }
 
               location /mumble/ws {
@@ -1621,6 +1632,10 @@
               # path — do NOT strip the prefix (proxy_pass must include /library/)
               location /library/ {
                   proxy_pass http://127.0.0.1:8888/library/;
+                  proxy_set_header Accept-Encoding "";
+                  sub_filter_once off;
+                  sub_filter_types text/html application/xhtml+xml;
+                  sub_filter '</head>' '<link rel="stylesheet" href="/theme/kiwix-overrides.css"></head>';
               }
 
               # Mumble browser voice client — static files served by nginx,

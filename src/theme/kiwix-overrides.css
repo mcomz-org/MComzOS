@@ -1,0 +1,116 @@
+@import url("/theme/mcomz-theme.css");
+
+/* ── Kiwix-serve chrome dark-mode override ──────────────────────────────── */
+/* Targets kiwix-serve's own chrome (header, book list, search bar, viewer  */
+/* toolbar). ZIM article body styles are owned by the ZIM and not overridden. */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+    background: var(--bg) !important;
+    color: var(--text) !important;
+    font-family: var(--font-sans) !important;
+}
+
+/* kiwix-serve taskbar / header */
+#kiwix_serve_taskbar,
+.kiwixHeader,
+header,
+nav {
+    background: var(--panel) !important;
+    border-bottom: 1px solid #333 !important;
+    color: var(--text) !important;
+    box-shadow: none !important;
+}
+
+/* Links */
+a             { color: var(--blue) !important; }
+a:visited     { color: #b39ddb !important; }
+
+/* Search — rounded pill matching iOS Kiwix app */
+input[type="search"],
+input[type="text"],
+.search input {
+    background: #222 !important;
+    border: 1px solid #444 !important;
+    color: var(--text) !important;
+    border-radius: 999px !important;
+    padding: 8px 16px !important;
+    outline: none !important;
+}
+input[type="search"]::placeholder,
+input[type="text"]::placeholder {
+    color: var(--muted) !important;
+}
+input[type="search"]:focus,
+input[type="text"]:focus {
+    border-color: var(--blue) !important;
+}
+
+/* Select dropdowns */
+select {
+    background: #222 !important;
+    color: var(--text) !important;
+    border: 1px solid #444 !important;
+    border-radius: var(--radius-btn) !important;
+    padding: 4px 8px !important;
+}
+
+/* Generic buttons */
+button,
+input[type="submit"],
+input[type="button"] {
+    background: var(--panel) !important;
+    color: var(--text) !important;
+    border: 1px solid #444 !important;
+    border-radius: var(--radius-btn) !important;
+    cursor: pointer !important;
+}
+button:hover,
+input[type="submit"]:hover {
+    background: #252525 !important;
+    border-color: #666 !important;
+}
+
+/* Book tiles / cards */
+.book,
+.bookItem,
+.book-item,
+.books article,
+article {
+    background: var(--panel) !important;
+    border: none !important;
+    border-radius: var(--radius-card) !important;
+    color: var(--text) !important;
+}
+.book:hover,
+.bookItem:hover,
+.book-item:hover,
+article:hover {
+    background: #252525 !important;
+}
+
+/* Monochromatic icons shipped by kiwix-serve (home, random, etc.) */
+#kiwix_serve_taskbar img,
+header img,
+nav img,
+img.favicon {
+    filter: invert(1) brightness(1.2) !important;
+}
+
+/* Tables */
+table { border-collapse: collapse; }
+th, td {
+    border-color: #333 !important;
+    color: var(--text) !important;
+}
+tr:nth-child(even) { background: var(--panel) !important; }
+
+/* Footer / pagination */
+footer,
+.pagination,
+#pager {
+    background: var(--bg) !important;
+    border-top: 1px solid #333 !important;
+    color: var(--muted) !important;
+}

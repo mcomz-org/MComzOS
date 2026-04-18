@@ -123,10 +123,22 @@ Record pass/fail and notes against the release version in `.claude/feedback/hard
 
 ---
 
-## 12. x86 Image (if testing PC build)
+## 12. Theme — Kiwix dark-mode viewer
+
+- [ ] **Dashboard unchanged** — `http://mcomz.local/` renders identically to pre-alpha.22: dark background, dark cards, no visual regression
+- [ ] **Kiwix index dark** — click any ZIM in the library panel → `http://mcomz.local/library/` shows: dark `#121212` background, dark book tiles, no grey 1995-era header bar
+- [ ] **Search bar style** — search input inside Kiwix is a rounded pill (border-radius ~999px), not a square box; placeholder text is grey
+- [ ] **Home/random icons** — toolbar icons are white/light (inverted), not dark-on-grey
+- [ ] **Viewer chrome dark** — open a book → the Kiwix viewer chrome (toolbar at top) is dark; article body inside may be light (ZIM's own CSS — documented limitation, not a regression)
+- [ ] **iOS Safari dark mode** — open `http://mcomz.local/library/` on iPhone; no flash of grey/white on load; background is dark
+- [ ] **Responsive** — resize browser narrow → search bar doesn't overflow header
+
+---
+
+## 13. x86 Image (if testing PC build)
 
 - [ ] Flash `mcomzos-x86_64.img.xz` to USB, boot a PC from USB
-- [ ] Repeat sections 1–11 above
+- [ ] Repeat sections 1–12 above
 
 ---
 
