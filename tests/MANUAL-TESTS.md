@@ -62,12 +62,13 @@ Record pass/fail and notes against the release version in `.claude/feedback/hard
 
 ## 5. Licensed Radio (collapsed card)
 
+### JS8Call (Remote Desktop / VNC)
+- [ ] "Open JS8Call" opens noVNC; noVNC connects and JS8Call desktop loads inside the browser window (no password dialog — VNC runs without auth)
+- [ ] **With radio hardware** — JS8Call decodes an incoming JS8 frame and transmits successfully
+
 ### Pat (Winlink Email)
 - [ ] "Open Pat — Winlink Email" opens the Pat web UI and it loads without error
-
-### JS8Call (Remote Desktop / VNC)
-- [ ] "Open JS8Call" opens noVNC; noVNC connects and **VNC password dialog appears** (password: `mcomz`)
-- [ ] After entering password, JS8Call desktop loads inside the browser window
+- [ ] **With radio hardware (after JS8Call verified)** — send and receive a Winlink message over the air
 
 ### FreeDATA
 - [ ] "Open FreeDATA" opens noVNC (or shows "may not be installed" note if unavailable)

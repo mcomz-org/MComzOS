@@ -140,6 +140,7 @@ check("Manage Books button present", "openBooks()" in src)
 
 check("Voice & Text card present", "Voice" in src and "Mumble" in src)
 check("Mumble join URL uses /mumble/ws path", "/mumble/ws" in src)
+check("Mumble join URL uses dynamic port (not hardcoded 443)", "port=443/mumble" not in src)
 
 check("Licensed Radio card present", "Licensed Radio" in src)
 check("toggleRadio in Licensed Radio button",

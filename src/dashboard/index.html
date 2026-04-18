@@ -255,7 +255,7 @@
     <div class="card">
         <h2 style="color:var(--blue)">🎙 Voice &amp; Text Chat</h2>
         <p class="note">Browser-based voice and text — works on any phone, no app needed.</p>
-        <a href="#" class="btn btn-blue" onclick="location.href='/mumble/?address='+location.hostname+'&port=443/mumble/ws';return false;">Join Channel (Mumble)</a>
+        <a href="#" class="btn btn-blue" onclick="var p=location.port||(location.protocol==='https:'?'443':'80');location.href='/mumble/?address='+location.hostname+'&port='+p+'/mumble/ws';return false;">Join Channel (Mumble)</a>
         <details class="howto">
             <summary>How to use</summary>
             <div class="howto-body">
