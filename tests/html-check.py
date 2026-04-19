@@ -221,6 +221,20 @@ check("AbortController used in toggleAP",
 # Header controls
 check("WiFi button uses SVG icon (no button text)",
       bool(re.search(r'id=["\']wifi-btn["\'][^>]*>\s*<svg', src)))
+# S-13: WiFi icon must match iOS pattern — 1 dot + 2 arcs (was 1 dot + 3 arcs).
+# Outermost path d="M0 3.5..." was the visually-mismatched arc and is removed.
+_wifi_match = re.search(
+    r'id=["\']wifi-btn["\'][^>]*>\s*<svg[^>]*>(.*?)</svg>', src, re.DOTALL)
+if _wifi_match:
+    _wifi_svg = _wifi_match.group(1)
+    check("S-13: WiFi SVG has exactly 1 <circle>",
+          _wifi_svg.count("<circle") == 1,
+          f"got {_wifi_svg.count('<circle')} circles")
+    check("S-13: WiFi SVG has exactly 2 <path> arcs (outermost arc removed)",
+          _wifi_svg.count("<path") == 2,
+          f"got {_wifi_svg.count('<path')} paths — should be dot + 2 arcs (iOS pattern)")
+else:
+    check("S-13: WiFi SVG block locatable", False, "couldn't extract <svg>…</svg> from #wifi-btn")
 check("Power menu dropdown present", "power-menu" in src and "power-btn" in src)
 check("System Status heading has 15-second tooltip",
       "Refreshes every 15 seconds" in src and 'title=' in src)
