@@ -531,44 +531,34 @@ Already covered by S-9 step 4 (size cap + opacity-0 for broken imgs). No separat
 
 **Status:** diagnostic-needed — moved to **§3 as B-9** below. Cannot fix from code alone; needs logs from the affected device. The cert logic in `site.yml:1500-1514` hasn't changed since pre-alpha.22 (when it was confirmed working), so this is either (a) iOS Safari version behaviour change, (b) HSTS caching from a prior visit, or (c) new cert generated on reflash that Safari doesn't recognise as pre-accepted.
 
-### S-19. Brand icons for services — research + implementation `[claude]`
+### S-19. Brand icons for services — RESEARCH COMPLETE, ready to implement `[vibe]`
 
-**Question (user-reported 2026-04-19):** can we use actual brand icons for JS8Call, Pat, Meshtastic, MeshCore, Mumble, FreeDATA?
+**Research findings** (full notes in `.claude/research/S-19-brand-icons.md`, 2026-04-19):
 
-**Research step (do this first, before writing code):**
-- **JS8Call** — fully open-source (GPLv3); no trademark I can find. Project logo available in the GitHub repo. Safe to use nominatively.
-- **Pat** — open source (MIT); no trademark. Repo has a "postbird" logo. Safe for nominative use.
-- **Meshtastic** — trademark owned by Meshtastic LLC. They publish a [brand usage policy](https://meshtastic.org/docs/brand). Permitted for nominative / compatibility reference (e.g., "works with Meshtastic"). Not permitted on merchandise or for implying endorsement. Our use case ("Open Meshtastic") is nominative-descriptive — likely allowed but **verify the current policy** before shipping.
-- **MeshCore** — newer project (liamcottle/MeshCore); no formal trademark policy found. Ask in their Discord/GitHub issues, or use the logo with a link back and "MeshCore™ is used nominatively" disclaimer in README.
-- **Mumble** — open source (BSD); Mumble logo is under a permissive license per mumble.info. Safe to use.
-- **FreeDATA** — open source (GPL); no trademark; logo in repo. Safe.
+| Project | Logo source | Verdict |
+|---------|------------|---------|
+| JS8Call | `artwork/installer_logo.svg` (GPLv3 repo) | ✅ Use freely |
+| Pat | `web/src/static/pat_logo.png` (MIT repo) | ✅ Use freely |
+| Meshtastic | Use **M-PWRD logo** from `github.com/meshtastic/design/tree/master/Meshtastic Powered Logo` | ✅ No permission required for M-PWRD. Main logo requires 7-day email to `trademark@meshtastic.org` + non-affiliation notice — use M-PWRD instead |
+| MeshCore | `logo/meshcore.svg` (MIT repo, no formal trademark policy) | ✅ Use freely |
+| Mumble | `icons/mumble.svg` (BSD repo) | ✅ Use freely |
+| FreeDATA | `freedata_gui/src/assets/logo.png` (GPLv3 repo) | ✅ Use freely |
 
-**Recommended stance:** Using the official logos for nominative use ("this opens $SERVICE") is legally defensible and common practice — what you cannot do is imply sponsorship or sell merchandise. Add a one-line notice to `README.md` noting trademarks are property of their respective owners and logos are used for identification only.
+**Implementation plan:**
 
-**Implementation plan — after research above is confirmed:**
-
-1. Download each logo at small size (24×24 or 32×32 SVG preferred). Store in `src/dashboard/icons/` (new dir). Preserve original license/attribution text in `src/dashboard/icons/LICENSES.md`.
-2. Nginx serves them via the existing `location /` try_files — deployed alongside the dashboard by the existing copy task.
-3. Dashboard HTML — replace the emoji in each section header. Example (JS8Call, `index.html:301`):
-   ```html
-   <!-- Before -->
-   <h2 style="color:var(--pink);font-size:0.9rem;margin-bottom:6px;">📻 JS8Call</h2>
-   <!-- After -->
-   <h2 style="color:var(--pink);font-size:0.9rem;margin-bottom:6px;">
-       <img src="/icons/js8call.svg" alt="" aria-hidden="true" style="height:0.9em;vertical-align:-0.1em;margin-right:4px;">
-       JS8Call
-   </h2>
-   ```
-4. Keep emoji as fallback: if the icon fails to load, the `alt=""` means nothing shows; acceptable since the text label is always present.
+1. Download each logo (SVG preferred, PNG fallback). Store in `src/dashboard/icons/`. Add `src/dashboard/icons/LICENSES.md` with source, license, and trademark notices.
+2. `site.yml` — add a copy task to deploy `src/dashboard/icons/` to `/var/www/html/icons/`. Nginx already serves it via `try_files`.
+3. `src/dashboard/index.html` — replace emoji in service headings with `<img src="/icons/<name>.svg" alt="" aria-hidden="true" style="height:0.9em;vertical-align:-0.1em;margin-right:4px;">`. Keep emoji as visible fallback (hide with `onerror="this.style.display='none'"`).
+4. `README.md` — add trademark attribution line: *"Logos and trademarks are property of their respective owners and are used nominatively. Meshtastic® is a registered trademark of Meshtastic LLC; the M-PWRD logo is used per Meshtastic's community logo policy."*
 
 **Tests:**
-- `tests/smoke-test.py` — assert each `/icons/*.svg` returns 200.
-- `tests/html-check.py` — assert each service card references its icon file.
-- `tests/MANUAL-TESTS.md` — eyeball check: icons render crisp at 1x and 2x DPI.
+- `tests/smoke-test.py` — assert `GET /icons/<each>.svg` returns 200
+- `tests/html-check.py` — assert each service card `<h2>` references its icon file
+- `tests/MANUAL-TESTS.md` — visual check: icons crisp at 1× and 2× DPI; fallback text visible when icons fail to load
 
-**Non-goals:** do not create custom-artistic redraws of trademarks; do not use proprietary colour schemes for the dashboard outside of the logo rendering. If any trademark policy forbids use, substitute with a neutral monochrome glyph and note the exception.
+**Non-goals:** no custom redraws, no proprietary colour schemes outside the logo itself.
 
-**Acceptance:** dashboard service cards use authentic brand icons (or documented fallbacks), with a trademark-attribution notice in README and LICENSES.md.
+**Acceptance:** dashboard service cards show authentic brand icons; LICENSES.md and README attribution present.
 
 ---
 
