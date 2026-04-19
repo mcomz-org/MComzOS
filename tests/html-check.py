@@ -130,6 +130,14 @@ check("RECOMMENDED_ZIMS constant declared",
       bool(re.search(r'\bconst\s+RECOMMENDED_ZIMS\b', src)))
 check("MComzLibrary ZIMs in RECOMMENDED_ZIMS",
       "mcomz-org/MComzLibrary" in src and "zimPattern" in src)
+# S-11: WikiMed entry must declare zimPattern: "wikimed" so the installed-on-disk
+# filename (wikimed-mini.zim) matches and the entry is hidden from the recommended
+# list once installed. Without this, the filter falls back to "wikipedia_en_medicine"
+# which never appears in the renamed on-disk file.
+check("WikiMed entry has zimPattern: \"wikimed\" (S-11 hide-when-installed)",
+      bool(re.search(r'kiwixName:\s*"wikipedia_en_medicine".*?zimPattern:\s*"wikimed"',
+                     src, re.DOTALL)),
+      "WikiMed entry will stay in recommended list after install — add zimPattern: \"wikimed\"")
 
 # ---------------------------------------------------------------------------
 # Card content
