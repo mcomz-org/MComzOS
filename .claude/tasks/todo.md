@@ -15,7 +15,7 @@
 
 ## §1 — Sonnet-actionable now
 
-> S-1 through S-7 shipped in pre-alpha.22 (2026-04-17); S-1–S-6 confirmed by smoke test, S-7 confirmed only for library index (viewer page still half-themed — S-8 is the follow-up). See §2 for remaining hardware verification items.
+> S-1 through S-8 shipped (S-1–S-7 in pre-alpha.22, S-8 in pre-alpha.27). All §1 items complete. See §2 for remaining hardware verification items.
 
 ### ~~S-2. MeshCore CORS probe fix~~ — COMPLETE
 
@@ -82,7 +82,7 @@ Coverage rule: tests must cover the new behaviour, not just pass because they do
 
 **Acceptance:** ARM64 hub no longer shows a dead Connect button; x86 hub (where the AppImage installs) is unchanged.
 
-### S-8. Kiwix viewer theme — round 2 (toolbar, cover thumb, icons) `[vibe]`
+### ~~S-8. Kiwix viewer theme — round 2 (toolbar, cover thumb, icons)~~ — COMPLETE (b86dbf8, pre-alpha.27) `[vibe]`
 
 **Status of S-7 (shipped in 680f36e, pre-alpha.22):** `body`, book tiles, search box, home page all went dark ✅. **But the viewer page (`/library/viewer#<slug>`) is only half-themed** — user screenshots on 2026-04-18 show:
 
