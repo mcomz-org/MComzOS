@@ -82,7 +82,497 @@ Coverage rule: tests must cover the new behaviour, not just pass because they do
 
 **Acceptance:** ARM64 hub no longer shows a dead Connect button; x86 hub (where the AppImage installs) is unchanged.
 
-### S-8. Kiwix viewer theme — round 2 (toolbar, cover thumb, icons) `[vibe]`
+### S-9. Kiwix viewer theme — round 3 (specificity + index-page coverage) `[vibe]`
+
+**Status of S-8 (shipped in b86dbf8, pre-alpha.26):** `#kiwixtoolbar` itself went dark ✅. But on the viewer page, the inner **search input**, **home button**, **random button**, and **language-selector icon** are all still light. New screenshots 2026-04-19 (`tests/user-images/Xnip2026-04-19_00-18-40.jpg` and `…_00-25-42.jpg`) show this clearly. The iOS Kiwix app reference (`tests/user-images/Screenshot of Kiwix iPhone app...png`) is the target aesthetic.
+
+**Root cause — specificity, not missing selectors.** Verified from live Pi via `curl http://127.0.0.1/library/skin/taskbar.css`:
+
+```css
+.kiwix #kiwixtoolbar button,
+.kiwix #kiwixtoolbar input[type="submit"] {
+    background-color: #ededed !important;   /* specificity 0-1-1-1 */
+    border: 1px solid #b5b2b2 !important;
+    ...
+}
+.kiwix #kiwixtoolbar #kiwixsearchform input[type='text'] {
+    background-color: #fff !important;       /* specificity 0-2-1-1 */
+    ...
+}
+```
+
+My S-8 override used plain `button { ... !important }` (specificity 0-0-0-1) and `input[type="search"], input[type="text"] { ... !important }` (0-0-1-1). When both declarations have `!important`, normal specificity decides — kiwix wins.
+
+**Also confirmed:**
+
+- Book-cover broken-glyph and the "mangled PDF/cloud icon" were the **same image**: the book illustration, stretched by the browser's alt-glyph rendering. The URL `/library/catalog/v2/illustration/<uuid>?size=48` returns **HTTP 404** for all current MComzLibrary ZIMs (they lack the illustration header — MComzLibrary-pipeline upstream bug, already in §4). The "mangled" effect is the broken-image icon growing to fill the `<img>`'s unconstrained `width: 100%` container. Fix is CSS-only: cap max-size and hide broken illustrations.
+- The library index page (`/library/`) uses a **different DOM**: classes `.kiwixNav`, `.kiwixSearch`, `.kiwixButton`, `#searchFilter`, `#searchButton`, `#feedLogo`, `#uiLanguageSelectorButton`. Current overrides don't target these — the screenshot hasn't shown the index page recently, but the same specificity problem likely affects it.
+
+**Edits — all in `src/theme/kiwix-overrides.css`:**
+
+1. **Replace the "Generic buttons" block (current lines 108–122) with specificity-matched overrides.** Also keep a low-specificity fallback for any other button that happens to appear.
+
+   ```css
+   /* Match kiwix's own specificity (0-1-1-1) so !important tie goes to us.
+      Listed as specific selectors — do NOT collapse into a broader selector. */
+   .kiwix #kiwixtoolbar button,
+   .kiwix #kiwixtoolbar input[type="submit"] {
+       background: #222 !important;
+       background-color: #222 !important;    /* kiwix sets background-color */
+       background-image: none !important;
+       border: 1px solid #444 !important;
+       color: var(--text) !important;
+       border-radius: var(--radius-btn) !important;
+   }
+   .kiwix #kiwixtoolbar button:hover,
+   .kiwix #kiwixtoolbar input[type="submit"]:hover {
+       background-color: #2a2a2a !important;
+       border-color: #666 !important;
+   }
+
+   /* Library-index page uses .kiwixButton (no id involved).
+      Keep specificity 0-1-0-1 to match kiwix's own .kiwixButton rule. */
+   body .kiwixButton,
+   body .kiwixButtonHover,
+   body input.kiwixButton {
+       background: #222 !important;
+       background-color: #222 !important;
+       border: 1px solid #444 !important;
+       color: var(--text) !important;
+       border-radius: var(--radius-btn) !important;
+   }
+
+   /* Fallback for any other button in kiwix chrome — low specificity, loses
+      to kiwix's own rules but catches anything we didn't name. */
+   button, input[type="submit"], input[type="button"] {
+       background: var(--panel) !important;
+       color: var(--text) !important;
+       border: 1px solid #444 !important;
+       border-radius: var(--radius-btn) !important;
+       cursor: pointer;
+   }
+   ```
+
+2. **Replace the search-input block (current lines 80–97) with specificity-matched selectors for both viewer and index.**
+
+   ```css
+   /* Viewer search — specificity 0-2-1-1 matches kiwix's rule.
+      Preserve kiwix's left-padding (27px) so the 🔍 label doesn't overlap text. */
+   .kiwix #kiwixtoolbar #kiwixsearchform input[type='text'] {
+       background: #222 !important;
+       background-color: #222 !important;
+       border: 1px solid #444 !important;
+       color: var(--text) !important;
+       border-radius: 999px !important;           /* pill */
+       padding: 2px 12px 2px 27px !important;     /* keep kiwix's 27px left */
+   }
+   .kiwix #kiwixtoolbar #kiwixsearchform input[type='text']:focus {
+       border-color: var(--blue) !important;
+       outline: none !important;
+   }
+   .kiwix #kiwixtoolbar #kiwixsearchform input[type='text']::placeholder {
+       color: var(--muted) !important;
+   }
+
+   /* Library-index search — beats .kiwixSearch at 0-1-0-1 */
+   body input.kiwixSearch,
+   body #searchFilter {
+       background: #222 !important;
+       background-color: #222 !important;
+       border: 1px solid #444 !important;
+       color: var(--text) !important;
+       border-radius: 999px !important;
+       padding: 8px 16px !important;
+   }
+
+   /* Low-specificity fallback */
+   input[type="search"],
+   input[type="text"] {
+       background: #222 !important;
+       border: 1px solid #444 !important;
+       color: var(--text) !important;
+       border-radius: 999px !important;
+       padding: 8px 16px !important;
+       outline: none !important;
+   }
+   input[type="search"]::placeholder,
+   input[type="text"]::placeholder { color: var(--muted) !important; }
+   ```
+
+3. **Fix icon coverage — current `[src$=".svg"]` misses cache-busted URLs.**
+
+   The actual path is `./skin/langSelector.svg?cacheid=00b59961` — ends in query string, not `.svg`. Replace the "Monochromatic icons" block (current lines 142–152) with `[src*=".svg"]` and broaden to PNGs in the skin dir (the caret.png toggle icon):
+
+   ```css
+   /* Monochromatic icons in kiwix chrome — covers .svg?cacheid=... and .png?cacheid=... */
+   .kiwix #kiwixtoolbar img,
+   .kiwix #kiwixtoolbar label img,
+   .kiwixNav img,
+   img[src*="/skin/"][src*=".svg"],
+   img[src*="/skin/"][src*=".png"],
+   img[src*="skin/caret"],
+   img[src*="skin/langSelector"],
+   img[src*="skin/feed"] {
+       filter: invert(1) brightness(1.2) !important;
+   }
+   ```
+
+4. **Tame the broken-cover illustration (replace current lines 154–165).**
+
+   The issue is the `<img>` in the book header card has no intrinsic size — when the URL 404s, the browser's fallback glyph scales to fill the container. Constrain size and hide broken:
+
+   ```css
+   /* Book-cover illustrations — never invert, always size-capped */
+   img[src*="/catalog/v2/illustration/"],
+   img.book-cover,
+   .book-cover img {
+       filter: none !important;
+       max-width: 128px !important;
+       max-height: 128px !important;
+       background: var(--panel);
+       border-radius: var(--radius-btn);
+   }
+   /* Hide broken illustration placeholders (ZIM lacks illustration header) */
+   img[src*="/catalog/v2/illustration/"]:not([complete]) { opacity: 0; }
+   ```
+
+5. **Library-index page coverage — add alongside existing book-tile rules (before the existing "Tables" block).**
+
+   ```css
+   /* Library index (/library/) — top nav bar and filter dropdowns */
+   .kiwixNav {
+       background: var(--panel) !important;
+       border-bottom: 1px solid #333 !important;
+   }
+   .kiwixNav__select select,
+   .kiwixNav__kiwixFilter {
+       background: #222 !important;
+       color: var(--text) !important;
+       border: 1px solid #444 !important;
+   }
+   .feedLogo, #feedLogo { filter: invert(1) brightness(1.2) !important; }
+   #uiLanguageSelectorButton { filter: invert(1) brightness(1.2) !important; }
+   ```
+
+6. **Keep the `.ui-*` jQuery UI block (S-8's contribution) as-is** — viewer does use `.ui-widget-header`, confirmed.
+
+**Tests:**
+
+- **`tests/html-check.py`** — add assertions that `kiwix-overrides.css` contains:
+  - `.kiwix #kiwixtoolbar button` (verbatim — enforces specificity rule lives in the file)
+  - `.kiwix #kiwixtoolbar #kiwixsearchform input` (same reason)
+  - `body .kiwixButton` (index page)
+  - `[src*=".svg"]` (cache-bust-safe icon selector)
+  - `max-width: 128px` on illustration rule (size cap lives in the file)
+
+- **`tests/smoke-test.py`** — update the failing check at line 323–325. Currently checks `/library/` for `ui-widget-header`, but that class only appears on `/library/viewer`. Fix:
+
+  ```python
+  code_v, body_v = get(path="/library/viewer")
+  check("/library/viewer HTML contains ui-widget-header (kiwix viewer class present)",
+        code_v == 200 and (b"ui-widget-header" in body_v or b"kiwixtoolbar" in body_v),
+        f"got HTTP {code_v}" if code_v != 200 else
+        "neither class found — kiwix-tools may have changed its markup")
+  ```
+
+  Also add a check that `/library/viewer` body contains `kiwixsearchbox` (the search input id) as the canary for the selector we're targeting.
+
+- **`tests/MANUAL-TESTS.md`** — update section 12 steps: open `/library/viewer#MComz-Scriptures/A/index`; verify toolbar search input is a **dark pill** (not white box), home/random buttons are dark with visible emoji, language-selector icon is monochromatic/inverted, no giant broken-image glyph in the book header.
+
+**Acceptance:**
+
+- DevTools on `/library/viewer`: `#kiwixsearchbox` computed `background-color` ≈ `rgb(34, 34, 34)`; `kiwix_serve_taskbar_library_button button` computed `background-color` ≈ `rgb(34, 34, 34)`
+- Library index filter dropdowns render dark
+- No broken-image glyph taking >128px on any viewer page
+- All html-check + smoke-test additions pass
+
+**If stuck:** if a selector still loses, confirm its specificity with `curl http://127.0.0.1/library/skin/taskbar.css | grep <selector>` on the Pi. Specificity ties go to later-in-document — our stylesheet is last (injected before `</head>`) so equal-specificity `!important` should win. If it doesn't, escalate to `html body .kiwix #kiwixtoolbar …` (0-1-2-1).
+
+---
+
+### S-10. Smoke-test false positive on ui-widget-header check `[vibe]`
+
+**Problem:** `tests/smoke-test.py:323-325` checks `/library/` HTML for `ui-widget-header` / `kiwixtoolbar`. Those only appear on `/library/viewer`. Result: 84/85 smoke-test fail. **This is purely a test bug, not a playbook bug.**
+
+**Fix:** folded into S-9 above (same test file, same session). If S-9 isn't being shipped simultaneously, apply the patch from S-9 step "smoke-test.py" standalone.
+
+---
+
+### S-11. WikiMed not hidden from recommended list after install `[vibe]`
+
+**Problem (user-reported 2026-04-19):** `wikimed-mini.zim` is registered in `library.xml` but still appears in the "Recommended books" panel. Expected: hidden once installed.
+
+**Root cause:** `src/dashboard/index.html:770` has `kiwixName: "wikipedia_en_medicine"` for the WikiMed entry. The `renderRecommended()` filter at `index.html:870-874` checks `isInstalled(pat)` where `pat = r.zimPattern || r.kiwixName`, and `isInstalled` substring-matches against installed filenames. On disk the file is renamed to `wikimed-mini.zim` by `site.yml:1073` — which contains neither `wikipedia_en_medicine` nor the pattern. No match → WikiMed stays in the recommended list forever.
+
+**Fix:** `src/dashboard/index.html:769-771` — add an explicit `zimPattern` matching the on-disk filename:
+
+```js
+{ title: "WikiMed Medical Encyclopedia (~155 MB)",
+  kiwixName: "wikipedia_en_medicine",
+  zimPattern: "wikimed",    // matches /var/mcomz/library/wikimed-mini.zim
+  note: "Kiwix community — click to fetch the latest download URL" },
+```
+
+**Test:** `tests/html-check.py` — add assertion that the WikiMed recommended entry has a `zimPattern` field (regression guard in case someone edits RECOMMENDED_ZIMS).
+
+**Acceptance:** After reflash with WikiMed installed, open Manage Books → Recommended list does not contain WikiMed.
+
+---
+
+### S-12. Service ordering — JS8Call above Pat, MeshCore above Meshtastic `[vibe]`
+
+**Problem:** User prefers JS8Call above Pat (more commonly used / immediate on-air) and MeshCore above Meshtastic (private tactical mesh is the core value-prop; Meshtastic is the "also supported" option).
+
+**Edits to `src/dashboard/index.html`:**
+
+- **Mesh card (currently lines 270–284):** swap the two `<div class="mesh-section">` blocks so MeshCore (`#meshcore-section`) comes before Meshtastic (`#meshtastic-section`).
+- **Radio card (currently lines 294–310):** swap the Pat block (line 295–299) with the JS8Call block (line 300–304) so JS8Call appears first inside `#radio-detail`. Leave FreeDATA in last position (unchanged).
+
+**No backend changes needed** — the status badges / service polling are order-agnostic.
+
+**Test:** `tests/html-check.py` — add two new assertions:
+- Index of `#meshcore-section` in HTML is less than index of `#meshtastic-section`
+- Index of "JS8Call" string inside `#radio-detail` container is less than index of "Open Pat"
+
+**Acceptance:** dashboard visually shows MeshCore above Meshtastic and JS8Call above Pat.
+
+---
+
+### S-13. WiFi icon — remove outermost arc `[vibe]`
+
+**Problem (user-reported 2026-04-19):** The top arc of the WiFi icon is visually closer to the next arc than the others. iOS Safari's pattern is 1 dot + 2 arcs; we currently have 1 dot + 3 arcs.
+
+**Edit:** `src/dashboard/index.html:175-180`. Delete the outermost arc — the last `<path>` (y=3.5, width=22):
+
+```html
+<!-- Before -->
+<svg width="22" height="18" viewBox="0 -2 22 18" fill="none" aria-hidden="true">
+    <circle cx="11" cy="15" r="1.6" fill="currentColor"/>
+    <path d="M6.8 10.8a6 6 0 0 1 8.4 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+    <path d="M3 7a11 11 0 0 1 16 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+    <path d="M0 3.5a16 16 0 0 1 22 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>  <!-- DELETE THIS LINE -->
+</svg>
+
+<!-- After: keep dot + inner + middle arcs only -->
+```
+
+Consider tightening viewBox to `viewBox="3 4 16 12"` afterwards so the icon isn't offset — but verify visually first, the arcs may need their relative spacing preserved.
+
+**Test:** `tests/html-check.py` — assert the WiFi SVG has exactly 1 `<circle>` and exactly 2 `<path>` elements (regression guard).
+
+**Acceptance:** dashboard header WiFi icon matches iOS (dot + 2 arcs).
+
+---
+
+### S-14. JS8Call / FreeDATA remote desktop — full-screen + Remote Resizing `[vibe]`
+
+**Problem (user-reported 2026-04-19):** Clicking "Open JS8Call" / "Open FreeDATA" opens a new tab with noVNC at default resolution (fixed desktop size, letterboxed). User wants (a) noVNC to open with "Remote Resizing" active (VNC session adopts the browser's viewport size via RandR) and (b) enter full-screen automatically when the window loads.
+
+**Edits — `src/dashboard/index.html:303` and `:308`:**
+
+Current:
+```js
+onclick="window.open('https://'+location.hostname+'/vnc/vnc.html?path=websockify&autoconnect=true');return false;"
+```
+
+Change both handlers to:
+```js
+onclick="window.open('https://'+location.hostname+'/vnc/vnc.html?path=websockify&autoconnect=true&resize=remote&reconnect=true&show_dot=true');return false;"
+```
+
+`resize=remote` is the noVNC URL param that enables server-side resize (TigerVNC/Xvnc supports RandR, so this works). `show_dot=true` gives a connection-active indicator. Do **not** rely on a `fullscreen` URL param — noVNC doesn't support one and browsers disallow programmatic fullscreen from URL load anyway. Instead, **add a small banner to noVNC.html via nginx `sub_filter`** (same pattern as the Kiwix theme) instructing users to press `F` or the fullscreen icon. See sub-step.
+
+**Sub-step — noVNC fullscreen hint banner.** In `site.yml`, extend the `/vnc/` location to inject a one-line hint. Find the `location /vnc/` block (currently around `site.yml:1665-1672`, HTTPS server) and add:
+
+```nginx
+location /vnc/ {
+    alias /usr/share/novnc/;
+    sub_filter_once on;
+    sub_filter_types text/html;
+    sub_filter '</body>' '<div style="position:fixed;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:#eee;padding:6px 14px;border-radius:999px;font-family:-apple-system,sans-serif;font-size:12px;z-index:9999;" id="fs-hint" onclick="this.remove()">Press <b>F</b> for fullscreen · click to dismiss</div></body>';
+}
+```
+
+Do the same in the HTTP server block (`site.yml` around line 1592).
+
+**Note — HTTPS-only guard:** User's dashboard buttons hard-code `https://` (lines 303, 308). That means clicking will always land on HTTPS — which means iOS Safari users may still hit the cert warning. Not a regression, documented limitation.
+
+**Tests:**
+- `tests/html-check.py` — assert both JS8Call and FreeDATA onclick handlers contain `resize=remote`.
+- `tests/smoke-test.py` — fetch `/vnc/vnc.html` and assert body contains `fs-hint` (sub_filter fired on noVNC static alias).
+- `tests/MANUAL-TESTS.md` — add: open JS8Call → noVNC opens in new tab → VNC screen resizes to browser viewport on connect → pressing F enters browser fullscreen → banner dismisses on click.
+
+**Acceptance:** Clicking Open JS8Call opens a full-browser-viewport VNC session with no black bars, and a dismissable fullscreen hint.
+
+---
+
+### S-15. Kiwix library browse/search — add "browse upstream catalog" UI `[vibe]`
+
+**Problem (user-reported 2026-04-19):** Current Manage Books panel shows a fixed list of 4 recommended ZIMs + the MComzLibrary set. No way to find *other* ZIMs without knowing their exact kiwix catalog name. User wants to search and browse.
+
+**Approach:** add a search box + results list to the existing "Manage Books" panel, backed by the Kiwix OPDS catalog (same API already used by `fetchKiwixUrl` at `index.html:918-928`). The browser fetches directly from `library.kiwix.org` — no backend work needed, no proxying through the Pi. Requires internet, fails gracefully offline.
+
+**Edits — `src/dashboard/index.html`:**
+
+1. **Inside the Manage Books panel** (find the books-panel `<div>` around the "Recommended" section, currently near line 983), add a new section above the recommended list:
+
+   ```html
+   <div style="margin-bottom:14px;">
+       <div style="font-weight:600;margin-bottom:6px;font-size:0.9rem;">Browse Kiwix library</div>
+       <input type="text" id="kiwix-search-input" placeholder="Search thousands of offline books (requires internet)…"
+              style="width:100%;padding:8px 14px;background:#111;border:1px solid #333;color:var(--text);border-radius:999px;font-size:0.85rem;"
+              oninput="onKiwixSearchInput()">
+       <div id="kiwix-search-results" style="margin-top:8px;max-height:240px;overflow-y:auto;"></div>
+   </div>
+   ```
+
+2. **Add search handler** (near line 918 where `fetchKiwixUrl` lives):
+
+   ```js
+   let _kiwixSearchTimer = null;
+   function onKiwixSearchInput() {
+       clearTimeout(_kiwixSearchTimer);
+       const q = document.getElementById('kiwix-search-input').value.trim();
+       const out = document.getElementById('kiwix-search-results');
+       if (q.length < 3) { out.innerHTML = ''; return; }
+       out.innerHTML = '<div style="color:var(--muted);font-size:0.8rem;">Searching…</div>';
+       _kiwixSearchTimer = setTimeout(() => kiwixSearch(q), 350);
+   }
+   function kiwixSearch(q) {
+       const url = `https://library.kiwix.org/catalog/v2/entries?q=${encodeURIComponent(q)}&count=20`;
+       fetch(url).then(r => r.text()).then(xml => {
+           const doc = new DOMParser().parseFromString(xml, 'application/xml');
+           const entries = Array.from(doc.querySelectorAll('entry'));
+           const out = document.getElementById('kiwix-search-results');
+           if (!entries.length) { out.innerHTML = '<div style="color:var(--muted);font-size:0.8rem;">No results.</div>'; return; }
+           out.innerHTML = entries.map(e => {
+               const title = e.querySelector('title')?.textContent || '(untitled)';
+               const name  = e.querySelector('name')?.textContent || '';
+               const size  = parseInt(e.querySelector('link[length]')?.getAttribute('length') || '0', 10);
+               const sizeMB = size ? ` (${(size/1024/1024).toFixed(0)} MB)` : '';
+               return `<div style="padding:8px;background:#111;border-radius:4px;margin-bottom:4px;font-size:0.8rem;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                   <span>${esc(title)}${sizeMB}</span>
+                   <button onclick="fetchKiwixUrl('${esc(name)}')" class="small-btn">Get URL</button>
+               </div>`;
+           }).join('');
+       }).catch(() => {
+           document.getElementById('kiwix-search-results').innerHTML =
+               '<div style="color:var(--red);font-size:0.8rem;">Search failed — are you online?</div>';
+       });
+   }
+   ```
+
+**Tests:**
+- `tests/html-check.py` — assert `kiwix-search-input`, `onKiwixSearchInput`, and `library.kiwix.org/catalog/v2/entries?q=` all present.
+- `tests/MANUAL-TESTS.md` — add: type "appropedia" in the browse box → at least one result → Get URL populates the download field → download proceeds.
+
+**Non-goals:** do NOT proxy the search through the Pi — users browsing the Kiwix catalog need internet anyway; keep it direct. Do NOT try to cache catalog queries for offline use in this ticket (that's a post-alpha roadmap item).
+
+**Acceptance:** Manage Books panel has a working search; typing 3+ chars returns results from library.kiwix.org.
+
+---
+
+### S-16. Mobile navigation tutorial / onboarding `[vibe]`
+
+**Problem (user-reported 2026-04-19):** Dashboard works on mobile but navigation patterns (collapsibles, slide-in WiFi panel, VNC tab behaviour) aren't obvious. Users on small screens need guidance.
+
+**Approach:** add a dismissable "Getting started on mobile" collapsible card near the top of the dashboard, auto-open on first visit (tracked via `localStorage`), closed thereafter.
+
+**Edits — `src/dashboard/index.html`:**
+
+1. Add a new card inside the main `<main class="grid">` as the first item (or second, after the version row):
+
+   ```html
+   <div class="card full" id="mobile-tips" style="display:none;">
+       <div style="display:flex;justify-content:space-between;align-items:center;">
+           <h2 style="margin:0;">📱 First-time tips (mobile)</h2>
+           <button onclick="dismissMobileTips()" class="small-btn" style="color:var(--muted);">Dismiss</button>
+       </div>
+       <ul style="margin-top:10px;font-size:0.85rem;color:var(--muted);line-height:1.65;padding-left:18px;">
+           <li><strong>WiFi</strong> — tap the WiFi icon (top right) to connect to a different network or start the MComzOS hotspot.</li>
+           <li><strong>Offline library</strong> — tap any ZIM to read it offline. The Kiwix viewer has its own search inside each book.</li>
+           <li><strong>Voice &amp; text (Mumble)</strong> — needs HTTPS and microphone permission. Safari on iOS is the only iOS browser that supports the mic.</li>
+           <li><strong>Mesh / Radio</strong> — expand the cards below to open each tool. Some open in a new tab.</li>
+           <li><strong>Rotate to landscape</strong> — the remote-desktop apps (JS8Call, FreeDATA) use a lot of width; landscape is much easier.</li>
+       </ul>
+   </div>
+   ```
+
+2. Add two JS helpers:
+
+   ```js
+   function dismissMobileTips() {
+       document.getElementById('mobile-tips').style.display = 'none';
+       try { localStorage.setItem('mcomz_mobile_tips_seen', '1'); } catch (e) {}
+   }
+   (function showMobileTipsOnce() {
+       const isNarrow = window.matchMedia('(max-width: 700px)').matches;
+       let seen = false;
+       try { seen = localStorage.getItem('mcomz_mobile_tips_seen') === '1'; } catch (e) {}
+       if (isNarrow && !seen) document.getElementById('mobile-tips').style.display = 'block';
+   })();
+   ```
+
+   Wire the self-invoking function into the existing DOMContentLoaded init (search for `loadStatus()` bootstrap near the bottom of the `<script>` — append the call there).
+
+**Tests:**
+- `tests/html-check.py` — assert `#mobile-tips` element, `dismissMobileTips` function, and `localStorage.getItem('mcomz_mobile_tips_seen')` all present.
+- `tests/MANUAL-TESTS.md` — add: open dashboard on iPhone in Safari (fresh — clear site data first) → tips card visible → tap Dismiss → reload → card hidden.
+
+**Acceptance:** first-time mobile users see a brief guide; returning users don't. Desktop users never see it.
+
+---
+
+### S-17. Kiwix viewer — broken-cover glyph reproduction stopgap
+
+Already covered by S-9 step 4 (size cap + opacity-0 for broken imgs). No separate entry.
+
+### S-18. iOS Safari regression — [Visit Website] doesn't clear cert warning
+
+**Status:** diagnostic-needed — moved to **§3 as B-9** below. Cannot fix from code alone; needs logs from the affected device. The cert logic in `site.yml:1500-1514` hasn't changed since pre-alpha.22 (when it was confirmed working), so this is either (a) iOS Safari version behaviour change, (b) HSTS caching from a prior visit, or (c) new cert generated on reflash that Safari doesn't recognise as pre-accepted.
+
+### S-19. Brand icons for services — research + implementation `[claude]`
+
+**Question (user-reported 2026-04-19):** can we use actual brand icons for JS8Call, Pat, Meshtastic, MeshCore, Mumble, FreeDATA?
+
+**Research step (do this first, before writing code):**
+- **JS8Call** — fully open-source (GPLv3); no trademark I can find. Project logo available in the GitHub repo. Safe to use nominatively.
+- **Pat** — open source (MIT); no trademark. Repo has a "postbird" logo. Safe for nominative use.
+- **Meshtastic** — trademark owned by Meshtastic LLC. They publish a [brand usage policy](https://meshtastic.org/docs/brand). Permitted for nominative / compatibility reference (e.g., "works with Meshtastic"). Not permitted on merchandise or for implying endorsement. Our use case ("Open Meshtastic") is nominative-descriptive — likely allowed but **verify the current policy** before shipping.
+- **MeshCore** — newer project (liamcottle/MeshCore); no formal trademark policy found. Ask in their Discord/GitHub issues, or use the logo with a link back and "MeshCore™ is used nominatively" disclaimer in README.
+- **Mumble** — open source (BSD); Mumble logo is under a permissive license per mumble.info. Safe to use.
+- **FreeDATA** — open source (GPL); no trademark; logo in repo. Safe.
+
+**Recommended stance:** Using the official logos for nominative use ("this opens $SERVICE") is legally defensible and common practice — what you cannot do is imply sponsorship or sell merchandise. Add a one-line notice to `README.md` noting trademarks are property of their respective owners and logos are used for identification only.
+
+**Implementation plan — after research above is confirmed:**
+
+1. Download each logo at small size (24×24 or 32×32 SVG preferred). Store in `src/dashboard/icons/` (new dir). Preserve original license/attribution text in `src/dashboard/icons/LICENSES.md`.
+2. Nginx serves them via the existing `location /` try_files — deployed alongside the dashboard by the existing copy task.
+3. Dashboard HTML — replace the emoji in each section header. Example (JS8Call, `index.html:301`):
+   ```html
+   <!-- Before -->
+   <h2 style="color:var(--pink);font-size:0.9rem;margin-bottom:6px;">📻 JS8Call</h2>
+   <!-- After -->
+   <h2 style="color:var(--pink);font-size:0.9rem;margin-bottom:6px;">
+       <img src="/icons/js8call.svg" alt="" aria-hidden="true" style="height:0.9em;vertical-align:-0.1em;margin-right:4px;">
+       JS8Call
+   </h2>
+   ```
+4. Keep emoji as fallback: if the icon fails to load, the `alt=""` means nothing shows; acceptable since the text label is always present.
+
+**Tests:**
+- `tests/smoke-test.py` — assert each `/icons/*.svg` returns 200.
+- `tests/html-check.py` — assert each service card references its icon file.
+- `tests/MANUAL-TESTS.md` — eyeball check: icons render crisp at 1x and 2x DPI.
+
+**Non-goals:** do not create custom-artistic redraws of trademarks; do not use proprietary colour schemes for the dashboard outside of the logo rendering. If any trademark policy forbids use, substitute with a neutral monochrome glyph and note the exception.
+
+**Acceptance:** dashboard service cards use authentic brand icons (or documented fallbacks), with a trademark-attribution notice in README and LICENSES.md.
+
+---
+
+### S-8. Kiwix viewer theme — round 2 (toolbar, cover thumb, icons) — SHIPPED in pre-alpha.26 (still incomplete — see S-9) `[vibe]`
 
 **Status of S-7 (shipped in 680f36e, pre-alpha.22):** `body`, book tiles, search box, home page all went dark ✅. **But the viewer page (`/library/viewer#<slug>`) is only half-themed** — user screenshots on 2026-04-18 show:
 
