@@ -15,7 +15,7 @@
 
 ## §1 — Sonnet-actionable now
 
-> S-1 through S-7 shipped in pre-alpha.22 (2026-04-17); S-1–S-6 confirmed by smoke test, S-7 confirmed only for library index (viewer page still half-themed — S-8 is the follow-up). See §2 for remaining hardware verification items.
+> S-1 through S-7 shipped and confirmed (pre-alpha.22). S-8 shipped (b86dbf8, pre-alpha.26) but hardware testing revealed follow-up items — see S-9. S-9 through S-16 are the current actionable §1 items.
 
 ### ~~S-2. MeshCore CORS probe fix~~ — COMPLETE
 
