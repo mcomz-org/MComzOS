@@ -15,7 +15,7 @@
 
 ## §1 — Sonnet-actionable now
 
-> S-1 through S-7 shipped and confirmed (pre-alpha.22). S-8 shipped (b86dbf8, pre-alpha.26) but hardware testing revealed follow-up items — see S-9. S-9 through S-16 are the current actionable §1 items.
+> S-1 through S-16 shipped (pre-alpha.28). All §1 items complete. S-18/S-19 moved to §3/§4. See §2 for remaining hardware verification items.
 
 ### ~~S-2. MeshCore CORS probe fix~~ — COMPLETE
 
@@ -82,7 +82,7 @@ Coverage rule: tests must cover the new behaviour, not just pass because they do
 
 **Acceptance:** ARM64 hub no longer shows a dead Connect button; x86 hub (where the AppImage installs) is unchanged.
 
-### S-9. Kiwix viewer theme — round 3 (specificity + index-page coverage) `[vibe]`
+### ~~S-9. Kiwix viewer theme — round 3 (specificity + index-page coverage)~~ — COMPLETE (pre-alpha.28) `[vibe]`
 
 **Status of S-8 (shipped in b86dbf8, pre-alpha.26):** `#kiwixtoolbar` itself went dark ✅. But on the viewer page, the inner **search input**, **home button**, **random button**, and **language-selector icon** are all still light. New screenshots 2026-04-19 (`tests/user-images/Xnip2026-04-19_00-18-40.jpg` and `…_00-25-42.jpg`) show this clearly. The iOS Kiwix app reference (`tests/user-images/Screenshot of Kiwix iPhone app...png`) is the target aesthetic.
 
@@ -290,7 +290,7 @@ My S-8 override used plain `button { ... !important }` (specificity 0-0-0-1) and
 
 ---
 
-### S-10. Smoke-test false positive on ui-widget-header check `[vibe]`
+### ~~S-10. Smoke-test false positive on ui-widget-header check~~ — COMPLETE (pre-alpha.28) `[vibe]`
 
 **Problem:** `tests/smoke-test.py:323-325` checks `/library/` HTML for `ui-widget-header` / `kiwixtoolbar`. Those only appear on `/library/viewer`. Result: 84/85 smoke-test fail. **This is purely a test bug, not a playbook bug.**
 
@@ -298,7 +298,7 @@ My S-8 override used plain `button { ... !important }` (specificity 0-0-0-1) and
 
 ---
 
-### S-11. WikiMed not hidden from recommended list after install `[vibe]`
+### ~~S-11. WikiMed not hidden from recommended list after install~~ — COMPLETE (pre-alpha.28) `[vibe]`
 
 **Problem (user-reported 2026-04-19):** `wikimed-mini.zim` is registered in `library.xml` but still appears in the "Recommended books" panel. Expected: hidden once installed.
 
@@ -319,7 +319,7 @@ My S-8 override used plain `button { ... !important }` (specificity 0-0-0-1) and
 
 ---
 
-### S-12. Service ordering — JS8Call above Pat, MeshCore above Meshtastic `[vibe]`
+### ~~S-12. Service ordering — JS8Call above Pat, MeshCore above Meshtastic~~ — COMPLETE (pre-alpha.28) `[vibe]`
 
 **Problem:** User prefers JS8Call above Pat (more commonly used / immediate on-air) and MeshCore above Meshtastic (private tactical mesh is the core value-prop; Meshtastic is the "also supported" option).
 
@@ -338,7 +338,7 @@ My S-8 override used plain `button { ... !important }` (specificity 0-0-0-1) and
 
 ---
 
-### S-13. WiFi icon — remove outermost arc `[vibe]`
+### ~~S-13. WiFi icon — remove outermost arc~~ — COMPLETE (pre-alpha.28) `[vibe]`
 
 **Problem (user-reported 2026-04-19):** The top arc of the WiFi icon is visually closer to the next arc than the others. iOS Safari's pattern is 1 dot + 2 arcs; we currently have 1 dot + 3 arcs.
 
@@ -364,7 +364,7 @@ Consider tightening viewBox to `viewBox="3 4 16 12"` afterwards so the icon isn'
 
 ---
 
-### S-14. JS8Call / FreeDATA remote desktop — full-screen + Remote Resizing `[vibe]`
+### ~~S-14. JS8Call / FreeDATA remote desktop — full-screen + Remote Resizing~~ — COMPLETE (pre-alpha.28) `[vibe]`
 
 **Problem (user-reported 2026-04-19):** Clicking "Open JS8Call" / "Open FreeDATA" opens a new tab with noVNC at default resolution (fixed desktop size, letterboxed). User wants (a) noVNC to open with "Remote Resizing" active (VNC session adopts the browser's viewport size via RandR) and (b) enter full-screen automatically when the window loads.
 
@@ -406,7 +406,7 @@ Do the same in the HTTP server block (`site.yml` around line 1592).
 
 ---
 
-### S-15. Kiwix library browse/search — add "browse upstream catalog" UI `[vibe]`
+### ~~S-15. Kiwix library browse/search — add "browse upstream catalog" UI~~ — COMPLETE (pre-alpha.28) `[vibe]`
 
 **Problem (user-reported 2026-04-19):** Current Manage Books panel shows a fixed list of 4 recommended ZIMs + the MComzLibrary set. No way to find *other* ZIMs without knowing their exact kiwix catalog name. User wants to search and browse.
 
@@ -472,7 +472,7 @@ Do the same in the HTTP server block (`site.yml` around line 1592).
 
 ---
 
-### S-16. Mobile navigation tutorial / onboarding `[vibe]`
+### ~~S-16. Mobile navigation tutorial / onboarding~~ — COMPLETE (pre-alpha.28) `[vibe]`
 
 **Problem (user-reported 2026-04-19):** Dashboard works on mobile but navigation patterns (collapsibles, slide-in WiFi panel, VNC tab behaviour) aren't obvious. Users on small screens need guidance.
 

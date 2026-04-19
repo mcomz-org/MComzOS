@@ -430,6 +430,79 @@ else:
           f"not found at {kiwix_css}")
 
 # ---------------------------------------------------------------------------
+# S-11 — WikiMed recommended entry must have zimPattern to match on-disk filename
+# ---------------------------------------------------------------------------
+section("S-11 — WikiMed zimPattern")
+
+check("WikiMed RECOMMENDED_ZIMS entry has zimPattern field",
+      bool(re.search(r'kiwixName:\s*["\']wikipedia_en_medicine["\']', src)) and
+      bool(re.search(r'zimPattern:\s*["\']wikimed["\']', src)),
+      "zimPattern: 'wikimed' missing from WikiMed entry — "
+      "installed wikimed-mini.zim will never be filtered from the recommended list")
+
+# ---------------------------------------------------------------------------
+# S-13 — WiFi icon has exactly 1 circle + 2 arc paths (dot + 2 arcs, like iOS)
+# ---------------------------------------------------------------------------
+section("S-13 — WiFi SVG arc count")
+
+wifi_svg_match = re.search(
+    r'id=["\']wifi-btn["\'][^>]*>.*?</button>', src, re.DOTALL
+)
+if wifi_svg_match:
+    wifi_svg = wifi_svg_match.group(0)
+    circle_count = len(re.findall(r'<circle\b', wifi_svg))
+    path_count   = len(re.findall(r'<path\b', wifi_svg))
+    check("WiFi SVG has exactly 1 circle (dot)", circle_count == 1,
+          f"found {circle_count} — expected 1 dot")
+    check("WiFi SVG has exactly 2 arc paths (iOS-style: dot + 2 arcs)",
+          path_count == 2,
+          f"found {path_count} — remove outermost arc to match iOS icon")
+else:
+    check("WiFi button SVG found", False, "wifi-btn button not found in HTML")
+
+# ---------------------------------------------------------------------------
+# S-14 — VNC URLs contain resize=remote for dynamic viewport resizing
+# ---------------------------------------------------------------------------
+section("S-14 — VNC remote resize")
+
+check("JS8Call noVNC URL contains resize=remote",
+      bool(re.search(r"vnc\.html[^'\"]*resize=remote", src)),
+      "resize=remote missing — VNC will open letterboxed, not full-viewport")
+check("FreeDATA noVNC URL contains resize=remote",
+      len(re.findall(r"vnc\.html[^'\"]*resize=remote", src)) >= 2,
+      "only one VNC link has resize=remote — check FreeDATA button too")
+
+# ---------------------------------------------------------------------------
+# S-15 — Kiwix upstream catalog browse (search box + handler)
+# ---------------------------------------------------------------------------
+section("S-15 — Kiwix catalog browse/search")
+
+check("kiwix-search-input element present", "kiwix-search-input" in src,
+      "search input missing — Manage Books panel has no browse capability")
+check("onKiwixSearchInput function defined", has_fn("onKiwixSearchInput"),
+      "handler missing — search input won't trigger search")
+check("kiwixSearch queries library.kiwix.org OPDS (catalog/v2/entries?q=)",
+      "library.kiwix.org/catalog/v2/entries?q=" in src,
+      "catalog search URL missing — kiwixSearch function may not have been added")
+
+# ---------------------------------------------------------------------------
+# S-16 — Mobile first-run tips card
+# ---------------------------------------------------------------------------
+section("S-16 — Mobile tips card")
+
+check("#mobile-tips element present", has_id("mobile-tips"),
+      "mobile-tips card missing from HTML")
+check("dismissMobileTips function defined", has_fn("dismissMobileTips"),
+      "dismiss handler missing")
+check("mcomz_mobile_tips_seen localStorage key used",
+      "localStorage.getItem('mcomz_mobile_tips_seen')" in src or
+      "localStorage.getItem(\"mcomz_mobile_tips_seen\")" in src,
+      "localStorage check missing — tips card will re-appear on every visit")
+check("mobile-tips shown only on narrow screens (max-width check)",
+      "max-width" in src and "mobile-tips" in src and "700" in src,
+      "viewport-width guard missing — tips card might appear on desktop too")
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 total = len(_results)

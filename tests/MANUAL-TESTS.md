@@ -151,7 +151,40 @@ Record pass/fail and notes against the release version in `.claude/feedback/hard
 
 ---
 
-## 13. Diagnostics Mode (diagnostics builds only)
+## 13. VNC Remote Resize + Fullscreen (S-14)
+
+- [ ] Click "Open JS8Call" → noVNC opens in a new tab
+- [ ] After VNC connects, the remote desktop **resizes to fill the browser viewport** (no black bars) — confirms `resize=remote` is active
+- [ ] A dark dismissable banner appears at the bottom: "Press **F** for fullscreen · click to dismiss"
+- [ ] Press **F** — browser enters fullscreen; VNC fills the screen
+- [ ] Click the banner — it disappears and does not reappear until the next page load
+- [ ] Same behaviour for "Open FreeDATA" button (on x86 where FreeDATA is installed)
+
+---
+
+## 14. Kiwix Catalog Browse (S-15)
+
+- [ ] Open Manage Books panel (＋ Manage Books button)
+- [ ] A "Browse Kiwix library" search box is visible above the Recommended list
+- [ ] **Online:** type "appropedia" → after a short pause, results appear showing Appropedia entries with sizes and "Get URL" buttons
+- [ ] **Get URL:** click "Get URL" on any result → URL field fills; Download & Add works normally
+- [ ] **Offline:** disconnect hub from internet; type a query → "Search failed — are you online?" message appears (graceful failure, no crash)
+- [ ] Short queries (< 3 chars) show no results and no error
+
+---
+
+## 15. Mobile First-Run Tips (S-16)
+
+- [ ] On an iPhone/iPad in Safari: clear site data for `mcomz.local` (Settings → Safari → Advanced → Website Data), then reload `http://mcomz.local/`
+- [ ] A "📱 First-time tips (mobile)" card appears near the top of the dashboard
+- [ ] Card lists WiFi, Offline Library, Mumble, Mesh/Radio, and Rotate tips
+- [ ] Tap **Dismiss** → card hides immediately
+- [ ] Reload the page → card does **not** reappear (localStorage persists the dismissal)
+- [ ] On a desktop browser: card is never shown (narrow-screen only, ≤ 700 px wide)
+
+---
+
+## 16. Diagnostics Mode (diagnostics builds only)
 
 Only applies when the image was built with `diagnostics_mode=true` (currently all builds).
 
@@ -165,7 +198,7 @@ Only applies when the image was built with `diagnostics_mode=true` (currently al
 
 ---
 
-## 14. x86 Image (if testing PC build)
+## 17. x86 Image (if testing PC build)
 
 - [ ] Flash `mcomzos-x86_64.img.xz` to USB, boot a PC from USB
 - [ ] Repeat sections 1–12 above
