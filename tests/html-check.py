@@ -138,6 +138,22 @@ check("WikiMed entry has zimPattern: \"wikimed\" (S-11 hide-when-installed)",
       bool(re.search(r'kiwixName:\s*"wikipedia_en_medicine".*?zimPattern:\s*"wikimed"',
                      src, re.DOTALL)),
       "WikiMed entry will stay in recommended list after install — add zimPattern: \"wikimed\"")
+# S-15 Kiwix library browse/search UI inside the Manage Books panel
+check("S-15: kiwix-search-input element present (browse UI)",
+      'id="kiwix-search-input"' in src or "id='kiwix-search-input'" in src,
+      "missing — Kiwix library browse search box not present")
+check("S-15: kiwix-search-results container present",
+      'id="kiwix-search-results"' in src,
+      "missing — search results container not present")
+check("S-15: onKiwixSearchInput handler defined",
+      has_fn("onKiwixSearchInput"),
+      "missing — debounced search input handler not defined")
+check("S-15: kiwixSearch function defined",
+      has_fn("kiwixSearch"),
+      "missing — kiwixSearch function not defined")
+check("S-15: search hits library.kiwix.org/catalog/v2/entries?q=",
+      "library.kiwix.org/catalog/v2/entries?q=" in src,
+      "missing — search must query the OPDS catalog with ?q=")
 
 # ---------------------------------------------------------------------------
 # Card content

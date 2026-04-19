@@ -45,6 +45,8 @@ Record pass/fail and notes against the release version in `.claude/feedback/hard
 - [ ] Remove a book — it disappears from the list and from Kiwix after reload
 - [ ] Add by URL — paste a valid .zim URL, click Download & Add, progress updates, book appears when done
 - [ ] "Use this URL" buttons on recommended ZIMs fill the URL field correctly
+- [ ] **S-15 Browse Kiwix Library** — type "appropedia" in the new search box → at least one result appears within ~1s → click "Get URL" → URL field populates → Download & Add proceeds normally
+- [ ] **S-15 Offline graceful failure** — disable internet → search returns "Search failed — are you online?" rather than spinning forever
 
 ---
 

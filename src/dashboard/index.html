@@ -950,6 +950,48 @@ function fetchKiwixUrl(kiwixName) {
             statusEl.textContent = 'Could not reach library.kiwix.org — check internet connection.';
         });
 }
+
+// ── Kiwix library browse/search (S-15) ──────────────────────────────────────
+let _kiwixSearchTimer = null;
+function onKiwixSearchInput() {
+    clearTimeout(_kiwixSearchTimer);
+    const q = document.getElementById('kiwix-search-input').value.trim();
+    const out = document.getElementById('kiwix-search-results');
+    if (q.length < 3) { out.innerHTML = ''; return; }
+    out.innerHTML = '<div style="color:var(--muted);font-size:0.8rem;">Searching…</div>';
+    _kiwixSearchTimer = setTimeout(() => kiwixSearch(q), 350);
+}
+function kiwixSearch(q) {
+    const url = `https://library.kiwix.org/catalog/v2/entries?q=${encodeURIComponent(q)}&count=20`;
+    fetch(url).then(r => r.text()).then(xml => {
+        const doc = new DOMParser().parseFromString(xml, 'application/xml');
+        const ns = 'http://www.w3.org/2005/Atom';
+        const entries = Array.from(doc.getElementsByTagNameNS(ns, 'entry'));
+        const out = document.getElementById('kiwix-search-results');
+        if (!entries.length) {
+            out.innerHTML = '<div style="color:var(--muted);font-size:0.8rem;">No results.</div>';
+            return;
+        }
+        out.innerHTML = entries.map(e => {
+            const title = e.getElementsByTagNameNS(ns, 'title')[0]?.textContent || '(untitled)';
+            const name  = e.getElementsByTagNameNS(ns, 'name')[0]?.textContent || '';
+            let size = 0;
+            for (const link of e.getElementsByTagNameNS(ns, 'link')) {
+                const len = link.getAttribute('length');
+                if (len) { size = parseInt(len, 10); break; }
+            }
+            const sizeMB = size ? ` <span style="color:var(--muted);">(${(size/1024/1024).toFixed(0)} MB)</span>` : '';
+            return `<div style="padding:8px;background:#222;border-radius:4px;margin-bottom:4px;font-size:0.8rem;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;">${esc(title)}${sizeMB}</span>
+                <button onclick="fetchKiwixUrl('${esc(name)}')" class="small-btn" style="flex-shrink:0;">Get URL</button>
+            </div>`;
+        }).join('');
+    }).catch(() => {
+        document.getElementById('kiwix-search-results').innerHTML =
+            '<div style="color:var(--red);font-size:0.8rem;">Search failed — are you online?</div>';
+    });
+}
+
 function startDownload() {
     const url = document.getElementById('books-url').value.trim();
     const statusEl = document.getElementById('books-dl-status');
@@ -1024,6 +1066,12 @@ function removeBook(path) {
            class="wifi-input" style="margin-bottom:8px;">
     <button onclick="startDownload()" class="btn btn-green" style="margin-bottom:4px;">⬇ Download &amp; Add</button>
     <div id="books-dl-status" style="font-size:0.8rem;min-height:1.4em;margin-top:4px;"></div>
+
+    <div class="wifi-section-head" style="margin-top:16px;">Browse Kiwix Library</div>
+    <p class="note" style="margin-bottom:8px;">Search the full Kiwix catalog (requires internet). Click <em>Get URL</em> to copy a download link into the field above.</p>
+    <input id="kiwix-search-input" type="text" placeholder="Search thousands of offline books…"
+           class="wifi-input" style="margin-bottom:8px;" oninput="onKiwixSearchInput()">
+    <div id="kiwix-search-results" style="margin-bottom:16px;max-height:240px;overflow-y:auto;"></div>
 
     <div class="wifi-section-head" style="margin-top:16px;">Recommended Books</div>
     <p class="note" style="margin-bottom:8px;">From <a href="https://library.kiwix.org" target="_blank" style="color:var(--blue);">library.kiwix.org</a> — click to copy the URL into the field above.</p>
