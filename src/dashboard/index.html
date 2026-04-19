@@ -291,7 +291,7 @@
 
     <!-- VOICE & TEXT -->
     <div class="card">
-        <h2 style="color:var(--blue)">🎙 Voice &amp; Text Chat</h2>
+        <h2 style="color:var(--blue)"><img src="/icons/mumble.svg" alt="" aria-hidden="true" style="height:1.2em;vertical-align:-0.15em;margin-right:4px;filter:brightness(0) invert(1);" onerror="this.style.display='none'"> Voice &amp; Text Chat</h2>
         <p class="note">Browser-based voice and text — works on any phone, no app needed.</p>
         <a href="#" class="btn btn-blue" onclick="var p=location.port||(location.protocol==='https:'?'443':'80');location.href='/mumble/?address='+location.hostname+'&port='+p+'/mumble/ws';return false;">Join Channel (Mumble)</a>
         <details class="howto">
@@ -317,7 +317,7 @@
 
         <div id="mesh-detail">
             <div class="mesh-section" id="meshcore-section">
-                <h2 style="color:var(--orange);font-size:0.9rem;margin-bottom:6px;">🔐 MeshCore</h2>
+                <h2 style="color:var(--orange);font-size:0.9rem;margin-bottom:6px;"><img src="/icons/meshcore.svg" alt="" aria-hidden="true" style="height:1.2em;vertical-align:-0.15em;margin-right:4px;" onerror="this.style.display='none'"> MeshCore</h2>
                 <p class="note">Private tactical mesh — this hub acts as a node and repeater. You control the network: flash your own LoRa radios with MeshCore firmware to join.</p>
                 <a href="/meshcore/" target="_blank" rel="noopener" class="btn btn-orange" style="margin-top:8px;"
                    onclick="return guardMeshService('mcomz-meshcore','MeshCore',document.getElementById('meshcore-section'))">MeshCore Dashboard</a>
@@ -325,7 +325,7 @@
                    class="btn" style="background:#333;color:#fff;">Flash Radio to MeshCore ↗</button>
             </div>
             <div class="mesh-section" id="meshtastic-section">
-                <h2 style="color:var(--orange);font-size:0.9rem;margin-bottom:6px;">📡 Meshtastic</h2>
+                <h2 style="color:var(--orange);font-size:0.9rem;margin-bottom:6px;"><img src="/icons/meshtastic-mpwrd.svg" alt="" aria-hidden="true" style="height:1.2em;vertical-align:-0.15em;margin-right:4px;" onerror="this.style.display='none'"> Meshtastic</h2>
                 <p class="note">Public LoRa mesh network — any Meshtastic device can join and exchange text messages. Ideal for neighbourhood-wide comms without infrastructure.</p>
                 <a href="/meshtastic/" target="_blank" rel="noopener" class="btn btn-orange" style="margin-top:8px;"
                    onclick="return guardMeshService('meshtasticd','Meshtastic',document.getElementById('meshtastic-section'))">Open Meshtastic</a>
@@ -341,17 +341,17 @@
 
         <div id="radio-detail">
             <div class="mesh-section">
-                <h2 style="color:var(--pink);font-size:0.9rem;margin-bottom:6px;">📻 JS8Call</h2>
+                <h2 style="color:var(--pink);font-size:0.9rem;margin-bottom:6px;"><img src="/icons/js8call.svg" alt="" aria-hidden="true" style="height:1.2em;vertical-align:-0.15em;margin-right:4px;filter:brightness(0) invert(1);" onerror="this.style.display='none'"> JS8Call</h2>
                 <p class="note">Keyboard-to-keyboard HF messaging via weak-signal digital mode. Join the #MCOMZ net Sundays 1500Z on 7.078 MHz.</p>
                 <a href="#" class="btn btn-pink" style="margin-top:8px;" onclick="window.open('https://'+location.hostname+'/vnc/vnc.html?path=websockify&autoconnect=true&resize=remote&reconnect=true&show_dot=true');return false;">Open JS8Call (Remote Desktop)</a>
             </div>
             <div class="mesh-section">
-                <h2 style="color:var(--pink);font-size:0.9rem;margin-bottom:6px;">✉️ Winlink Email (Pat)</h2>
+                <h2 style="color:var(--pink);font-size:0.9rem;margin-bottom:6px;"><img src="/icons/pat.png" alt="" aria-hidden="true" style="height:1.2em;vertical-align:-0.15em;margin-right:4px;filter:brightness(0) invert(1);" onerror="this.style.display='none'"> Winlink Email (Pat)</h2>
                 <p class="note">Send and receive email over radio without internet, using the global Winlink network.</p>
                 <a href="#" class="btn btn-pink" style="margin-top:8px;" onclick="window.open('https://'+location.hostname+':8081/');return false;">Open Pat — Winlink Email</a>
             </div>
             <div id="freedata-section" class="mesh-section">
-                <h2 style="color:var(--pink);font-size:0.9rem;margin-bottom:6px;">📡 FreeDATA</h2>
+                <h2 style="color:var(--pink);font-size:0.9rem;margin-bottom:6px;"><img src="/icons/freedata.png" alt="" aria-hidden="true" style="height:1.2em;vertical-align:-0.15em;margin-right:4px;filter:brightness(0) invert(1);" onerror="this.style.display='none'"> FreeDATA</h2>
                 <p class="note">High-speed HF data modem for file transfer and peer-to-peer data exchange over radio.</p>
                 <a href="#" class="btn btn-pink" style="margin-top:8px;" onclick="window.open('https://'+location.hostname+'/vnc/vnc.html?path=websockify&autoconnect=true&resize=remote&reconnect=true&show_dot=true');return false;">Open FreeDATA (Remote Desktop)</a>
                 <p class="note">FreeDATA may not be installed — AppImage availability varies by release.</p>

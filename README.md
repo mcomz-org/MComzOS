@@ -134,6 +134,17 @@ Requires Ansible 2.10+ on the control machine. The target must be running Debian
 
 ---
 
+## Trademarks and Logos
+
+Brand logos displayed in the MComzOS dashboard are used for nominative identification only — they identify buttons that open the named software. They are the property of their respective owners and MComzOS is not affiliated with or endorsed by any of them.
+
+- Meshtastic® is a registered trademark of Meshtastic LLC. The M-PWRD badge is used per the [Meshtastic community logo policy](https://meshtastic.org/docs/legal/licensing-and-trademark/).
+- MeshCore, Mumble, JS8Call, Pat/Winlink, and FreeDATA logos and names are property of their respective owners.
+
+See [`src/dashboard/icons/LICENSES.md`](src/dashboard/icons/LICENSES.md) for full attribution.
+
+---
+
 ## Hardware Requirements
 *By "any computer," we mean almost** any modern PC, Mac, or Raspberry Pi. As long as it's less than 15 years old, has at least 2GB of RAM, and can boot from a USB drive or SD card, it is a candidate for your hub. Optimal use requires external radios and licenses, but the hub provides significant local benefit even without them.
 

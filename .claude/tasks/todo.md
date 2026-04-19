@@ -15,7 +15,7 @@
 
 ## §1 — Sonnet-actionable now
 
-> S-1 through S-16 shipped (pre-alpha.28). All §1 items complete. S-18/S-19 moved to §3/§4. See §2 for remaining hardware verification items.
+> S-1 through S-16 shipped (pre-alpha.28); S-19 (brand icons) shipped (pre-alpha.29). S-18 moved to §3. See §2 for remaining hardware verification items.
 
 ### ~~S-2. MeshCore CORS probe fix~~ — COMPLETE
 
@@ -531,7 +531,7 @@ Already covered by S-9 step 4 (size cap + opacity-0 for broken imgs). No separat
 
 **Status:** diagnostic-needed — moved to **§3 as B-9** below. Cannot fix from code alone; needs logs from the affected device. The cert logic in `site.yml:1500-1514` hasn't changed since pre-alpha.22 (when it was confirmed working), so this is either (a) iOS Safari version behaviour change, (b) HSTS caching from a prior visit, or (c) new cert generated on reflash that Safari doesn't recognise as pre-accepted.
 
-### S-19. Brand icons for services — RESEARCH COMPLETE, ready to implement `[vibe]`
+### ~~S-19. Brand icons for services~~ — COMPLETE (pre-alpha.29) `[vibe]`
 
 **Research findings** (full notes in `.claude/research/S-19-brand-icons.md`, 2026-04-19):
 

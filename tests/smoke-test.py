@@ -516,6 +516,28 @@ except Exception as e:
     print(f"  ⚠  RECOMMENDED_ZIMS catalog section skipped: {e}")
 
 # ---------------------------------------------------------------------------
+# S-19 — Brand icons served correctly
+# ---------------------------------------------------------------------------
+section("S-19 — Brand icons")
+
+for icon_path in (
+    "/icons/mumble.svg",
+    "/icons/meshcore.svg",
+    "/icons/meshtastic-mpwrd.svg",
+    "/icons/js8call.svg",
+    "/icons/pat.png",
+    "/icons/freedata.png",
+):
+    code_ic, body_ic = get(path=icon_path)
+    check(f"{icon_path} serves 200",
+          code_ic == 200,
+          f"HTTP {code_ic} — icon not deployed; check src/dashboard/icons/ and site.yml copy task")
+    if code_ic == 200 and icon_path.endswith(".svg"):
+        check(f"{icon_path} content-type is SVG or XML",
+              body_ic[:6] in (b"<svg", b"<?xml") or b"<svg" in body_ic[:256],
+              "unexpected content — file may be corrupt or wrong MIME type")
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 total = len(_results)

@@ -503,6 +503,62 @@ check("mobile-tips shown only on narrow screens (max-width check)",
       "viewport-width guard missing — tips card might appear on desktop too")
 
 # ---------------------------------------------------------------------------
+# S-19 — Brand icons in service card headers
+# ---------------------------------------------------------------------------
+section("S-19 — Brand icons")
+
+for icon_file, label in [
+    ("mumble.svg",           "Mumble (Voice & Text)"),
+    ("meshcore.svg",         "MeshCore"),
+    ("meshtastic-mpwrd.svg", "Meshtastic M-PWRD"),
+    ("js8call.svg",          "JS8Call"),
+    ("pat.png",              "Pat/Winlink"),
+    ("freedata.png",         "FreeDATA"),
+]:
+    check(f"S-19: /icons/{icon_file} referenced in HTML ({label})",
+          f"/icons/{icon_file}" in src,
+          f"brand icon for {label} missing — add <img src=/icons/{icon_file}> to the card header")
+
+icons_dir = html_path.parent / "icons"
+check("S-19: icons/ directory exists",
+      icons_dir.is_dir(),
+      f"expected directory at {icons_dir}")
+
+for icon_file in ("mumble.svg", "meshcore.svg", "meshtastic-mpwrd.svg",
+                  "js8call.svg", "pat.png", "freedata.png"):
+    check(f"S-19: icons/{icon_file} exists on disk",
+          (icons_dir / icon_file).exists(),
+          f"file missing — download it and place in src/dashboard/icons/")
+
+check("S-19: LICENSES.md present in icons/ dir",
+      (icons_dir / "LICENSES.md").exists(),
+      "attribution file missing — add LICENSES.md")
+
+# Invert filter applied to monochrome logos (all except Meshtastic M-PWRD which is full-colour)
+_mono_icons = ["mumble.svg", "js8call.svg", "pat.png", "freedata.png"]
+for icon_file in _mono_icons:
+    _pat = re.escape(icon_file) + r'[^>]*filter\s*:\s*brightness\(0\)\s*invert\(1\)'
+    check(f"S-19: {icon_file} has brightness(0) invert(1) filter (light bg → white)",
+          bool(re.search(_pat, src)),
+          f"missing invert filter on {icon_file} — will render dark on dark background")
+
+# Meshtastic M-PWRD must NOT have the invert filter (it's a full-colour badge)
+_mpwrd_ctx = re.search(r'meshtastic-mpwrd\.svg[^>]*>', src)
+if _mpwrd_ctx:
+    check("S-19: meshtastic-mpwrd.svg does NOT have invert filter (full-colour badge)",
+          "invert" not in _mpwrd_ctx.group(0),
+          "M-PWRD badge is already full-colour — don't invert it")
+else:
+    check("S-19: meshtastic-mpwrd.svg img tag present", False, "img tag not found in src")
+
+# All brand icon img tags must have onerror fallback
+check("S-19: brand icon img tags have onerror fallback",
+      src.count('onerror="this.style.display=') >= 6 or
+      src.count("onerror='this.style.display=") >= 6 or
+      src.count('onerror="this.style.display=\'none\'"') >= 6,
+      "icon <img> tags should include onerror='this.style.display=\"none\"' so missing icons don't break layout")
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 total = len(_results)

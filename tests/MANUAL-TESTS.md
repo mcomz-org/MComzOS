@@ -198,7 +198,19 @@ Only applies when the image was built with `diagnostics_mode=true` (currently al
 
 ---
 
-## 17. x86 Image (if testing PC build)
+## 17. Brand Icons (S-19)
+
+- [ ] **Voice & Text Chat card** — Mumble icon visible to the left of "Voice & Text Chat" heading; icon is white/light, not dark
+- [ ] **MeshCore sub-heading** — MeshCore wordmark icon visible; white on dark background
+- [ ] **Meshtastic sub-heading** — Meshtastic M-PWRD badge visible in **full colour** (green + white badge, not inverted)
+- [ ] **JS8Call sub-heading** — JS8Call icon visible; white/light on dark background
+- [ ] **Winlink Email (Pat) sub-heading** — Pat logo visible; white/light on dark background
+- [ ] **FreeDATA sub-heading** — FreeDATA logo visible; white/light on dark background
+- [ ] **No broken image glyphs** — all six icons load without showing a broken-image placeholder; onerror fallback hides any that fail to load (no layout breakage)
+
+---
+
+## 18. x86 Image (if testing PC build)
 
 - [ ] Flash `mcomzos-x86_64.img.xz` to USB, boot a PC from USB
 - [ ] Repeat sections 1–12 above
