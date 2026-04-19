@@ -64,6 +64,8 @@ Record pass/fail and notes against the release version in `.claude/feedback/hard
 
 ### JS8Call (Remote Desktop / VNC)
 - [ ] "Open JS8Call" opens noVNC; noVNC connects and JS8Call desktop loads inside the browser window (no password dialog — VNC runs without auth)
+- [ ] **S-14 Remote Resizing** — VNC desktop fills the browser viewport on connect (no black letterbox bars); resizing the browser window resizes the desktop within ~1s
+- [ ] **S-14 Fullscreen hint** — small "Press F for fullscreen · click to dismiss" banner visible at the bottom of the noVNC page; pressing **F** enters browser fullscreen; clicking the banner removes it
 - [ ] **With radio hardware** — JS8Call decodes an incoming JS8 frame and transmits successfully
 
 ### Pat (Winlink Email)
@@ -72,6 +74,7 @@ Record pass/fail and notes against the release version in `.claude/feedback/hard
 
 ### FreeDATA
 - [ ] "Open FreeDATA" opens noVNC (or shows "may not be installed" note if unavailable)
+- [ ] **S-14 Remote Resizing** — same checks as JS8Call (resize, fullscreen banner)
 
 ---
 

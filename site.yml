@@ -1637,6 +1637,11 @@
               location /vnc/ {
                   alias /usr/share/novnc/;
                   index vnc.html;
+                  # S-14 fullscreen hint banner — sub_filter injects a small dismissable
+                  # tip into vnc.html telling the user to press F for browser fullscreen.
+                  sub_filter_once on;
+                  sub_filter_types text/html;
+                  sub_filter '</body>' '<div id="fs-hint" style="position:fixed;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:#eee;padding:6px 14px;border-radius:999px;font-family:-apple-system,sans-serif;font-size:12px;z-index:9999;cursor:pointer;" onclick="this.remove()">Press <b>F</b> for fullscreen · click to dismiss</div></body>';
               }
               location /vnc/websockify {
                   proxy_pass http://127.0.0.1:6080/;
@@ -1714,6 +1719,10 @@
               location /vnc/ {
                   alias /usr/share/novnc/;
                   index vnc.html;
+                  # S-14 fullscreen hint banner — see HTTP block above
+                  sub_filter_once on;
+                  sub_filter_types text/html;
+                  sub_filter '</body>' '<div id="fs-hint" style="position:fixed;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.8);color:#eee;padding:6px 14px;border-radius:999px;font-family:-apple-system,sans-serif;font-size:12px;z-index:9999;cursor:pointer;" onclick="this.remove()">Press <b>F</b> for fullscreen · click to dismiss</div></body>';
               }
               location /vnc/websockify {
                   proxy_pass http://127.0.0.1:6080/;

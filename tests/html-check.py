@@ -177,6 +177,19 @@ check("VNC URL in Licensed Radio",
       "/vnc/vnc.html?path=websockify&autoconnect=true" in src)
 check("VNC links use HTTPS (not bare href — VNC auth requires HTTPS)",
       bool(re.search(r"'https://'\s*\+\s*location\.hostname.*vnc/vnc\.html", src)))
+# S-14: noVNC URLs must include resize=remote so the VNC desktop adopts the
+# browser viewport via RandR, and reconnect=true so transient drops auto-recover.
+check("S-14: noVNC URLs include resize=remote (server-side RandR)",
+      "resize=remote" in src,
+      "missing — VNC desktop will be letterboxed at fixed resolution")
+check("S-14: noVNC URLs include reconnect=true",
+      "reconnect=true" in src,
+      "missing — transient drops won't auto-recover")
+# Both JS8Call and FreeDATA buttons must use the upgraded URL — guard against
+# someone updating one and forgetting the other.
+check("S-14: noVNC URL with resize=remote appears at least twice (JS8Call + FreeDATA)",
+      src.count("resize=remote") >= 2,
+      f"only found {src.count('resize=remote')} occurrence(s) — both JS8Call and FreeDATA buttons must be upgraded")
 
 check("Mesh Communication card present", "Mesh Communication" in src)
 check("toggleMesh in Mesh button",

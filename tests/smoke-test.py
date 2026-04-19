@@ -348,6 +348,11 @@ check("noVNC HTML serves at /vnc/vnc.html", code_vnc == 200,
       f"HTTP {code_vnc}")
 if code_vnc == 200:
     check("noVNC HTML contains 'noVNC'", b"noVNC" in body_vnc or b"novnc" in body_vnc.lower())
+    # S-14: nginx sub_filter injects a fullscreen-hint banner into vnc.html
+    check("S-14 fullscreen hint banner present (nginx sub_filter active on /vnc/)",
+          b"fs-hint" in body_vnc,
+          "fs-hint div not found — sub_filter may not be active on the /vnc/ alias "
+          "(check nginx -V for http_sub_module; check sub_filter_types includes text/html)")
 
 # VNC websockify endpoint — plain GET returns 400/405/426 (WebSocket-only); that's correct
 code_ws, _ = get(path="/vnc/websockify")
