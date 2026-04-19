@@ -19,6 +19,8 @@ Record pass/fail and notes against the release version in `.claude/feedback/hard
 - [ ] **iOS Safari (HTTP)** — open `http://mcomz.local` on iPhone/iPad — dashboard loads without any certificate prompt
 - [ ] **iOS Safari (HTTPS)** — open `https://mcomz.local` on iPhone/iPad — Safari shows a cert warning; tap "Visit Website" (or "Continue"); the full dashboard loads. **Known limitation:** Safari's HTTPS-first upgrade can still send users here; the recommended URL remains `http://mcomz.local/`
 - [ ] **Version display** — System Status card shows the correct release version with a link
+- [ ] **S-16 Mobile first-run tips** — open dashboard on iPhone in Safari with site data cleared (Settings → Safari → Clear) → "📱 First-time tips (mobile)" card visible at top → tap **Dismiss** → reload page → card hidden
+- [ ] **S-16 Desktop unaffected** — open dashboard on a >700px desktop browser → tips card NOT visible regardless of localStorage state
 
 ---
 

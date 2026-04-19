@@ -265,6 +265,21 @@
 
 <div class="grid">
 
+    <!-- MOBILE FIRST-RUN TIPS (S-16) — auto-opens once on narrow screens -->
+    <div class="card full" id="mobile-tips" style="display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+            <h2 style="margin:0;">📱 First-time tips (mobile)</h2>
+            <button onclick="dismissMobileTips()" class="small-btn" style="color:var(--muted);">Dismiss</button>
+        </div>
+        <ul style="margin-top:10px;font-size:0.85rem;color:var(--muted);line-height:1.65;padding-left:18px;">
+            <li><strong>WiFi</strong> — tap the WiFi icon (top right) to connect to a different network or start the MComzOS hotspot.</li>
+            <li><strong>Offline library</strong> — tap any ZIM to read it offline. The Kiwix viewer has its own search inside each book.</li>
+            <li><strong>Voice &amp; text (Mumble)</strong> — needs HTTPS and microphone permission. Safari on iOS is the only iOS browser that supports the mic.</li>
+            <li><strong>Mesh / Radio</strong> — expand the cards below to open each tool. Some open in a new tab.</li>
+            <li><strong>Rotate to landscape</strong> — the remote-desktop apps (JS8Call, FreeDATA) use a lot of width; landscape is much easier.</li>
+        </ul>
+    </div>
+
     <!-- OFFLINE LIBRARY -->
     <div class="card">
         <h2 style="color:var(--green)">📚 Offline Library</h2>
@@ -450,6 +465,21 @@ function fetchStatus() {
 }
 fetchStatus();
 setInterval(fetchStatus, 15000);
+
+// ── Mobile first-run tips (S-16) ──────────────────────────────────────────
+function dismissMobileTips() {
+    const el = document.getElementById('mobile-tips');
+    if (el) el.style.display = 'none';
+    try { localStorage.setItem('mcomz_mobile_tips_seen', '1'); } catch (e) {}
+}
+(function showMobileTipsOnce() {
+    const el = document.getElementById('mobile-tips');
+    if (!el) return;
+    const isNarrow = window.matchMedia('(max-width: 700px)').matches;
+    let seen = false;
+    try { seen = localStorage.getItem('mcomz_mobile_tips_seen') === '1'; } catch (e) {}
+    if (isNarrow && !seen) el.style.display = 'block';
+})();
 
 // ── Mesh expand/collapse ─────────────────────────────────────────────────────
 function toggleMesh(btn) {

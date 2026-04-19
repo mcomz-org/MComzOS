@@ -154,6 +154,19 @@ check("S-15: kiwixSearch function defined",
 check("S-15: search hits library.kiwix.org/catalog/v2/entries?q=",
       "library.kiwix.org/catalog/v2/entries?q=" in src,
       "missing — search must query the OPDS catalog with ?q=")
+# S-16: mobile first-run tips card with localStorage gating
+check("S-16: #mobile-tips card present",
+      'id="mobile-tips"' in src,
+      "missing — mobile tips card not in DOM")
+check("S-16: dismissMobileTips function defined",
+      has_fn("dismissMobileTips"),
+      "missing — dismiss handler not defined")
+check("S-16: localStorage key mcomz_mobile_tips_seen referenced",
+      "mcomz_mobile_tips_seen" in src,
+      "missing — gating key not referenced; tips will reappear every load")
+check("S-16: matchMedia narrow-screen check (max-width: 700px)",
+      "matchMedia('(max-width: 700px)')" in src or 'matchMedia("(max-width: 700px)")' in src,
+      "missing — tips will appear on desktop too")
 
 # ---------------------------------------------------------------------------
 # Card content
