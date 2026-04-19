@@ -159,6 +159,20 @@ check("Winlink/Pat section present inside radio-detail",
       "Winlink" in src and "Pat" in src)
 check("JS8Call section present", "JS8Call" in src)
 check("FreeDATA section present", "FreeDATA" in src)
+# S-12: service ordering — MeshCore before Meshtastic, JS8Call before Pat
+check("S-12: meshcore-section appears before meshtastic-section",
+      src.find("meshcore-section") != -1 and src.find("meshtastic-section") != -1
+      and src.find("meshcore-section") < src.find("meshtastic-section"),
+      "MeshCore must appear above Meshtastic in the mesh card")
+# JS8Call/Pat ordering inside #radio-detail
+_radio_open = src.find('id="radio-detail"')
+_radio_close = src.find("</div>", _radio_open + 200) if _radio_open != -1 else -1
+_radio_block = src[_radio_open:src.find('<!-- SERVICE STATUS', _radio_open)] if _radio_open != -1 else ""
+check("S-12: JS8Call appears before 'Open Pat' inside #radio-detail",
+      _radio_block and _radio_block.find("JS8Call") != -1
+      and _radio_block.find("Open Pat") != -1
+      and _radio_block.find("JS8Call") < _radio_block.find("Open Pat"),
+      "JS8Call section must come above Pat inside the radio card")
 check("VNC URL in Licensed Radio",
       "/vnc/vnc.html?path=websockify&autoconnect=true" in src)
 check("VNC links use HTTPS (not bare href — VNC auth requires HTTPS)",

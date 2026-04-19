@@ -302,12 +302,6 @@
         <button class="btn btn-orange" onclick="toggleMesh(this)">Show Mesh Capabilities</button>
 
         <div id="mesh-detail">
-            <div class="mesh-section" id="meshtastic-section">
-                <h2 style="color:var(--orange);font-size:0.9rem;margin-bottom:6px;">📡 Meshtastic</h2>
-                <p class="note">Public LoRa mesh network — any Meshtastic device can join and exchange text messages. Ideal for neighbourhood-wide comms without infrastructure.</p>
-                <a href="/meshtastic/" target="_blank" rel="noopener" class="btn btn-orange" style="margin-top:8px;"
-                   onclick="return guardMeshService('meshtasticd','Meshtastic',document.getElementById('meshtastic-section'))">Open Meshtastic</a>
-            </div>
             <div class="mesh-section" id="meshcore-section">
                 <h2 style="color:var(--orange);font-size:0.9rem;margin-bottom:6px;">🔐 MeshCore</h2>
                 <p class="note">Private tactical mesh — this hub acts as a node and repeater. You control the network: flash your own LoRa radios with MeshCore firmware to join.</p>
@@ -315,6 +309,12 @@
                    onclick="return guardMeshService('mcomz-meshcore','MeshCore',document.getElementById('meshcore-section'))">MeshCore Dashboard</a>
                 <button onclick="openMeshFlasher(this)"
                    class="btn" style="background:#333;color:#fff;">Flash Radio to MeshCore ↗</button>
+            </div>
+            <div class="mesh-section" id="meshtastic-section">
+                <h2 style="color:var(--orange);font-size:0.9rem;margin-bottom:6px;">📡 Meshtastic</h2>
+                <p class="note">Public LoRa mesh network — any Meshtastic device can join and exchange text messages. Ideal for neighbourhood-wide comms without infrastructure.</p>
+                <a href="/meshtastic/" target="_blank" rel="noopener" class="btn btn-orange" style="margin-top:8px;"
+                   onclick="return guardMeshService('meshtasticd','Meshtastic',document.getElementById('meshtastic-section'))">Open Meshtastic</a>
             </div>
         </div>
     </div>
@@ -327,14 +327,14 @@
 
         <div id="radio-detail">
             <div class="mesh-section">
-                <h2 style="color:var(--pink);font-size:0.9rem;margin-bottom:6px;">✉️ Winlink Email (Pat)</h2>
-                <p class="note">Send and receive email over radio without internet, using the global Winlink network.</p>
-                <a href="#" class="btn btn-pink" style="margin-top:8px;" onclick="window.open('https://'+location.hostname+':8081/');return false;">Open Pat — Winlink Email</a>
-            </div>
-            <div class="mesh-section">
                 <h2 style="color:var(--pink);font-size:0.9rem;margin-bottom:6px;">📻 JS8Call</h2>
                 <p class="note">Keyboard-to-keyboard HF messaging via weak-signal digital mode. Join the #MCOMZ net Sundays 1500Z on 7.078 MHz.</p>
                 <a href="#" class="btn btn-pink" style="margin-top:8px;" onclick="window.open('https://'+location.hostname+'/vnc/vnc.html?path=websockify&autoconnect=true');return false;">Open JS8Call (Remote Desktop)</a>
+            </div>
+            <div class="mesh-section">
+                <h2 style="color:var(--pink);font-size:0.9rem;margin-bottom:6px;">✉️ Winlink Email (Pat)</h2>
+                <p class="note">Send and receive email over radio without internet, using the global Winlink network.</p>
+                <a href="#" class="btn btn-pink" style="margin-top:8px;" onclick="window.open('https://'+location.hostname+':8081/');return false;">Open Pat — Winlink Email</a>
             </div>
             <div id="freedata-section" class="mesh-section">
                 <h2 style="color:var(--pink);font-size:0.9rem;margin-bottom:6px;">📡 FreeDATA</h2>
