@@ -328,6 +328,25 @@ if kiwix_css.exists():
     check("kiwix-overrides.css does NOT have unscoped 'img { filter: invert' rule",
           not re.search(r"^\s*img\s*\{[^}]*filter\s*:\s*invert", kiwix_src, re.MULTILINE),
           "unscoped img filter would mangle book covers — scope the filter narrowly")
+    # S-9 specificity-matched selectors — viewer toolbar
+    check("kiwix-overrides.css targets .kiwix #kiwixtoolbar button (S-9 specificity match)",
+          ".kiwix #kiwixtoolbar button" in kiwix_src,
+          "missing — kiwix's own 0-1-1-1 button rule will win the !important tie")
+    check("kiwix-overrides.css targets .kiwix #kiwixtoolbar #kiwixsearchform input (S-9 search input)",
+          ".kiwix #kiwixtoolbar #kiwixsearchform input" in kiwix_src,
+          "missing — viewer search input will stay light")
+    # S-9 library-index page coverage
+    check("kiwix-overrides.css covers .kiwixButton (S-9 library index)",
+          "body .kiwixButton" in kiwix_src,
+          "missing — library-index buttons will stay light")
+    # S-9 cache-bust-safe icon selector
+    check("kiwix-overrides.css uses [src*=\".svg\"] (cache-bust-safe icon match)",
+          '[src*=".svg"]' in kiwix_src,
+          'missing — [src$=".svg"] would miss URLs with ?cacheid= query strings')
+    # S-9 broken-cover size cap
+    check("kiwix-overrides.css caps illustration img max-width (S-9 broken-glyph guard)",
+          "max-width: 128px" in kiwix_src,
+          "missing — broken-image glyph will scale to fill its container")
 else:
     check("kiwix-overrides.css exists at src/theme/kiwix-overrides.css", False,
           f"not found at {kiwix_css}")

@@ -76,7 +76,39 @@ nav {
 a             { color: var(--blue) !important; }
 a:visited     { color: #b39ddb !important; }
 
-/* Search — rounded pill matching iOS Kiwix app */
+/* ── Search inputs ──────────────────────────────────────────────────────── */
+
+/* Viewer search — specificity 0-2-1-1 matches kiwix's own rule.
+   Preserve kiwix's left-padding (27px) so the 🔍 label doesn't overlap text. */
+.kiwix #kiwixtoolbar #kiwixsearchform input[type='text'] {
+    background: #222 !important;
+    background-color: #222 !important;
+    border: 1px solid #444 !important;
+    color: var(--text) !important;
+    border-radius: 999px !important;
+    padding: 2px 12px 2px 27px !important;
+    outline: none !important;
+}
+.kiwix #kiwixtoolbar #kiwixsearchform input[type='text']:focus {
+    border-color: var(--blue) !important;
+}
+.kiwix #kiwixtoolbar #kiwixsearchform input[type='text']::placeholder {
+    color: var(--muted) !important;
+}
+
+/* Library-index search — beats .kiwixSearch at 0-1-0-1 */
+body input.kiwixSearch,
+body #searchFilter {
+    background: #222 !important;
+    background-color: #222 !important;
+    border: 1px solid #444 !important;
+    color: var(--text) !important;
+    border-radius: 999px !important;
+    padding: 8px 16px !important;
+    outline: none !important;
+}
+
+/* Low-specificity fallback — loses to kiwix's named rules but catches anything else */
 input[type="search"],
 input[type="text"],
 .search input {
@@ -105,7 +137,39 @@ select {
     padding: 4px 8px !important;
 }
 
-/* Generic buttons */
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+
+/* Match kiwix's own specificity (0-1-1-1) so !important tie goes to us.
+   Listed as specific selectors — do NOT collapse into a broader selector. */
+.kiwix #kiwixtoolbar button,
+.kiwix #kiwixtoolbar input[type="submit"] {
+    background: #222 !important;
+    background-color: #222 !important;
+    background-image: none !important;
+    border: 1px solid #444 !important;
+    color: var(--text) !important;
+    border-radius: var(--radius-btn) !important;
+}
+.kiwix #kiwixtoolbar button:hover,
+.kiwix #kiwixtoolbar input[type="submit"]:hover {
+    background-color: #2a2a2a !important;
+    border-color: #666 !important;
+}
+
+/* Library-index page uses .kiwixButton (no id involved).
+   Keep specificity 0-1-0-1 to match kiwix's own .kiwixButton rule. */
+body .kiwixButton,
+body .kiwixButtonHover,
+body input.kiwixButton {
+    background: #222 !important;
+    background-color: #222 !important;
+    border: 1px solid #444 !important;
+    color: var(--text) !important;
+    border-radius: var(--radius-btn) !important;
+}
+
+/* Fallback for any other button in kiwix chrome — low specificity, loses
+   to kiwix's own rules but catches anything we didn't name. */
 button,
 input[type="submit"],
 input[type="button"] {
@@ -139,30 +203,48 @@ article:hover {
     background: #252525 !important;
 }
 
-/* Monochromatic icons in kiwix chrome — scope narrowly, never hit covers */
-#kiwixtoolbar > img,
-#kiwixtoolbar button img,
-#kiwix_serve_taskbar img,
-header img,
-nav img,
-.kiwix-header img.icon,
-img.favicon,
-img[src$=".svg"][src*="skin/"] {
+/* ── Monochromatic icons ────────────────────────────────────────────────── */
+/* Covers cache-busted URLs like ./skin/langSelector.svg?cacheid=00b59961 —
+   the previous [src$=".svg"] missed everything because the URL ends in a
+   query string, not the extension. */
+.kiwix #kiwixtoolbar img,
+.kiwix #kiwixtoolbar label img,
+.kiwixNav img,
+img[src*="/skin/"][src*=".svg"],
+img[src*="/skin/"][src*=".png"],
+img[src*="skin/caret"],
+img[src*="skin/langSelector"],
+img[src*="skin/feed"] {
     filter: invert(1) brightness(1.2) !important;
 }
 
-/* Explicitly DO NOT filter book-cover illustrations */
+/* Book-cover illustrations — never invert, always size-capped.
+   Without max-width the broken-image glyph fills the container at 100%. */
 img[src*="/catalog/v2/illustration/"],
 img.book-cover,
-.book-cover img { filter: none !important; }
-
-/* Hide broken illustration icons instead of showing the browser glyph */
-img[src*="/catalog/v2/illustration/"] {
+.book-cover img {
+    filter: none !important;
+    max-width: 128px !important;
+    max-height: 128px !important;
     background: var(--panel);
-    min-width: 48px;
-    min-height: 48px;
-    color: transparent;
+    border-radius: var(--radius-btn);
 }
+/* Hide broken illustration placeholders (ZIM lacks illustration header) */
+img[src*="/catalog/v2/illustration/"]:not([complete]) { opacity: 0; }
+
+/* ── Library index (/library/) chrome ───────────────────────────────────── */
+.kiwixNav {
+    background: var(--panel) !important;
+    border-bottom: 1px solid #333 !important;
+}
+.kiwixNav__select select,
+.kiwixNav__kiwixFilter {
+    background: #222 !important;
+    color: var(--text) !important;
+    border: 1px solid #444 !important;
+}
+.feedLogo, #feedLogo { filter: invert(1) brightness(1.2) !important; }
+#uiLanguageSelectorButton { filter: invert(1) brightness(1.2) !important; }
 
 /* Tables */
 table { border-collapse: collapse; }

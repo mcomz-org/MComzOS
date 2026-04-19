@@ -131,7 +131,11 @@ Record pass/fail and notes against the release version in `.claude/feedback/hard
 - [ ] **Home/random icons** — toolbar icons are white/light (inverted), not dark-on-grey
 - [ ] **Viewer chrome dark** — open `https://mcomz.local/library/viewer#mcomz-scriptures/berean-standard-bible.html`; top toolbar is dark (no light grey `#F4F6FB` bar), text is legible
 - [ ] **Viewer toolbar colour** — DevTools computed style on `#kiwixtoolbar.ui-widget-header` shows `background-color: rgb(30, 30, 30)` — confirms `var(--panel)` won over jQuery UI gradient
-- [ ] **No broken-image glyph** — no browser broken-image icon in the toolbar or book header for any of the 3 shipped MComz ZIMs
+- [ ] **Viewer search input dark (S-9)** — DevTools on `#kiwixsearchbox` shows `background-color: rgb(34, 34, 34)`; visually a dark pill, not a white box
+- [ ] **Viewer home/random buttons dark (S-9)** — DevTools on `#kiwix_serve_taskbar_library_button button` shows `background-color: rgb(34, 34, 34)`; emoji visible against dark background
+- [ ] **Language-selector icon inverted (S-9)** — `#uiLanguageSelectorButton` icon appears light/inverted, not dark-on-light
+- [ ] **No giant broken-image glyph (S-9)** — book header card on `/library/viewer#…` shows no broken-image glyph wider than 128px (illustration endpoint 404s on MComzLibrary ZIMs)
+- [ ] **Library index filter dropdowns (S-9)** — visit `/library/`; the language/category select dropdowns at the top render dark, not light
 - [ ] **Icons crisp** — small icons in the viewer toolbar are crisp (not artifacted, not squashed, not blurry); jQuery UI sprite appears as light/white icons on dark background
 - [ ] **jQuery UI buttons** — Home / random / fullscreen buttons render as dark pills; hover feedback visible (slightly lighter on hover)
 - [ ] **Home button works** — click home icon in viewer → returns to `/library/` book list (still dark)

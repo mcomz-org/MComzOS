@@ -320,9 +320,17 @@ if code_lib == 200:
           b"/theme/kiwix-overrides.css" in body_lib,
           "link tag not found — sub_filter may not be active (nginx-core lacks sub_module; "
           "check nginx -V for http_sub_module); or kiwix response is still gzip-encoded")
-    check("/library/ HTML contains ui-widget-header class (kiwix toolbar class present)",
-          b"ui-widget-header" in body_lib or b"kiwixtoolbar" in body_lib,
+    # ui-widget-header / kiwixtoolbar / kiwixsearchbox only exist on /library/viewer,
+    # not /library/. Fetch the viewer page (no slug = upstream "blank viewer" landing).
+    code_v, body_v = get(path="/library/viewer")
+    check("/library/viewer HTML contains ui-widget-header (kiwix viewer class present)",
+          code_v == 200 and (b"ui-widget-header" in body_v or b"kiwixtoolbar" in body_v),
+          f"got HTTP {code_v}" if code_v != 200 else
           "neither ui-widget-header nor kiwixtoolbar found — kiwix-tools may have changed its markup")
+    check("/library/viewer HTML contains kiwixsearchbox (canary for theme selectors)",
+          code_v == 200 and b"kiwixsearchbox" in body_v,
+          "kiwixsearchbox id not found — theme search-input selector will miss; "
+          "kiwix-tools toolbar markup may have changed")
 
 # ---------------------------------------------------------------------------
 # Section 5 — Licensed Radio
