@@ -240,8 +240,8 @@ check("MeshCore link uses target=_blank",
 # guardMeshService called on both mesh links
 check("guardMeshService called for meshtasticd",
       "guardMeshService('meshtasticd'" in src)
-check("guardMeshService called for mcomz-meshcore",
-      "guardMeshService('mcomz-meshcore'" in src)
+check("guardMeshService called for mcomz-meshcore-gui",
+      "guardMeshService('mcomz-meshcore-gui'" in src)
 
 # MeshCore offline flasher — openMeshFlasher() probes live URL, falls back to local bundle
 check("openMeshFlasher references live flasher URL",

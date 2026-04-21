@@ -49,7 +49,8 @@ Current status: **pre-alpha**. Hardware-tested on RPi 5. All releases use `prere
 | Mumble websockify | localhost:64737 → `/mumble/ws` | WebSocket bridge for mumble-web |
 | mumble-web static | `/mumble/` | Served by nginx alias |
 | Meshtastic web UI | localhost:8080 → `/meshtastic/` | Built into meshtasticd |
-| MeshCore dashboard | localhost:8000 → `/meshcore/` | pyMC_Repeater |
+| MeshCore GUI (USB/BLE) | localhost:8002 → `/meshcore/` | meshcore-gui (NiceGUI); needs `/_nicegui/` and `/socket.io/` proxy blocks |
+| MeshCore SPI repeater | localhost:8000 | pyMC_Repeater — SPI LoRa HAT only; installed, not proxied by default |
 | noVNC static | `/vnc/` | nginx alias to /usr/share/novnc/ |
 | noVNC websockify | localhost:6080 → `/vnc/websockify` | Bridges browser to VNC |
 | TigerVNC (Xvnc) | localhost:5901 | Headless; JS8Call runs inside |

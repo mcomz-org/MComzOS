@@ -320,7 +320,7 @@
                 <h2 style="color:var(--orange);font-size:0.9rem;margin-bottom:6px;"><img src="/icons/meshcore.svg" alt="" aria-hidden="true" style="height:1.2em;vertical-align:-0.15em;margin-right:4px;" onerror="this.style.display='none'"> MeshCore</h2>
                 <p class="note">Private tactical mesh — this hub acts as a node and repeater. You control the network: flash your own LoRa radios with MeshCore firmware to join.</p>
                 <a href="/meshcore/" target="_blank" rel="noopener" class="btn btn-orange" style="margin-top:8px;"
-                   onclick="return guardMeshService('mcomz-meshcore','MeshCore',document.getElementById('meshcore-section'))">MeshCore Dashboard</a>
+                   onclick="return guardMeshService('mcomz-meshcore-gui','MeshCore',document.getElementById('meshcore-section'))">MeshCore Dashboard</a>
                 <button onclick="openMeshFlasher(this)"
                    class="btn" style="background:#333;color:#fff;">Flash Radio to MeshCore ↗</button>
             </div>
@@ -424,7 +424,7 @@ function renderStatus(data) {
     // Services intentionally off until the hotspot is started
     const STANDBY_SVCS = new Set(['hostapd', 'dnsmasq']);
     // Services that only run when specific hardware is attached
-    const HW_SVCS = new Set(['meshtasticd', 'mcomz-meshcore', 'direwolf', 'ardopcf']);
+    const HW_SVCS = new Set(['meshtasticd', 'mcomz-meshcore', 'mcomz-meshcore-gui', 'direwolf', 'ardopcf']);
     const fdSection = document.getElementById('freedata-section');
     if (fdSection) fdSection.style.display = (data.freedata_installed === false) ? 'none' : '';
     grid.innerHTML = Object.entries(data).filter(([, svc]) => svc && typeof svc.status === 'string').map(([name, svc]) => {

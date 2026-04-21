@@ -158,7 +158,7 @@ section("System Status")
 
 EXPECTED_SERVICES = [
     "hostapd", "dnsmasq", "avahi-daemon", "mumble-server",
-    "mcomz-mumble-ws", "meshtasticd", "mcomz-meshcore", "kiwix-serve",
+    "mcomz-mumble-ws", "meshtasticd", "mcomz-meshcore", "mcomz-meshcore-gui", "kiwix-serve",
     "pat", "direwolf", "ardopcf", "mcomz-vnc", "mcomz-novnc", "nginx",
 ]
 
@@ -430,8 +430,16 @@ check("Meshtastic /meshtastic/ returns 502 (no LoRa hardware, as expected)",
       code_mesh == 502, f"HTTP {code_mesh}")
 
 code_mc, _ = get(path="/meshcore/")
-check("MeshCore /meshcore/ returns 502 (no LoRa hardware, as expected)",
+check("MeshCore /meshcore/ returns 502 (meshcore-gui not running, as expected)",
       code_mc == 502, f"HTTP {code_mc}")
+
+code_ng, _ = get(path="/_nicegui/")
+check("NiceGUI /_nicegui/ proxy route exists (returns 502 when service down)",
+      code_ng == 502, f"HTTP {code_ng}")
+
+code_sio, _ = get(path="/socket.io/")
+check("NiceGUI /socket.io/ proxy route exists (returns 502 when service down)",
+      code_sio == 502, f"HTTP {code_sio}")
 
 if status:
     mesh_status = status.get("meshtasticd", {}).get("status")

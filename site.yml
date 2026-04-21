@@ -235,6 +235,12 @@
         create_home: yes
         shell: /bin/bash
 
+    - name: Add mcomz user to serial and bluetooth groups
+      user:
+        name: "{{ mcomz_user }}"
+        groups: "dialout,bluetooth"
+        append: yes
+
     - name: Install hardware multiplexing and time-sync tools
       apt:
         name:
@@ -735,6 +741,61 @@
       when: not (minimal_build | default(false))
 
     # ---------------------------------------------------------
+    # BLUETOOTH + USB SERIAL ACCESS (mesh hardware)
+    # Installs BlueZ and deploys D-Bus policy so the mcomz user can scan
+    # and connect to nearby BLE mesh nodes without root. The udev rules
+    # grant dialout group access to common USB-serial chips used in LoRa
+    # hardware (Heltec, LILYGO, etc.) so USB-connected nodes are accessible
+    # immediately on plug-in without manual chmod.
+    # ---------------------------------------------------------
+    - name: Install Bluetooth support (BlueZ)
+      apt:
+        name:
+          - bluetooth
+          - bluez
+        state: present
+      when: not (minimal_build | default(false))
+
+    - name: Enable Bluetooth service
+      file:
+        src: /lib/systemd/system/bluetooth.service
+        dest: /etc/systemd/system/multi-user.target.wants/bluetooth.service
+        state: link
+        force: yes
+      when: not (minimal_build | default(false))
+
+    - name: Deploy D-Bus policy for MeshCore BLE access
+      copy:
+        dest: /etc/dbus-1/system.d/meshcore-ble.conf
+        content: |
+          <!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+            "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+          <busconfig>
+            <policy user="{{ mcomz_user }}">
+              <allow send_destination="org.bluez"/>
+              <allow send_interface="org.bluez.Adapter1"/>
+              <allow send_interface="org.bluez.Device1"/>
+            </policy>
+          </busconfig>
+      when: not (minimal_build | default(false))
+
+    - name: Deploy udev rules for USB serial mesh hardware
+      # Ensures common LoRa/mesh USB-serial chips are in the dialout group so
+      # the mcomz user can open the port without sudo after a hot-plug.
+      # Chips: CP210x (Heltec V3/V4, LILYGO T-Beam), CH340/CH341 (budget boards),
+      # FTDI (FT232x), Espressif USB-CDC (ESP32-S3 native USB), Prolific PL2303.
+      copy:
+        dest: /etc/udev/rules.d/99-mcomz-serial.rules
+        content: |
+          SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", GROUP="dialout", MODE="0664"
+          SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523", GROUP="dialout", MODE="0664"
+          SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="55d4", GROUP="dialout", MODE="0664"
+          SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", GROUP="dialout", MODE="0664"
+          SUBSYSTEM=="tty", ATTRS{idVendor}=="303a", GROUP="dialout", MODE="0664"
+          SUBSYSTEM=="tty", ATTRS{idVendor}=="067b", GROUP="dialout", MODE="0664"
+      when: not (minimal_build | default(false))
+
+    # ---------------------------------------------------------
     # MESHTASTIC INTEGRATION
     # ---------------------------------------------------------
     - name: Install Meshtastic (meshtasticd from OBS)
@@ -797,11 +858,157 @@
       when: not (minimal_build | default(false))
 
     # ---------------------------------------------------------
-    # MESHCORE INTEGRATION (ARM64 / Raspberry Pi only)
-    # pyMC_Repeater is a MeshCore daemon that talks to an SX1262 LoRa HAT
-    # over SPI. It has no use on x86_64 hardware, so we only install it on
-    # aarch64. The package is defined via pyproject.toml (no requirements.txt)
-    # and pulls pymc_core[hardware] which needs spidev and RPi-GPIO bindings.
+    # MESHCORE GUI — USB/BLE companion (all architectures)
+    # meshcore-gui (pe1hvh/meshcore-gui) is a NiceGUI web app that connects
+    # to a MeshCore-flashed node over USB serial or Bluetooth LE and serves
+    # a full dashboard at port 8002. This is the primary MeshCore interface
+    # when a USB or BLE device is present. Connection priority at runtime:
+    #   1. USB serial — scans /dev/ttyUSB* and /dev/ttyACM* in order
+    #   2. BLE — used if /etc/mcomz/meshcore-ble-address contains a MAC
+    # nginx proxies /meshcore/ here. pyMC_Repeater (below) handles the
+    # GPIO/SPI HAT case and runs on port 8000 but is not nginx-proxied by
+    # default.
+    # ---------------------------------------------------------
+    - name: Ensure /opt/mcomz directory exists (meshcore-gui)
+      file:
+        path: /opt/mcomz
+        state: directory
+        mode: '0755'
+      when: not (minimal_build | default(false))
+
+    - name: Install meshcore-gui system dependencies
+      apt:
+        name:
+          - python3-venv
+          - python3-dev
+          - build-essential
+          - libglib2.0-dev
+        state: present
+      when: not (minimal_build | default(false))
+
+    - name: Clone meshcore-gui
+      git:
+        repo: 'https://github.com/pe1hvh/meshcore-gui.git'
+        dest: /opt/meshcore-gui
+        update: yes
+      when: not (minimal_build | default(false))
+
+    - name: Create meshcore-gui Python virtual environment
+      command:
+        cmd: python3 -m venv /opt/mcomz/meshcore-gui-venv
+        creates: /opt/mcomz/meshcore-gui-venv/bin/python
+      when: not (minimal_build | default(false))
+
+    - name: Upgrade pip in meshcore-gui venv
+      pip:
+        name:
+          - pip
+          - wheel
+          - setuptools
+        virtualenv: /opt/mcomz/meshcore-gui-venv
+        state: latest
+      when: not (minimal_build | default(false))
+
+    - name: Install meshcore-gui Python packages
+      # nicegui: web framework; meshcoredecoder: MeshCore packet decoder;
+      # bleak + dbus-fast: BLE support on Linux.
+      # Native BLE extensions (bleak, dbus-fast) may fail under qemu ARM64
+      # emulation — block/rescue so the build continues and the service can
+      # be completed on real hardware.
+      block:
+        - name: pip install meshcore-gui dependencies
+          pip:
+            name:
+              - nicegui
+              - meshcoredecoder
+              - bleak
+              - dbus-fast
+            virtualenv: /opt/mcomz/meshcore-gui-venv
+        - name: pip install meshcore-gui requirements.txt
+          pip:
+            requirements: /opt/meshcore-gui/requirements.txt
+            virtualenv: /opt/mcomz/meshcore-gui-venv
+      rescue:
+        - name: Warn meshcore-gui pip install failed
+          debug:
+            msg: "meshcore-gui pip install failed (likely BLE native extensions under qemu). MeshCore GUI won't start until manually installed on real hardware: /opt/mcomz/meshcore-gui-venv/bin/pip install nicegui meshcoredecoder bleak dbus-fast && /opt/mcomz/meshcore-gui-venv/bin/pip install -r /opt/meshcore-gui/requirements.txt"
+      when: not (minimal_build | default(false))
+
+    - name: Ensure /etc/mcomz config directory exists
+      file:
+        path: /etc/mcomz
+        state: directory
+        mode: '0755'
+      when: not (minimal_build | default(false))
+
+    - name: Deploy meshcore-gui startup wrapper
+      # Tries USB serial first (any /dev/ttyUSB* or /dev/ttyACM*), then BLE
+      # (reads MAC from /etc/mcomz/meshcore-ble-address if present).
+      # systemd Restart=on-failure means it retries every 15 s, so plugging
+      # in a USB device after boot will be picked up automatically.
+      copy:
+        dest: /opt/mcomz/meshcore-gui-start.sh
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          cd /opt/meshcore-gui
+          PYTHON=/opt/mcomz/meshcore-gui-venv/bin/python
+          PORT=8002
+
+          for DEV in /dev/ttyUSB0 /dev/ttyUSB1 /dev/ttyUSB2 /dev/ttyACM0 /dev/ttyACM1; do
+            if [ -e "$DEV" ]; then
+              logger -t mcomz-meshcore-gui "connecting via USB serial $DEV"
+              exec "$PYTHON" meshcore_gui.py "$DEV" --port=$PORT --baud=115200 --serial-cx-dly=0.1
+            fi
+          done
+
+          if [ -f /etc/mcomz/meshcore-ble-address ]; then
+            BLE_ADDR=$(tr -d '[:space:]' < /etc/mcomz/meshcore-ble-address)
+            if [ -n "$BLE_ADDR" ]; then
+              logger -t mcomz-meshcore-gui "connecting via BLE $BLE_ADDR"
+              exec "$PYTHON" meshcore_gui.py "literal:${BLE_ADDR}" --port=$PORT --ble-pin=123456
+            fi
+          fi
+
+          logger -t mcomz-meshcore-gui "no USB serial or BLE device found — will retry"
+          exit 1
+      when: not (minimal_build | default(false))
+
+    - name: Deploy meshcore-gui systemd service
+      copy:
+        dest: /etc/systemd/system/mcomz-meshcore-gui.service
+        content: |
+          [Unit]
+          Description=MComzOS MeshCore GUI (USB/BLE companion)
+          After=network.target bluetooth.target
+          Wants=bluetooth.target
+
+          [Service]
+          Type=simple
+          User={{ mcomz_user }}
+          ExecStart=/opt/mcomz/meshcore-gui-start.sh
+          Restart=on-failure
+          RestartSec=15
+
+          [Install]
+          WantedBy=multi-user.target
+      when: not (minimal_build | default(false))
+
+    - name: Enable meshcore-gui service
+      file:
+        src: /etc/systemd/system/mcomz-meshcore-gui.service
+        dest: /etc/systemd/system/multi-user.target.wants/mcomz-meshcore-gui.service
+        state: link
+        force: yes
+      when: not (minimal_build | default(false))
+
+    # ---------------------------------------------------------
+    # MESHCORE SPI HAT REPEATER (ARM64 / Raspberry Pi only)
+    # pyMC_Repeater connects to an SX1262 LoRa HAT wired directly over SPI
+    # GPIO — the Pi IS the radio node. This is the GPIO/HAT mode; it runs
+    # on port 8000 but is NOT nginx-proxied by default (meshcore-gui above
+    # handles the /meshcore/ path). HAT users can reach it directly at
+    # http://mcomz.local:8000/ or by swapping the nginx proxy target.
     # ---------------------------------------------------------
     - name: Install Python3 venv and SPI tooling for MeshCore repeater
       apt:
@@ -1630,8 +1837,31 @@
                   proxy_pass http://127.0.0.1:8080/;
               }
 
+              # MeshCore GUI (meshcore-gui on port 8002 — USB/BLE companion)
               location /meshcore/ {
-                  proxy_pass http://127.0.0.1:8000/;
+                  proxy_pass http://127.0.0.1:8002/;
+                  proxy_http_version 1.1;
+                  proxy_set_header Upgrade $http_upgrade;
+                  proxy_set_header Connection "upgrade";
+                  proxy_set_header Host $host;
+                  proxy_buffering off;
+                  proxy_read_timeout 86400;
+              }
+              # NiceGUI internal paths required by meshcore-gui when proxied at /meshcore/
+              location /_nicegui/ {
+                  proxy_pass http://127.0.0.1:8002/_nicegui/;
+                  proxy_http_version 1.1;
+                  proxy_set_header Upgrade $http_upgrade;
+                  proxy_set_header Connection "upgrade";
+                  proxy_buffering off;
+              }
+              location /socket.io/ {
+                  proxy_pass http://127.0.0.1:8002/socket.io/;
+                  proxy_http_version 1.1;
+                  proxy_set_header Upgrade $http_upgrade;
+                  proxy_set_header Connection "upgrade";
+                  proxy_buffering off;
+                  proxy_read_timeout 86400;
               }
 
               location /vnc/ {
@@ -1709,9 +1939,31 @@
                   proxy_pass http://127.0.0.1:8080/;
               }
 
-              # MeshCore web dashboard (pyMC_Repeater on port 8000)
+              # MeshCore GUI (meshcore-gui on port 8002 — USB/BLE companion)
               location /meshcore/ {
-                  proxy_pass http://127.0.0.1:8000/;
+                  proxy_pass http://127.0.0.1:8002/;
+                  proxy_http_version 1.1;
+                  proxy_set_header Upgrade $http_upgrade;
+                  proxy_set_header Connection "upgrade";
+                  proxy_set_header Host $host;
+                  proxy_buffering off;
+                  proxy_read_timeout 86400;
+              }
+              # NiceGUI internal paths required by meshcore-gui when proxied at /meshcore/
+              location /_nicegui/ {
+                  proxy_pass http://127.0.0.1:8002/_nicegui/;
+                  proxy_http_version 1.1;
+                  proxy_set_header Upgrade $http_upgrade;
+                  proxy_set_header Connection "upgrade";
+                  proxy_buffering off;
+              }
+              location /socket.io/ {
+                  proxy_pass http://127.0.0.1:8002/socket.io/;
+                  proxy_http_version 1.1;
+                  proxy_set_header Upgrade $http_upgrade;
+                  proxy_set_header Connection "upgrade";
+                  proxy_buffering off;
+                  proxy_read_timeout 86400;
               }
 
               # noVNC browser remote desktop — static files served by nginx,

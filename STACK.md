@@ -50,7 +50,8 @@ Every component is open-source. No proprietary software, no internet-dependent l
 | Tool | Role |
 |------|------|
 | [Meshtastic](https://meshtastic.org/) / [meshtasticd](https://meshtastic.org/docs/software/linux/) | Civilian LoRa mesh — Linux daemon that runs a full Meshtastic node and serves a browser UI |
-| [MeshCore](https://meshcore.co.uk/) / [pyMC_Repeater](https://github.com/rightup/pyMC_Repeater) | Tactical encrypted mesh — Python repeater daemon with a web management dashboard |
+| [MeshCore](https://meshcore.co.uk/) / [meshcore-gui](https://github.com/pe1hvh/meshcore-gui) | Tactical encrypted mesh — NiceGUI web app that connects to a MeshCore radio over USB serial or BLE |
+| [MeshCore](https://meshcore.co.uk/) / [pyMC_Repeater](https://github.com/rightup/pyMC_Repeater) | Tactical encrypted mesh — Python repeater daemon for an SPI LoRa HAT (installed but not proxied by default) |
 
 ---
 
