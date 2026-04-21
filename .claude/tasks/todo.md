@@ -971,6 +971,14 @@ ls /dev/snd 2>/dev/null
 
 ## §5 — Post-v0.0.2 Roadmap
 
+### RAUC A/B OTA upgrades `[claude]` — in planning
+Design complete: [`.claude/research/ota-ab-rauc.md`](../research/ota-ab-rauc.md).
+Goal: robust, 100%-coverage upgrade path (no reflash required for updates)
+with automatic rollback on failed boot. Partition layout: boot + rootfs.0 +
+rootfs.1 + persistent data. ~12–15% SD-card overhead on 64 GB; 4-phase
+implementation plan inside the doc. Next action: phase 1 — partition
+layout and build-image.yml wiring.
+
 ### WAN Remote Access (WireGuard VPN)
 LAN-only today. WireGuard is the recommended approach (fully open source, aligns with "no closed ecosystems").
 - **Why:** "Internet is up but I'm not home" — access dashboard, relay messages, check status remotely.
