@@ -84,8 +84,13 @@ Record pass/fail and notes against the release version in `.claude/feedback/hard
 
 ## 6. Mesh Communication (collapsed card)
 
-- [ ] **Without LoRa hardware** — clicking Meshtastic or MeshCore shows the inline "not connected" warning rather than navigating to a 502 page
+- [ ] **Without LoRa hardware** — clicking MeshCore shows the inline warning mentioning BLE setup ("attach a USB radio, or expand 'Configure BLE radio' below…"); clicking Meshtastic shows the simpler "attach your LoRa radio" warning
 - [ ] **With LoRa hardware** (if available) — Meshtastic and MeshCore UIs load correctly
+- [ ] **MeshCore USB radio** — plug a MeshCore USB radio (e.g. Heltec V4) into the Pi, wait ~20 s, reload dashboard; MeshCore Dashboard link opens the NiceGUI UI (not a 502)
+- [ ] **MeshCore BLE setup — scan** — on a Pi with BlueZ running, expand "Configure BLE radio", click "Scan for BLE radios"; after ~8 s a list of nearby BLE devices appears (MeshCore radios should show with recognisable names)
+- [ ] **MeshCore BLE setup — connect** — click Connect on a MeshCore BLE radio; "Current BLE radio: AA:BB…" appears; within ~20 s the MeshCore service restarts and `/meshcore/` loads the NiceGUI UI
+- [ ] **MeshCore BLE setup — manual MAC** — expand "Enter MAC manually", type a valid MAC, click Set; saves successfully. Type an invalid MAC → alert "MAC must be in the form AA:BB:CC:DD:EE:FF"
+- [ ] **MeshCore BLE setup — clear** — with a BLE radio configured, click "Clear BLE config", confirm the prompt; "No BLE radio configured" appears, service restarts
 - [ ] **Flash MeshCore (online)** — with normal WiFi active, click "Flash MeshCore"; browser opens `https://flasher.meshcore.co.uk/` (live flasher)
 - [ ] **Flash MeshCore (offline)** — enable hotspot (no internet), click "Flash MeshCore"; browser opens `http://mcomz.local/meshcore-flash/`; flasher UI loads; Heltec V3/V4 firmware options appear in the selector; if a Heltec radio is available, complete a flash and confirm it boots
 

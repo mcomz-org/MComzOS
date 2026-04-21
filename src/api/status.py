@@ -4,6 +4,7 @@ Proxied by nginx at /api/. Runs as root so nmcli/ip/systemctl work without sudo.
 
 import json
 import os
+import re
 import socket
 import ssl
 import subprocess
@@ -36,6 +37,8 @@ WIFI_IFACE = "wlan0"
 AP_IP = "192.168.4.1"
 ZIMS_DIR = "/var/mcomz/zims"
 LIBRARY_XML = "/var/mcomz/library.xml"
+MESHCORE_BLE_FILE = "/etc/mcomz/meshcore-ble-address"
+MAC_RE = re.compile(r"^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
 _download_status = {}  # filename -> {"status": "downloading"|"done"|"error", "error": "..."}
 
 
@@ -350,6 +353,61 @@ def kiwix_remove(path):
     return {"ok": True}
 
 
+def meshcore_ble_scan(timeout=8):
+    """Blocking BLE scan via bluetoothctl. Returns list of {name, mac}.
+    `--timeout=N scan on` scans for N seconds then exits; we then list
+    discovered devices via `bluetoothctl devices`."""
+    try:
+        subprocess.run(["bluetoothctl", "--timeout", str(timeout), "scan", "on"],
+                       capture_output=True, timeout=timeout + 5)
+        r = subprocess.run(["bluetoothctl", "devices"],
+                           capture_output=True, text=True, timeout=5)
+    except (subprocess.TimeoutExpired, FileNotFoundError) as e:
+        return {"devices": [], "error": str(e)}
+    devices = []
+    for line in r.stdout.splitlines():
+        parts = line.strip().split(" ", 2)
+        if len(parts) >= 3 and parts[0] == "Device" and MAC_RE.match(parts[1]):
+            devices.append({"mac": parts[1], "name": parts[2]})
+    return {"devices": devices}
+
+
+def meshcore_ble_current():
+    try:
+        with open(MESHCORE_BLE_FILE) as f:
+            mac = f.read().strip()
+        return {"mac": mac if MAC_RE.match(mac) else None}
+    except FileNotFoundError:
+        return {"mac": None}
+    except Exception as e:
+        return {"mac": None, "error": str(e)}
+
+
+def meshcore_ble_set(mac):
+    if not mac or not MAC_RE.match(mac):
+        return {"ok": False, "error": "MAC must be AA:BB:CC:DD:EE:FF"}
+    try:
+        os.makedirs(os.path.dirname(MESHCORE_BLE_FILE), exist_ok=True)
+        with open(MESHCORE_BLE_FILE, "w") as f:
+            f.write(mac.upper() + "\n")
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+    subprocess.run(["systemctl", "restart", "mcomz-meshcore-gui"],
+                   capture_output=True, timeout=10)
+    return {"ok": True}
+
+
+def meshcore_ble_clear():
+    try:
+        if os.path.exists(MESHCORE_BLE_FILE):
+            os.remove(MESHCORE_BLE_FILE)
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+    subprocess.run(["systemctl", "restart", "mcomz-meshcore-gui"],
+                   capture_output=True, timeout=10)
+    return {"ok": True}
+
+
 class StatusHandler(BaseHTTPRequestHandler):
 
     def _json(self, data, code=200):
@@ -410,6 +468,14 @@ class StatusHandler(BaseHTTPRequestHandler):
             self._json(kiwix_books())
         elif path == "/api/kiwix/download/status":
             self._json(kiwix_download_status(params.get("file", "")))
+        elif path == "/api/meshcore/ble/scan":
+            try:
+                timeout = min(int(params.get("timeout", "8")), 20)
+            except ValueError:
+                timeout = 8
+            self._json(meshcore_ble_scan(timeout))
+        elif path == "/api/meshcore/ble/current":
+            self._json(meshcore_ble_current())
         else:
             self.send_response(404)
             self.end_headers()
@@ -436,6 +502,10 @@ class StatusHandler(BaseHTTPRequestHandler):
             self._json(kiwix_download(body.get("url", "")))
         elif self.path == "/api/kiwix/remove":
             self._json(kiwix_remove(body.get("path", "")))
+        elif self.path == "/api/meshcore/ble/set":
+            self._json(meshcore_ble_set(body.get("mac", "")))
+        elif self.path == "/api/meshcore/ble/clear":
+            self._json(meshcore_ble_clear())
         else:
             self.send_response(404)
             self.end_headers()

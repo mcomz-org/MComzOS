@@ -243,6 +243,28 @@ check("guardMeshService called for meshtasticd",
 check("guardMeshService called for mcomz-meshcore-gui",
       "guardMeshService('mcomz-meshcore-gui'" in src)
 
+# MeshCore BLE setup panel — scan/set/clear flow, visible regardless of service state
+check("MeshCore BLE setup details element present",
+      'id="meshcore-ble-setup"' in src)
+check("MeshCore BLE current-config display element present",
+      'id="meshcore-ble-current"' in src)
+check("MeshCore BLE devices list element present",
+      'id="meshcore-ble-devices"' in src)
+check("MeshCore BLE manual MAC input present",
+      'id="meshcore-ble-mac"' in src)
+check("meshcoreBleLoadCurrent function defined",
+      "function meshcoreBleLoadCurrent" in src or "async function meshcoreBleLoadCurrent" in src)
+check("meshcoreBleScan function defined",
+      "function meshcoreBleScan" in src or "async function meshcoreBleScan" in src)
+check("meshcoreBleSet function defined",
+      "function meshcoreBleSet" in src or "async function meshcoreBleSet" in src)
+check("meshcoreBleClear function defined",
+      "function meshcoreBleClear" in src or "async function meshcoreBleClear" in src)
+check("BLE guard message mentions BLE setup option",
+      "Configure BLE radio" in src)
+check("BLE MAC format regex present in manual-set validation",
+      bool(re.search(r"\[0-9A-Fa-f\]\{2\}", src)))
+
 # MeshCore offline flasher — openMeshFlasher() probes live URL, falls back to local bundle
 check("openMeshFlasher references live flasher URL",
       "flasher.meshcore.co.uk" in src)

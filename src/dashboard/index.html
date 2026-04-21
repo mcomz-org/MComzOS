@@ -323,6 +323,22 @@
                    onclick="return guardMeshService('mcomz-meshcore-gui','MeshCore',document.getElementById('meshcore-section'))">MeshCore Dashboard</a>
                 <button onclick="openMeshFlasher(this)"
                    class="btn" style="background:#333;color:#fff;">Flash Radio to MeshCore ↗</button>
+                <details style="margin-top:10px;" id="meshcore-ble-setup" ontoggle="if(this.open)meshcoreBleLoadCurrent()">
+                    <summary style="cursor:pointer;color:var(--orange);font-size:0.9rem;">Configure BLE radio</summary>
+                    <div style="margin-top:8px;padding:8px;background:#1a1a1a;border-radius:4px;">
+                        <p class="note" id="meshcore-ble-current">Checking current config…</p>
+                        <button onclick="meshcoreBleScan(this)" class="btn btn-orange" style="margin-right:6px;">Scan for BLE radios</button>
+                        <button onclick="meshcoreBleClear(this)" class="btn" style="background:#333;color:#fff;display:none;" id="meshcore-ble-clear-btn">Clear BLE config</button>
+                        <div id="meshcore-ble-devices" style="margin-top:8px;"></div>
+                        <details style="margin-top:8px;">
+                            <summary style="cursor:pointer;font-size:0.85em;color:#aaa;">Enter MAC manually</summary>
+                            <div style="margin-top:6px;">
+                                <input type="text" id="meshcore-ble-mac" placeholder="AA:BB:CC:DD:EE:FF" style="padding:4px;background:#222;color:#fff;border:1px solid #444;">
+                                <button onclick="meshcoreBleSetManual()" class="btn btn-orange" style="margin-left:6px;">Set</button>
+                            </div>
+                        </details>
+                    </div>
+                </details>
             </div>
             <div class="mesh-section" id="meshtastic-section">
                 <h2 style="color:var(--orange);font-size:0.9rem;margin-bottom:6px;"><img src="/icons/meshtastic-mpwrd.svg" alt="" aria-hidden="true" style="height:1.2em;vertical-align:-0.15em;margin-right:4px;" onerror="this.style.display='none'"> Meshtastic</h2>
@@ -507,10 +523,107 @@ function guardMeshService(serviceKey, label, container) {
             warn.style.marginTop = '6px';
             container.appendChild(warn);
         }
-        warn.textContent = label + ' is not connected — attach your LoRa radio and reload.';
+        if (serviceKey === 'mcomz-meshcore-gui') {
+            warn.textContent = label + ' is not connected — attach a USB radio, or expand "Configure BLE radio" below to pair over Bluetooth. Reload after setup.';
+        } else {
+            warn.textContent = label + ' is not connected — attach your LoRa radio and reload.';
+        }
         return false; // prevent link navigation
     }
     return true; // service active (or status unknown) — open in new tab
+}
+
+// ── MeshCore BLE setup ───────────────────────────────────────────────────────
+async function meshcoreBleLoadCurrent() {
+    const el = document.getElementById('meshcore-ble-current');
+    const clearBtn = document.getElementById('meshcore-ble-clear-btn');
+    try {
+        const r = await fetch('/api/meshcore/ble/current');
+        const d = await r.json();
+        if (d.mac) {
+            el.textContent = 'Current BLE radio: ' + d.mac;
+            clearBtn.style.display = '';
+        } else {
+            el.textContent = 'No BLE radio configured.';
+            clearBtn.style.display = 'none';
+        }
+    } catch (e) {
+        el.textContent = 'Could not read current config: ' + e.message;
+    }
+}
+
+async function meshcoreBleScan(btn) {
+    const list = document.getElementById('meshcore-ble-devices');
+    btn.disabled = true;
+    const prev = btn.textContent;
+    btn.textContent = 'Scanning (8s)…';
+    list.innerHTML = '';
+    try {
+        const r = await fetch('/api/meshcore/ble/scan?timeout=8');
+        const d = await r.json();
+        if (d.error) {
+            list.innerHTML = '<p class="note" style="color:var(--orange)">Scan error: ' + d.error + '</p>';
+        } else if (!d.devices || d.devices.length === 0) {
+            list.innerHTML = '<p class="note">No BLE devices found. Make sure your radio is powered and advertising.</p>';
+        } else {
+            list.innerHTML = d.devices.map(dev =>
+                '<div style="margin:4px 0;display:flex;align-items:center;gap:8px;">' +
+                '<span style="flex:1;">' + dev.name + ' <span style="color:#888;font-size:0.85em;">' + dev.mac + '</span></span>' +
+                '<button class="btn btn-orange" style="padding:2px 8px;" onclick="meshcoreBleSet(\'' + dev.mac + '\')">Connect</button>' +
+                '</div>'
+            ).join('');
+        }
+    } catch (e) {
+        list.innerHTML = '<p class="note" style="color:var(--orange)">Scan failed: ' + e.message + '</p>';
+    } finally {
+        btn.disabled = false;
+        btn.textContent = prev;
+    }
+}
+
+async function meshcoreBleSet(mac) {
+    try {
+        const r = await fetch('/api/meshcore/ble/set', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({mac: mac}),
+        });
+        const d = await r.json();
+        if (!d.ok) {
+            alert('Failed to set BLE: ' + (d.error || 'unknown error'));
+            return;
+        }
+        await meshcoreBleLoadCurrent();
+        document.getElementById('meshcore-ble-devices').innerHTML =
+            '<p class="note" style="color:var(--green,#4caf50);">Saved. MeshCore service will restart — reload the page in a few seconds.</p>';
+    } catch (e) {
+        alert('Request failed: ' + e.message);
+    }
+}
+
+function meshcoreBleSetManual() {
+    const mac = document.getElementById('meshcore-ble-mac').value.trim();
+    if (!/^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(mac)) {
+        alert('MAC must be in the form AA:BB:CC:DD:EE:FF');
+        return;
+    }
+    meshcoreBleSet(mac);
+}
+
+async function meshcoreBleClear(btn) {
+    if (!confirm('Clear BLE radio config? The MeshCore service will restart.')) return;
+    btn.disabled = true;
+    try {
+        const r = await fetch('/api/meshcore/ble/clear', {method: 'POST'});
+        const d = await r.json();
+        if (!d.ok) {
+            alert('Failed to clear: ' + (d.error || 'unknown error'));
+            return;
+        }
+        await meshcoreBleLoadCurrent();
+    } finally {
+        btn.disabled = false;
+    }
 }
 
 // ── WiFi panel ───────────────────────────────────────────────────────────────

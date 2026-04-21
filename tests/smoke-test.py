@@ -441,6 +441,26 @@ code_sio, _ = get(path="/socket.io/")
 check("NiceGUI /socket.io/ proxy route exists (returns 502 when service down)",
       code_sio == 502, f"HTTP {code_sio}")
 
+# MeshCore BLE setup API — scan/current/set/clear wired in status.py
+ble_current = get_json("/api/meshcore/ble/current")
+check("/api/meshcore/ble/current returns a JSON object with 'mac' key",
+      isinstance(ble_current, dict) and "mac" in ble_current,
+      f"payload={ble_current!r}")
+
+# Scan endpoint: force a short timeout so the smoke test doesn't hang — just
+# verify the endpoint is wired and returns a well-formed response.
+ble_scan = get_json("/api/meshcore/ble/scan?timeout=2")
+check("/api/meshcore/ble/scan returns a JSON object with 'devices' list",
+      isinstance(ble_scan, dict) and isinstance(ble_scan.get("devices"), list),
+      f"payload={ble_scan!r}")
+
+# Validation check: POST a bogus MAC and expect ok=false — proves the POST
+# route is wired and input validation is active.
+_bad_code, bad_payload = post_json("/api/meshcore/ble/set", {"mac": "not-a-mac"})
+check("/api/meshcore/ble/set rejects malformed MAC",
+      isinstance(bad_payload, dict) and bad_payload.get("ok") is False,
+      f"payload={bad_payload!r}")
+
 if status:
     mesh_status = status.get("meshtasticd", {}).get("status")
     check("meshtasticd shows inactive in status API",
