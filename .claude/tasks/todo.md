@@ -828,6 +828,22 @@ These must be centralised — any future dashboard tweak should cascade. Extract
 
 ## §2 — Awaiting reflash to verify (no code work needed, just hardware test)
 
+### In flight: pre-alpha.30 (tagged 2026-04-22, CI building)
+
+Flash once CI green, then work through these in order:
+
+| Area | Where to verify | Test |
+|---|---|---|
+| MeshCore USB/BLE (meshcore-gui at `/meshcore/`) | Dashboard card + BLE panel | `MANUAL-TESTS.md §6` — scan, connect, manual MAC, clear, USB radio, offline guard |
+| RAUC phase 1a (install + config + mark-good) | Boot log + `rauc status` | `MANUAL-TESTS.md §19` — service starts, mark-good tolerates absent slots (no partitions yet) |
+| S-3 JS8Call `.config` ownership | `ls -ld /home/mcomz/.config` | Reflash-only — confirm `mcomz:mcomz`, not `root:root` |
+| S-5 fail-closed MeshCore flasher | CI log + `/meshcore-flash/` | Build should have failed loudly if clone/patch broke; route returns 200 on device |
+| S-6 strict `=== false` FreeDATA gate | Dashboard on ARM64 | Section hidden on RPi; still visible on x86 where AppImage installs |
+
+Phase 1b (partition layout, tryboot/GRUB, `/data` mount) is held back pending 1a green-light — see `.claude/research/ota-ab-rauc.md`.
+
+Phase 2 requires user to set `OTA_SIGNING_KEY` secret in GH Actions web UI — see `.claude/secrets/README.md`.
+
 ### Verified in pre-alpha.22 (2026-04-17)
 
 | Fix | Outcome |
