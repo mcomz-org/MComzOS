@@ -6,3 +6,6 @@
 __pycache__/
 claudebox.run
 .claude/diagnostics/mcomzos_diag
+.claude/secrets/*
+!.claude/secrets/README.md
+*.key

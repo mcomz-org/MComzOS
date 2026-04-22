@@ -1999,6 +1999,106 @@
               }
           }
 
+    # PHASE N: OTA — RAUC install + configuration
+    # ---------------------------------------------------------
+    # Phase 1a of the A/B OTA plan (.claude/research/ota-ab-rauc.md).
+    # Installs RAUC and deploys its config + health-check service.
+    # This is a no-op at runtime until the image is actually built with
+    # A/B partition layout (phase 1b — still to do in build-image.yml).
+    # Deploying early is safe: `rauc` commands will simply report "no
+    # slot configured" if the partitions don't exist yet.
+    # ---------------------------------------------------------
+    - name: Install RAUC (robust A/B update controller)
+      apt:
+        name: rauc
+        state: present
+      when: not (minimal_build | default(false))
+
+    - name: Ensure /etc/rauc directory exists
+      file:
+        path: /etc/rauc
+        state: directory
+        mode: '0755'
+      when: not (minimal_build | default(false))
+
+    - name: Deploy RAUC signing keyring (public cert)
+      copy:
+        src: ./src/ota/keyring.pem
+        dest: /etc/rauc/keyring.pem
+        mode: '0644'
+      when: not (minimal_build | default(false))
+
+    - name: Deploy RAUC system.conf (arch-aware, by-label device refs)
+      copy:
+        dest: /etc/rauc/system.conf
+        mode: '0644'
+        content: |
+          [system]
+          compatible=mcomzos-{{ deb_arch }}
+          bootloader={{ 'rpi' if deb_arch == 'arm64' else 'grub' }}
+          data-directory=/data/rauc
+
+          [keyring]
+          path=/etc/rauc/keyring.pem
+
+          [slot.rootfs.0]
+          device=/dev/disk/by-label/mcomzos-a
+          type=ext4
+          bootname=a
+
+          [slot.rootfs.1]
+          device=/dev/disk/by-label/mcomzos-b
+          type=ext4
+          bootname=b
+      when: not (minimal_build | default(false))
+
+    - name: Deploy mcomz-mark-good health check script
+      # Runs ~60 s after boot, verifies core services respond, then calls
+      # `rauc status mark-good` to confirm the new slot. On failure the
+      # unit exits non-zero → firmware falls back to the previous slot
+      # on next power cycle (tryboot / grub-reboot).
+      copy:
+        dest: /usr/local/bin/mcomz-mark-good.sh
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          set -e
+          sleep 60
+          systemctl is-active --quiet nginx
+          systemctl is-active --quiet mcomz-status
+          curl -sf --max-time 5 http://127.0.0.1:9000/api/status > /dev/null
+          if command -v rauc > /dev/null 2>&1; then
+            rauc status mark-good 2>/dev/null || logger -t mcomz-mark-good "rauc mark-good skipped (no A/B slots yet)"
+          fi
+          logger -t mcomz-mark-good "post-boot health check passed"
+      when: not (minimal_build | default(false))
+
+    - name: Deploy mcomz-mark-good systemd service
+      copy:
+        dest: /etc/systemd/system/mcomz-mark-good.service
+        content: |
+          [Unit]
+          Description=MComzOS post-boot health check (RAUC slot confirmation)
+          After=multi-user.target mcomz-status.service nginx.service
+          Wants=mcomz-status.service nginx.service
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/local/bin/mcomz-mark-good.sh
+          RemainAfterExit=yes
+
+          [Install]
+          WantedBy=multi-user.target
+      when: not (minimal_build | default(false))
+
+    - name: Enable mcomz-mark-good service
+      file:
+        src: /etc/systemd/system/mcomz-mark-good.service
+        dest: /etc/systemd/system/multi-user.target.wants/mcomz-mark-good.service
+        state: link
+        force: yes
+      when: not (minimal_build | default(false))
+
     # PHASE N: DIAGNOSTICS MODE
     # ---------------------------------------------------------
     # Bakes developer access into the image: known SSH key + password,

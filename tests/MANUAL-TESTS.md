@@ -222,6 +222,19 @@ Only applies when the image was built with `diagnostics_mode=true` (currently al
 
 ---
 
+## 19. RAUC OTA (phase 1a — install + config only, no A/B partitions yet)
+
+Requires SSH (diagnostics mode). No update flow to test yet — just sanity-check the plumbing landed.
+
+- [ ] `rauc --version` prints RAUC 1.9 or newer
+- [ ] `/etc/rauc/system.conf` exists; `compatible=` matches the image arch (`mcomzos-arm64` on Pi, `mcomzos-amd64` on x86)
+- [ ] `/etc/rauc/keyring.pem` exists and is readable
+- [ ] `systemctl status mcomz-mark-good` → service has run once and is `active (exited)` (the health check should have passed at boot)
+- [ ] `journalctl -u mcomz-mark-good -n 5` contains "post-boot health check passed"
+- [ ] `rauc status` does **not** fatally crash; on a pre-phase-1b image it will report "no bootable slots" / "slot not mounted" — that's expected until partitions are in place
+
+---
+
 ## Known Limitations (do not raise as bugs)
 
 | Item | Notes |
