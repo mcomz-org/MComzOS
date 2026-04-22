@@ -235,12 +235,6 @@
         create_home: yes
         shell: /bin/bash
 
-    - name: Add mcomz user to serial and bluetooth groups
-      user:
-        name: "{{ mcomz_user }}"
-        groups: "dialout,bluetooth"
-        append: yes
-
     - name: Install hardware multiplexing and time-sync tools
       apt:
         name:
@@ -754,6 +748,15 @@
           - bluetooth
           - bluez
         state: present
+      when: not (minimal_build | default(false))
+
+    - name: Add mcomz user to serial and bluetooth groups
+      # Must run after bluez is installed — the `bluetooth` group is created by
+      # the bluez package and does not exist by default on Debian amd64.
+      user:
+        name: "{{ mcomz_user }}"
+        groups: "dialout,bluetooth"
+        append: yes
       when: not (minimal_build | default(false))
 
     - name: Enable Bluetooth service
