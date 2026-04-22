@@ -335,6 +335,12 @@ check("renderStatus filters non-service keys (typeof svc.status)",
       "typeof svc.status === 'string'" in src)
 check("renderStatus hides freedata-section when freedata_installed is false",
       "freedata_installed" in src and "freedata-section" in src)
+# S-6: gate must be === false specifically — using !data.freedata_installed
+# would also hide the section on legacy status payloads missing the field.
+check("S-6: freedata gate uses strict === false (not falsy check)",
+      "freedata_installed === false" in src,
+      "found freedata_installed reference but not the strict `=== false` comparison "
+      "— risks hiding FreeDATA on legacy payloads that don't yet carry the field")
 
 # Diagnostics mode splash
 check("diagnostics_mode read from status API in renderStatus",

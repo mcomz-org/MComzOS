@@ -1705,14 +1705,14 @@
           delay: 5
 
       rescue:
-        - name: Warn — MeshCore offline flasher provisioning failed (non-fatal)
-          debug:
+        - name: Fail loudly — MeshCore offline flasher provisioning failed
+          fail:
             msg: >
-              WARNING: MeshCore offline flasher could not be provisioned
-              (GitHub unavailable, clone failed, or patch error).
-              The image will ship without /meshcore-flash/; the dashboard
-              falls back to flasher.meshcore.co.uk when offline flasher is absent.
-              Check GitHub rate limits and network connectivity from the CI runner.
+              MeshCore offline flasher provisioning failed (clone, patch, or
+              firmware download). Build aborted to avoid shipping an image with
+              a broken /meshcore-flash/ route. Check GitHub rate limits,
+              network from the CI runner, and whether meshcore-dev/flasher.meshcore.io
+              is reachable. Pre-alpha policy: 100% coverage — no silent fallbacks.
       when: not (minimal_build | default(false))
 
     - name: Deploy MComzOS status API script

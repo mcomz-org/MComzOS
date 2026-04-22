@@ -138,7 +138,9 @@ jobs:
           if sudo test -s /mnt/rpi/var/www/html/meshcore-flash/index.html; then
             echo "OK: MeshCore offline flasher provisioned"
           else
-            echo "WARNING: /meshcore-flash/index.html missing — offline flasher not provisioned (non-fatal, dashboard falls back to online flasher)"
+            echo "FATAL: /mnt/rpi/var/www/html/meshcore-flash/index.html missing"
+            echo "The Ansible rescue: should have failed the build — this guard is a belt-and-braces double-check."
+            exit 1
           fi
 
       - name: Tear down chroot and compress image
@@ -394,7 +396,9 @@ jobs:
           if sudo test -s /mnt/x86/var/www/html/meshcore-flash/index.html; then
             echo "OK: MeshCore offline flasher provisioned"
           else
-            echo "WARNING: /meshcore-flash/index.html missing — offline flasher not provisioned (non-fatal, dashboard falls back to online flasher)"
+            echo "FATAL: /mnt/x86/var/www/html/meshcore-flash/index.html missing"
+            echo "The Ansible rescue: should have failed the build — this guard is a belt-and-braces double-check."
+            exit 1
           fi
 
       - name: Tear down chroot and compress image
